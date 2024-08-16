@@ -1,0 +1,6 @@
+# Rhythm
+
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://elgazzarr.github.io/Rhythm.jl/stable/)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://elgazzarr.github.io/Rhythm.jl/dev/)
+[![Build Status](https://github.com/elgazzarr/Rhythm.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/elgazzarr/Rhythm.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Coverage](https://codecov.io/gh/elgazzarr/Rhythm.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/elgazzarr/Rhythm.jl)

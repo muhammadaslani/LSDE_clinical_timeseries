@@ -1,0 +1,13 @@
+name = "Rhythm"
+uuid = "7f0b1087-a847-4c7c-8681-1d7ac3c8a349"
+authors = ["Ahmed ElGazzar"]
+version = "1.0.0-DEV"
+
+[compat]
+julia = "1.6.7"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
