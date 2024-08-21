@@ -8,16 +8,18 @@
 
 Rhythm is library for scalable inference, simulation, and control of complex dynamical systems. 
 
-Given observations $y_{1:T}$ and optional control inputs $u_{1:T}$, Rhythm can be used to: 
+Given observations $y_{1:T}$ and optional control inputs $u_{1:T}$, you can solve a range of problems:
 
 1. **Filtering**: Infer the latent states $p(x_{1:T}|y_{1:T},u_{1:T})$.
 2. **Prediction**: Predict future states $p(x_{T+1:T+H}|y_{1:T},u_{1:T})$ or observations $p(y_{T+1:T+H}|y_{1:T},u_{1:T})$.
 3. **Learning** Estimate the parameters of the model $p(\theta|y_{1:T},u_{1:T})$.
-4. **Control** Optimize the control inputs $u_{1:T}$ to optimize a given objective function. 
-5. **Generation** Generate new samples from the model $ \sim p(x_{1:T},y_{1:T}|u_{1:T})$.
+4. **Generation** Generate new samples from the model $ \sim p(x_{1:T},y_{1:T}|u_{1:T})$.
+5. TODO: **Control** Optimize control inputs $u_{1:T}$ to achieve a desired objective subject to constraints.
 
+This range of capabilities is achieved through one class of models (Latent SDEs) and different variants of an optimization objective (different variants of ELBO).
 
-This range of capabilities is achieved through one class of models: Latent FLows.
+## Installation
 
+Download Julia from [julialang.org](https://julialang.org/downloads/).
 
 
