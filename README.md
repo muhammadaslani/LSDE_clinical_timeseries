@@ -13,7 +13,7 @@ Given observations $y_{1:T}$ and optional control inputs $u_{1:T}$, you can solv
 1. **Filtering**: Infer the latent states $p(x_{1:T}|y_{1:T},u_{1:T})$.
 2. **Prediction**: Predict future states $p(x_{T+1:T+H}|y_{1:T},u_{1:T})$ or observations $p(y_{T+1:T+H}|y_{1:T},u_{1:T})$.
 3. **Learning**: Estimate the parameters of the model $p(\theta|y_{1:T},u_{1:T})$.
-4. **Generation**: Generate new samples from the model $(\hat{x}_{1:T}, \hat{y}_{1:T}) \sim \hat{p}(x_{1:T}, y_{1:T} \mid u_{1:T})$
+4. **Generation**: Generate new samples from the model $(\hat{x},\hat{y}) \sim \hat{p}(x, y | u)$
 5. TODO: **Control**: Optimize control inputs $u_{1:T}$ to achieve a desired objective subject to constraints.
 
 This range of capabilities is achieved through one class of models (Latent SDEs) and different variants of an optimization objective (different variants of ELBO).
