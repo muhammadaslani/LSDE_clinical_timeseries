@@ -16,7 +16,7 @@ Given observations $y_{1:T}$ and optional control inputs $u_{1:T}$, you can solv
 4. **Generation**: Generate new samples from a model $\hat{y} \sim q(y | u) \approx p_{data}(y | u)$.
 5. TODO: **Control**: Optimize control inputs $u_{1:T}$ to achieve a desired objective subject to constraints.
 
-This range of capabilities is achieved through one class of models (Latent SDEs) and different variants of an optimization objective (different variants of ELBO).
+This range of capabilities is achieved through one class of models (Latent SDEs) and different variants of one optimization objective (different variants of ELBO).
 
 ## Installation
 
