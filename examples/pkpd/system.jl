@@ -54,7 +54,7 @@ end
 Random.seed!(1234)
 
 function setup_params()
-    ρ = 5e-3       # Tumor growth rate
+    ρ = 1e-3       # Tumor growth rate
     K = 100        # Tumor carrying capacity
 
     # Drug efficacy 
@@ -65,12 +65,12 @@ function setup_params()
     β_r = 0.1 # Quadratic effect
 
     # Immune response
-    δ = 0.05      # Reduced immune growth rate
-    β_I = 0.2    # Increased drug-induced immune suppression
-    α_I = 0.3     # Increased radiotherapy-induced immune suppression
+    δ = 0.02      # Reduced immune growth rate
+    β_I = 0.1    # Increased drug-induced immune suppression
+    α_I = 0.2     # Increased radiotherapy-induced immune suppression
     θ_I = 0.08    #Immune stimulation by tumor
     λ_I = 0.003   #Immune suppression by large tumors
-    ω_I = 0.02    #Immune decay rate
+    ω_I = 0.03    #Immune decay rate
     I_max = 0.95   # Max immune response
 
     # Overall health
@@ -87,7 +87,7 @@ function u_c(t)
     if t > 1000
         return 0.0
     else
-        return (t % 100 < 1) ? 0.0 : 0.0
+        return (t % 80 < 1) ? 1.0 : 0.0
     end
 end
 
@@ -96,7 +96,7 @@ function u_r(t)
     if t > 1000
         return 0.0
     else
-        return (t % 30 < 1) ? 0.0 : 0.0
+        return (t % 200 < 1) ? 1.0 : 0.0
     end
 end
 
@@ -145,7 +145,7 @@ u₀ = [x₀, c₀, d₀, I₀, S₀]
 
 # Solve the system
 # Time span
-tspan = (1.0, 1500.0)  # Simulate for 1500 days
+tspan = (1.0, 1000.0)  # Simulate for 1500 days
 p = setup_params()
 prob = SDEProblem(model!, diffusion, u₀, tspan, p)
 cb = ContinuousCallback(condition, affect!)
