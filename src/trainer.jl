@@ -1,81 +1,65 @@
-function train(model::LatentSDE, p, st, train_loader, val_loader, config, ts, dev)
-    init_epoch = config.init_epoch
-    L = frange_cycle_linear(init_epoch+config.epochs+1, 0.0f0, 1.0f0, 1, 0.5f0)
-    θ_best = nothing; best_metric = -Inf; counter=0; count_thresh = 10;
-    stime = time()
-    @info "Training ...."
+function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_loader, config)
+    tstate = Training.TrainState(model, θ, st, config.optimizer)
+    λ_schedule = frange_cycle_linear(config.epochs+1, 0.0f0, 1.0f0, 1, 0.5f0)
 
-   function loss(p, u, y)
-        u = u |> dev; y = y|>dev;
-        ŷ, px₀, kl_pq = model(y, u, ts, p, st)
-        batch_size = size(y)[end]
-        recon_loss = -poisson_loglikelihood(ŷ, y)/batch_size
-        kl_init = kl_normal(px₀...)/batch_size
-        kl_path = mean(kl_pq[end,:])
-        kl_loss =  kl_init + kl_path
-        l =  recon_loss + L[epoch+1]*kl_loss
-        return l, recon_loss, kl_loss
-    end
+    n_batches = length(train_loader)
+    θ_best = nothing; best_val_metric = -Inf; counter=0; 
+
+    for epoch in 1:config.epochs
+        stime = time()
+        train_loss = 0.0; kl_term = 0.0;
+
+        for batch in train_loader
+            _, loss, kl_loss, tstate = Training.single_train_step!(AutoZygote(), loss_fn, (batch..., ts,  λ_schedule[epoch]), tstate) 
+            train_loss += loss
+            kl_loss += kl_loss
+        end
+
+        θ = tstate.parameters; st = tstate.states
+
+        if epoch % config.log_freq == 0
+            ttime = time() - stime
+            @printf("Epoch %d/%d: \t Training loss: %.3f \t Kl_term:%.3f  \t Time/epoch: %.3f\n", epoch, conif.epochs, loss/n_batches, kl_term/n_batches, ttime/config.log_freq)
+        end
+
+        val_metric = validate(model, θ, st, ts, val_loader, eval_fn, config)
+        @printf("Validation metric: %.3f\n", val_metric)
 
 
-    callback = function(opt_state, l, recon_loss , kl_loss)
-        θ = opt_state.u
-        if opt_state.iter % length(train_loader) == 0
-            epoch += 1
-            if epoch % config.log_freq == 0
-                t_epoch = time() - stime
-                @printf("Time/epoch %.2fs \t Current epoch: %d, \t Loss: %.2f, PoissonLL: %d, KL: %.2f\n", t_epoch/config.log_freq, epoch, l, recon_loss, kl_loss)
-                val_pll = 0.f0
-                for (u, y, x, ts_pred) in val_loader
-                    u = u |> dev; y = y|>dev; x = x|>dev
-                    Ey, Ex = predict(model, config.solver, y, ts_pred, u, ps, st, n_samples, dev; config.kwargs...)
-                    ŷₘ = dropmean(Ey, dims=4)
-                    val_pll += poisson_loglikelihood(ŷₘ, y)
-                end
+        if epoch % config.viz_freq == 0
+            viz_fn(model, θ, st, val_loader, epoch)
+        end
 
-                val_pll /= round(length(val_loader), digits=3)
-                @printf("Validation PLL: %.3f\n", val_pll)
-                train_loss = round(l, digits=3)
-                @wandblog val_pll train_loss step=epoch
-                if val_pll > best_metric
-                    best_metric = val_pll
-                    @wandblog best_metric step=epoch
-                    θ_best = copy(θ)
-                    @printf("Saving best model\n")
-                    save_state = (model=model, θ=θ_best |> cpu, st=st |> cpu, data_loader=val_loader, epoch=epoch)
-                    save_object(joinpath(config.save_path, "bestmodel.jld2"), save_state)
-                    counter = 0
-                else 
-                    counter += 1
-                    if counter > count_thresh
-                        @printf("Early stopping at epoch: %.f\n", epoch)
-                        return true
-                    end
-                    if counter > 3
-                        Optimisers.adjust!(opt_state.original, config.lr/(counter * 2))
-                        @printf("No improvment, adjusting learning rate to: %.4f\n", config.lr/(counter * 2))
-                    end
-                end   
-                stime = time()  
+        if val_metric > best_val_metric
+            best_val_metric = val_metric
+            θ_best = copy(θ)
+            save_state = (model=model, θ=θ_best, st=st, data_loader=val_loader, epoch=epoch)
+            save_object(joinpath(config.save_path, "bestmodel.jld2"), save_state)
+            counter = 0
+        else 
+            if counter > config.stop_patience
+                @printf("No more hope training this one! Early stopping at epoch: %.f\n", epoch)
+                return θ_best
+            elseif counter > config.lrdecay_patience
+                @printf("No improvment for %d consecutive epochs; Adjusting learning rate to: %.4f\n", config.lrdecay_patience, config.lr/counter)
+                tstate.optimizer_state = Optimisers.adjust(tstate.optimizer_state, config.lr/counter) # Immutable optimizer state. Find another way to adjust the learning rate
             end
+            counter += 1
+        end 
 
-            if epoch % config.plot_freq == 0 
-                d = vizualize(model, val_loader, ts, θ, st, dev, sample_n, ch; config.kwargs...)
-                display(d)
-                image_path = joinpath(config.save_path, "img_epoch=$epoch.pdf")
-                savefig(image_path)
-            end
-
-        end        
-        return false
-    end
-
-    adtype = Optimization.AutoZygote()
-    optf = OptimizationFunction((p, _ , u, y, x) -> loss(p, u, y), adtype)
-    optproblem = OptimizationProblem(optf, p)
-    result = Optimization.solve(optproblem, ADAMW(config.lr), ncycle(train_loader, config.epochs); callback)
-    return model, θ_best
+    end  
+    return θ_best
 end
+
+
+function validate(model, θ, st, ts, val_loader, eval_fn, config)
+    val_metric = 0.0
+    for batch in val_loader
+        val_metric += eval_fn(model, θ, st, ts, batch, config)
+    end
+    return val_metric/length(val_loader)
+end
+
 
 
 

@@ -51,7 +51,7 @@ function (model::LatentSDE)(y::AbstractArray, u::Union{Nothing, AbstractArray}, 
     x₀_aug = CRC.@ignore_derivatives fill!(similar(x₀, 1, size(x₀)[2]), 0.0f0)
     x₀  = vcat(x₀, x₀_aug)
     u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
-    x_sol = dynamics(x₀, u_enc, context, ts, ps.dynamics, st.dynamics)[1]
+    x_sol = model.dynamics(x₀, u_enc, context, ts, ps.dynamics, st.dynamics)[1]
     x_arr = cat(x_sol.u..., dims = 3)
     x_ = permutedims(x_arr, (1, 3, 2))
     x = x_[1:end-1, :, :]
@@ -131,7 +131,7 @@ Returns:
 function filter(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
     px₀, context = model.obs_encoder(y, ps.obs_encoder, st.obs_encoder)[1]
     u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
-    x_ = sample_agumented(model.dynamics, model.init_map, solver, px₀, u_enc, context, ts, ps.dynamics, st.dynamics, n_samples, dev; kwargs...)
+    x_ = sample_augmented(model.dynamics, model.init_map, solver, px₀, u_enc, context, ts, ps, st, n_samples, dev; kwargs...)
     x = model.state_map(x_, ps.state_map, st.state_map)[1]
     return x[:,end, :, :]
 end
@@ -166,9 +166,9 @@ Returns:
 function smooth(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
     px₀, context = model.obs_encoder(y, ps.obs_encoder, st.obs_encoder)[1]
     u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
-    x̃ = sample_agumented(model.dynamics, model.init_map, solver, px₀, u_enc, context, ts, ps.dynamics, st.dynamics, n_samples, dev; kwargs...)
+    x̃ = sample_augmented(model.dynamics, model.init_map, solver, px₀, u_enc, context, ts, ps, st, n_samples, dev; kwargs...)
     x̃ = model.state_map(x̃, ps.state_map, st.state_map)[1]
-    ỹ = model.obs_decoder(x, ps.obs_decoder, st.obs_decoder)[1]
+    ỹ = model.obs_decoder(x̃, ps.obs_decoder, st.obs_decoder)[1]
     return x̃, ỹ
 end
 

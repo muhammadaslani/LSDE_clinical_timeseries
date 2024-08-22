@@ -51,7 +51,7 @@ Constructs an identity encoder. Useful for fully observed systems.
 """
 function Identity_Encoder()
     linear_net = Lux.NoOpLayer()
-    init_net = Lux.SelectDim(2, 1)
+    init_net = Lux.BranchLayer(Lux.SelectDim(2, 1), Lux.SelectDim(2, 1))
     context_net = Lux.NoOpLayer()
     return Encoder(linear_net, init_net, context_net)
 end

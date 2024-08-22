@@ -23,6 +23,10 @@ function SDE(drift, drift_aug, diffusion, solver; kwargs...)
     return SDE(drift, drift_aug, diffusion, solver, kwargs)
 end
 
+function LuxCore.parameterlength(m::SDE)
+    return LuxCore.parameterlength(m.drift) + LuxCore.parameterlength(m.drift_aug) + LuxCore.parameterlength(m.diffusion)
+end
+
 
 """
     (de::SDE)(x::AbstractArray, u::AbstractArray, c::AbstractArray, ts::StepRangeLen, p::ComponentVector, st::NamedTuple)
@@ -136,7 +140,7 @@ end
 
 
 """
-    sample_agumented(de::SDE, init_map, solver, px₀, u, c, ts, p, st, n_samples, dev; kwargs...)
+    sample_augmented(de::SDE, init_map, solver, px₀, u, c, ts, p, st, n_samples, dev; kwargs...)
 
 Generates trajectories from the augmented SDE model.
 Used for filtering and smoothing.

@@ -1,6 +1,7 @@
 module Rhythm
 
-using Lux, ComponentArrays, LinearAlgebra, SciMLSensitivity, Zygote, Distributions, Interpolations, SpecialFunctions, DifferentialEquations, Random, CairoMakie, CUDA, JLD2, FileIO, Printf, WandbMacros
+using Lux, ComponentArrays, LinearAlgebra, SciMLSensitivity, Zygote, Distributions, Interpolations, SpecialFunctions, DifferentialEquations, Random, CairoMakie, CUDA, JLD2, FileIO, Printf, WandbMacros,
+OptimizationOptimisers, Optimisers, Printf
 import ChainRulesCore as CRC
 using Parameters: @unpack, @with_kw
 import LuxCore: AbstractExplicitContainerLayer, AbstractExplicitLayer
@@ -24,7 +25,7 @@ export sample_rp, interpolate!, basic_tgrad, dropmean, dropsd
 include("utils/losses.jl")
 export kl_normal, poisson_loglikelihood, normal_loglikelihood, mse, frange_cycle_linear, bits_per_spike
 include("trainer.jl")
-export train, vizualize
+export train, validate, vizualize
 
 end
 
