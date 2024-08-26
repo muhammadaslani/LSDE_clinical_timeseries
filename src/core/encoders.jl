@@ -58,7 +58,7 @@ end
 
 
 """
-    Recurrent_Encoder(obs_dim, latent_dim, context_dim, hidden_dim, t_init)
+    Recurrent_Encoder(obs_dim, latent_dim, context_dim, hidden_dim)
 
 Constructs a recurrent encoder. Useful for partially observed systems. 
 
@@ -69,16 +69,16 @@ Arguments:
 - `context_dim`: Dimension of the context.
 - `hidden_dim`: Dimension of the hidden state.
 """
-function Recurrent_Encoder(obs_dim, latent_dim, context_dim, hidden_dim)
-    linear_net = Dense(obs_dim => hidden_dim)
+function Recurrent_Encoder(obs_dim, latent_dim, context_dim, hidden_size)
+    linear_net = Dense(obs_dim => hidden_size)
 
     init_net = Chain(
                     x -> reverse(x, dims=2),
-                    Recurrence(LSTMCell(hidden_dim=>hidden_dim)), 
-                    BranchLayer(Dense(hidden_dim => latent_dim), Dense(hidden_dim => latent_dim, softplus)))
+                    Recurrence(LSTMCell(hidden_size=>hidden_size)), 
+                    BranchLayer(Dense(hidden_size => latent_dim), Dense(hidden_size => latent_dim, softplus)))
     
     context_net = Chain(x -> reverse(x, dims=2),
-                        Recurrence(LSTMCell(hidden_dim=>context_dim); return_sequence=true),
+                        Recurrence(LSTMCell(hidden_size=>context_dim); return_sequence=true),
                         x -> stack(x; dims=2))
     
     return Encoder(linear_net, init_net, context_net)

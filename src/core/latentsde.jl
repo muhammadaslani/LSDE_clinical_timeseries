@@ -18,7 +18,7 @@ Arguments:
     obs_encoder = Identity_Encoder()
     ctrl_encoder = NoOpLayer()
     init_map = NoOpLayer()
-    dynamics
+    dynamics 
     state_map = NoOpLayer()
     obs_decoder = Identity_Decoder()
     ctrl_decoder = NoOpLayer()

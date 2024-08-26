@@ -1,16 +1,20 @@
 using Pkg, Revise, Rhythm, Lux, DifferentialEquations, Random, SciMLSensitivity, ComponentArrays, Optimisers, OptimizationOptimisers, Statistics
-using MLUtils, Printf
+using MLUtils, Printf, SciMLSensitivity
 
 ts = 0:0.1:9.9 |> Array{Float32};
 x = rand32(2, 100, 1);
 u = rand32(1, 100, 1);
 
-drift = @compact(vf = Dense(3,2)) do xu 
+drift = @compact(vf = Dense(3,2, tanh)) do xu 
     x, u = xu 
     @return vf(vcat(xu...))
 end;
 
-dynamics = SDE(drift, Dense(5, 2), Dense(2, 2), EulerHeun(), saveat=ts, dt=0.1f0);
+diffusion = @compact(vg = Scale(2, sigmoid)) do x 
+    @return vg(x)
+end;
+
+dynamics = SDE(drift, Dense(5, 2, tanh), diffusion, EulerHeun(), saveat=ts, dt=0.1f0);
 model = LatentSDE(dynamics=dynamics);
 
 rng = Random.default_rng();
@@ -36,7 +40,6 @@ function loss_fn(model, θ, st, data)
     kl_path = mean(kl_pq[end,:])
     kl_loss =  kl_init + kl_path
     loss = recon_loss + λ * kl_loss
-    println(loss)
     return loss, st, kl_loss
 end
 
@@ -52,6 +55,7 @@ function viz_fn(kwargs...)
     return
 end
 
-config = (lr =1e-3, epochs=100, optimizer=AdamW(1e-3) , solver=EM(), log_freq=10, viz_freq=10, save_path=".", stop_patience=10, lrdecay_patience=5, n_samples=10, dev=cpu_device(), kwargs=Dict(:saveat=>ts, :dt=>0.1f0))
+config = (lr =1e-3, epochs=100, optimizer=AdamW(1e-3) , solver=EM(), log_freq=10, viz_freq=10, save_path=".", stop_patience=50, lrdecay_patience=20, n_samples=10, dev=cpu_device(), kwargs=Dict(:saveat=>ts, :dt=>0.1f0))
 
-train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_loader, config)
+train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_loader, config);
+

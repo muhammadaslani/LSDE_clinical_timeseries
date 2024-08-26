@@ -40,7 +40,7 @@ returns:
 
 function interp!(ts, cs::AbstractArray, time_point)
     # Use a generator to create interpolations and yield results
-   return CRC.@ignore_derivatives[linear_interpolation(ts, cs[i, :, j])(time_point) for i in 1:size(cs, 1), j in 1:size(cs, 3)]
+   return CRC.@ignore_derivatives[linear_interpolation(ts, cs[i, :, j], extrapolation_bc=Line())(time_point) for i in 1:size(cs, 1), j in 1:size(cs, 3)]
 end
 
 function interp!(ts, cs::Nothing, time_point)

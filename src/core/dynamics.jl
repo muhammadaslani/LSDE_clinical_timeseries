@@ -57,13 +57,12 @@ function (de::SDE)(x::AbstractArray, u::Union{Nothing, AbstractArray}, c::Abstra
     function μ_augmented(x, p, t)
         c_t = c_cont(t)
         u_t = u_cont1(t)
-        xc = vcat(x, c_t, u_t)
-        return de.drift_aug(xc, p, st.drift_aug)[1]
+        return de.drift_aug((x, u_t, c_t), p, st.drift_aug)[1]
     end
 
     function μ_generative(x, p, t)
         u_t = u_cont2(t)
-        return de.drift((x,u_t), p, st.drift)[1]
+        return de.drift((x, u_t), p, st.drift)[1]
     end
 
     function σ_shared(x, p, t)

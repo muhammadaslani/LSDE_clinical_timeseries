@@ -17,13 +17,35 @@ include("core/encoders.jl")
 export Encoder, Identity_Encoder, Recurrent_Encoder
 include("core/decoders.jl")
 export Decoder, Identity_Decoder, Linear_Decoder, MLP_Decoder
+include("core/vectorfields.jl")
+export MLP, SparseMLP
 
+
+const TYPE_MAP = Dict(
+    "Identity_Encoder" => Identity_Encoder,
+    "Recurrent_Encoder" => Recurrent_Encoder,
+    "MLP_Decoder" => MLP_Decoder,
+    "Identity_Decoder" => Identity_Decoder,
+    "Linear_Decoder" => Linear_Decoder,
+    "MLP" => MLP,
+    "SparseMLP" => SparseMLP,
+)
+
+
+const SOLVER_MAP = Dict(
+    "EM" => EM(),
+    "EulerHeun" => EulerHeun(),
+    "LambaEM" => LambdaEM(),
+    "SOSRI" => SOSRI(),
+)
 
 # Utils
 include("utils/misc.jl")
 export sample_rp, interpolate!, basic_tgrad, dropmean, dropsd
 include("utils/losses.jl")
 export kl_normal, poisson_loglikelihood, normal_loglikelihood, mse, frange_cycle_linear, bits_per_spike
+include("utils/config.jl")
+export create_object, create_latentsde
 include("trainer.jl")
 export train, validate, vizualize
 

@@ -52,22 +52,22 @@ Arguments:
 
 - `obs_dim`: Dimension of the observations.
 - `latent_dim`: Dimension of the latent space. 
-- `noise`: Type of observation noise. Default is Gaussian. Options are Gaussian, Poisson, None.
+- `dist`: Type of observation noise. Default is Gaussian. Options are Gaussian, Poisson, None.
 
 returns: 
 
     - The decoder.
         
 """
-function Linear_Decoder(latent_dim, obs_dim, noise="Gaussian")
-    if noise == "Gaussian"
+function Linear_Decoder(latent_dim, obs_dim, dist="Gaussian")
+    if dist == "Gaussian"
         output_net = BranchLayer(Dense(latent_dim, obs_dim), Dense(latent_dim, obs_dim, softplus))
-    elseif noise == "Poisson"
+    elseif dist == "Poisson"
         output_net = Chain(Dense(latent_dim, obs_dim), x -> exp.(x))
-    elseif noise == "None" 
+    elseif dist == "None" 
         output_net = Dense(latent_dim, obs_dim)
     else
-        error("Unknown Observation noise: $dataset_name \n Currnet supported noise: Gaussian, Poisson, None")
+        error("Unknown Observation noise: $dataset_name \n Currnet supported dist: Gaussian, Poisson, None")
     end
     return Decoder(output_net)
     
@@ -83,26 +83,26 @@ Arguments:
 
 - `obs_dim`: Dimension of the observations.
 - `latent_dim`: Dimension of the latent space.
-- `hidden_dim`: Dimension of the hidden layers.
-- `n_hidden`: Number of hidden layers.
-- `noise`: Type of observation noise. Default is Gaussian. Options are Gaussian, Poisson, None.
+- `hidden_size`: Dimension of the hidden layers.
+- `depth`: Number of hidden layers.
+- `dist`: Type of observation noise. Default is Gaussian. Options are Gaussian, Poisson, None.
 
 returns: 
 
     - The decoder.
         
 """
-function MLP_Decoder(latent_dim, obs_dim, hidden_dim, n_hidden, noise="Gaussian")
+function MLP_Decoder(latent_dim, obs_dim; hidden_size, depth, dist)
 
-    mlp = Chain([Dense(latent_dim, hidden_dim, relu) for i in 1:n_hidden]...) 
-    if noise == "Gaussian"
-        output_net = Chain(mlp, Dense(hidden_dim, obs_dim))
-    elseif noise == "Poisson"
-        output_net = Chain(mlp, Dense(hidden_dim, obs_dim), x -> exp.(x))
-    elseif noise == "None"
-        output_net = Chain(mlp, Dense(hidden_dim, obs_dim))
+    mlp = Chain([Dense(latent_dim, hidden_size, relu) for i in 1:depth]...) 
+    if dist == "Gaussian"
+        output_net = Chain(mlp, Dense(hidden_size, obs_dim))
+    elseif dist == "Poisson"
+        output_net = Chain(mlp, Dense(hidden_size, obs_dim), x -> exp.(x))
+    elseif dist == "None"
+        output_net = Chain(mlp, Dense(hidden_size, obs_dim))
     else
-        error("Unknown Observation noise: $dataset_name \n Currnet supported noise: Gaussian, Poisson, None")
+        error("Unknown Observation noise: $dataset_name \n Currnet supported distributions: Gaussian, Poisson, None")
     end
 
     return Decoder(output_net)
