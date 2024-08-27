@@ -17,31 +17,61 @@ function kl_normal(μ, σ²)
     kl = 0.5f0 * sum(σ² .+ μ .^ 2 .- 1 .- log.(σ²))
     return kl
 end
-
-""" 
-    poisson_loglikelihood(λ, y)
-
-Compute the log-likelihood of a Poisson distribution.
-
-Arguments:
-
-  - `λ`: The rate of the Poisson distribution.
-  - `y`: The observed spikes.
-
-returns: 
-
-    - The log-likelihood.
-
 """
-function poisson_loglikelihood(λ, y) 
+    poisson_loglikelihood(λ::AbstractArray, y::AbstractArray)
+
+Calculate the Poisson log-likelihood of observed counts `y` given rates `λ`.
+
+# Arguments
+- `λ::AbstractArray`: Predicted rates (λ > 0)
+- `y::AbstractArray`: Observed counts (non-negative integers)
+
+# Returns
+- `ll::Float32`: The calculated log-likelihood
+
+# Notes
+- A small constant (1e-4) is added to λ to prevent log(0)
+- NaN or negative values in λ will raise an error
+"""
+function poisson_loglikelihood(λ::AbstractArray, y::AbstractArray)
     @assert size(λ) == size(y) "poisson_loglikelihood: Rates and spikes should be of the same shape"
     @assert !any(isnan.(λ)) "poisson_loglikelihood: NaN rate predictions found"
     @assert all(λ .>= 0) "poisson_loglikelihood: Negative rate predictions found"
-    λ = λ .+ 0.0001f0
+    
+    λ = λ .+ 1f-4  # Add small constant to prevent log(0)
     ll = sum(y .* log.(λ) .- λ .- loggamma.(y .+ 1))
-    return ll 
+    
+    return ll
 end
 
+"""
+    poisson_loglikelihood(λ::AbstractArray, y::AbstractArray; mask::AbstractArray{Bool})
+
+Calculate the masked Poisson log-likelihood of observed counts `y` given rates `λ`.
+
+# Arguments
+- `λ::AbstractArray`: Predicted rates (λ > 0)
+- `y::AbstractArray`: Observed counts (non-negative integers)
+- `mask::AbstractArray{Bool}`: Boolean mask to specify which elements to include in the calculation
+
+# Returns
+- `ll::Float32`: The calculated log-likelihood
+
+# Notes
+- Only the elements where mask is true are included in the calculation
+- A small constant (1e-4) is added to λ to prevent log(0)
+- NaN or negative values in λ will raise an error
+"""
+function poisson_loglikelihood(λ::AbstractArray, y::AbstractArray; mask::AbstractArray{Bool})
+    @assert size(λ) == size(y) == size(mask) "poisson_loglikelihood: Rates, spikes, and mask should be of the same shape"
+    @assert !any(isnan.(λ)) "poisson_loglikelihood: NaN rate predictions found"
+    @assert all(λ .>= 0) "poisson_loglikelihood: Negative rate predictions found"
+    
+    λ = λ .+ 1f-4  # Add small constant to prevent log(0)
+    ll = sum(@. mask * (y * log(λ) - λ - loggamma(y + 1)))
+    
+    return ll
+end
 
 
 """
@@ -102,7 +132,6 @@ returns:
 """
 function bits_per_spike(rates, spikes)
     @assert size(rates) == size(spikes) "Rates and spikes must have the same shape"
-
     rates_ll = poisson_loglikelihood(rates, spikes)
     mean_spikes = mean(spikes, dims=(2, 3))
     null_rates = repeat(mean_spikes, 1, size(spikes, 2), size(spikes, 3)) 

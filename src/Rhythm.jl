@@ -35,13 +35,13 @@ const TYPE_MAP = Dict(
 const SOLVER_MAP = Dict(
     "EM" => EM(),
     "EulerHeun" => EulerHeun(),
-    "LambaEM" => LambdaEM(),
+    "LambaEM" => LambaEM(),
     "SOSRI" => SOSRI(),
 )
 
 # Utils
 include("utils/misc.jl")
-export sample_rp, interpolate!, basic_tgrad, dropmean, dropsd
+export sample_rp, interpolate!, basic_tgrad, dropmean, dropsd, pad_matrices
 include("utils/losses.jl")
 export kl_normal, poisson_loglikelihood, normal_loglikelihood, mse, frange_cycle_linear, bits_per_spike
 include("utils/config.jl")

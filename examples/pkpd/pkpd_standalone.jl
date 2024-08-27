@@ -68,10 +68,8 @@ Generate observations from a solution.
 - `Tuple{Vector{Int}, Vector{Int}, Vector{Float64}}`: Health observations, tumor observations, and time points
 """
 function generate_observations(sol::RODESolution, sample_rate::Int)::Tuple{Vector{Int}, Vector{Int}, Vector{Float64}}
-    y_obs = rand.(Poisson.((sol[1, :])))
-    H_obs = health_to_score.(sol[5, :])
-    H_obs = H_obs[1:sample_rate:end]
-    y_obs = y_obs[1:sample_rate:end]
+    y_obs = rand.(Poisson.((sol[1, :])))[1:sample_rate:end]
+    H_obs = health_to_score.(sol[5, :])[1:sample_rate:end]
     t_obs = sol.t[1:sample_rate:end]
     return H_obs, y_obs, t_obs
 end
@@ -94,7 +92,7 @@ function generate_observations(ensemble_sol::EnsembleSolution, sample_rate::Int)
 
     for sol in ensemble_sol
         H_obs, y_obs, t_obs = generate_observations(sol, sample_rate)
-        push!(Y, hcat(H_obs, y_obs))
+        push!(Y, hcat(H_obs, y_obs)')
         push!(T, t_obs)
     end
 
@@ -274,6 +272,5 @@ function generate_dataset(;
 end
 
 
-#U, X, Y, T = generate_dataset(;n_samples=512);
-
-
+U, X, Y, T = generate_dataset(;n_samples=512);
+#(u_train, x_train, y_train, t_train), (u_test, x_test, y_test, t_test) = splitobs((U, X, Y, T), at=0.8);

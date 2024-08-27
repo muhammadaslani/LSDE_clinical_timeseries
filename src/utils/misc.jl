@@ -54,6 +54,18 @@ dropsd(A; dims=:) = dropdims(std(A; dims=dims); dims=dims)
 basic_tgrad(u, p, t) = zero(u)
 
 
+
+function pad_matrices(Y, time_points)
+    T_max = maximum(size(y, 2) for y in Y)
+    Y_padded = [hcat(matrix, zeros(eltype(matrix), 2, T_max - size(matrix, 2))) for matrix in Y]
+    masks = [vcat(ones(Bool, length(tp)), zeros(Bool, T_max - length(tp))) for tp in time_points]
+    Y_padded = cat(Y_padded..., dims=3)
+    masks = cat(masks..., dims=2)
+    return Y_padded, masks
+end
+
+
+
 # Custom vcat function for handling `nothing` values
 function Base.vcat(a::AbstractArray, b::Nothing, c::AbstractArray)
     return vcat(a, c)

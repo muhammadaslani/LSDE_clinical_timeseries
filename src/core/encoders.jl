@@ -69,7 +69,7 @@ Arguments:
 - `context_dim`: Dimension of the context.
 - `hidden_dim`: Dimension of the hidden state.
 """
-function Recurrent_Encoder(obs_dim, latent_dim, context_dim, hidden_size)
+function Recurrent_Encoder(obs_dim, latent_dim, context_dim; hidden_size)
     linear_net = Dense(obs_dim => hidden_size)
 
     init_net = Chain(

@@ -9,11 +9,12 @@ model:
     drift:
       type: "MLP"
       hidden_size: 128
-      depth: 2
+      depth: 0
       activation: tanh
     drift_aug:
       type: "MLP"
       hidden_size: 64
+      depth: 0
       activation: softplus
     diffusion:
       type: "SparseMLP"
@@ -22,7 +23,7 @@ model:
   obs_decoder:
     type: "MLP_Decoder"
     hidden_size: 128
-    depth: 2
+    depth: 0
     dist: "Poisson"
 
 

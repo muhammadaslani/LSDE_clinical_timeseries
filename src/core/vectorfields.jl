@@ -1,5 +1,3 @@
-
-
 """
     MLP(Id::Vector{Int} ,Od::Int; hidden_size, depth, activation)
 
@@ -70,7 +68,6 @@ returns:
         
 """
 SparseMLP(Id::Int, Od::Int; activation) = @compact(m=Scale(Id, activation)) do x
-    
                                                             @return m(x)
                                                          end
                                                                 

@@ -94,9 +94,9 @@ returns:
 """
 function MLP_Decoder(latent_dim, obs_dim; hidden_size, depth, dist)
 
-    mlp = Chain([Dense(latent_dim, hidden_size, relu) for i in 1:depth]...) 
+    mlp = Chain(Dense(latent_dim => hidden_size, softplus), [Dense(hidden_size, hidden_size, softplus) for i in 1:depth]...)
     if dist == "Gaussian"
-        output_net = Chain(mlp, Dense(hidden_size, obs_dim))
+        output_net = Chain(mlp, BranchLayer(Dense(hidden_size, obs_dim), Dense(hidden_size, obs_dim, softplus)))
     elseif dist == "Poisson"
         output_net = Chain(mlp, Dense(hidden_size, obs_dim), x -> exp.(x))
     elseif dist == "None"
