@@ -1,43 +1,52 @@
 model:
   type: "LatentSDE"
-  latent_dim: 10
-  context_dim: 10
+  latent_dim: 8
+  context_dim: 32
+
   obs_encoder:
     type: "Recurrent_Encoder"
     hidden_size: 64
+
   SDE:
     drift:
       type: "MLP"
-      hidden_size: 128
+      hidden_size: 64
       depth: 0
       activation: tanh
     drift_aug:
       type: "MLP"
       hidden_size: 64
       depth: 0
-      activation: softplus
+      activation: tanh
     diffusion:
       type: "SparseMLP"
       activation: sigmoid
-    solver: "EM"
+    solver: EM()
+    kwargs:
+      dt: 1.0
+
   obs_decoder:
     type: "MLP_Decoder"
-    hidden_size: 128
+    hidden_size: 64
     depth: 0
     dist: "Poisson"
 
 
 training:
-  batch_size: 64
   learning_rate: 0.001
-  epochs: 100
   optimizer: AdamW(1e-3)
-  log_freq: 10
+  epochs: 500
+  log_freq: 20
   viz_freq: 10
-  save_path: "results/"
-  stop_patience: 50
-  lrdecay_patience: 20
-  n_samples: 10
-  kwargs:
-    saveat: 0.1
-    dt: 0.1f0
+  stop_patience: 5
+  lrdecay_patience: 3
+  validation:
+      solver: EM()
+      mcmc_samples: 50
+      kwargs:
+          dt: 1.0
+
+experiment:
+  name: "LatentSDE_PKPD_V0"
+  description: "First experiment with a Latent SDE model using Rhythm on the PKPD model"
+  path: "experiments/" 

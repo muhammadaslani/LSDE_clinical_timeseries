@@ -45,7 +45,7 @@ function poisson_loglikelihood(λ::AbstractArray, y::AbstractArray)
 end
 
 """
-    poisson_loglikelihood(λ::AbstractArray, y::AbstractArray; mask::AbstractArray{Bool})
+    poisson_loglikelihood(λ::AbstractArray, y::AbstractArray, mask::AbstractArray{Bool})
 
 Calculate the masked Poisson log-likelihood of observed counts `y` given rates `λ`.
 
@@ -62,8 +62,8 @@ Calculate the masked Poisson log-likelihood of observed counts `y` given rates `
 - A small constant (1e-4) is added to λ to prevent log(0)
 - NaN or negative values in λ will raise an error
 """
-function poisson_loglikelihood(λ::AbstractArray, y::AbstractArray; mask::AbstractArray{Bool})
-    @assert size(λ) == size(y) == size(mask) "poisson_loglikelihood: Rates, spikes, and mask should be of the same shape"
+function poisson_loglikelihood(λ::AbstractArray, y::AbstractArray,  mask::AbstractArray{Bool})
+    @assert size(λ) == size(y) "poisson_loglikelihood: Rates, spikes, and mask should be of the same shape"
     @assert !any(isnan.(λ)) "poisson_loglikelihood: NaN rate predictions found"
     @assert all(λ .>= 0) "poisson_loglikelihood: Negative rate predictions found"
     

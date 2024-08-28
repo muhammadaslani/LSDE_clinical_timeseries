@@ -50,6 +50,7 @@ returns:
 """
 function (de::SDE)(x::AbstractArray, u::Union{Nothing, AbstractArray}, c::AbstractArray, ts::AbstractArray, p::ComponentVector, st::NamedTuple)
     #TBD to fix the interpolation
+
     u_cont1(t) =  interp!(ts, u, t)
     u_cont2(t) =  interp!(ts, u, t)
     c_cont(t) =  interp!(ts, c, t)
@@ -88,7 +89,7 @@ function (de::SDE)(x::AbstractArray, u::Union{Nothing, AbstractArray}, c::Abstra
     
     ff = SDEFunction{false}(μ, σ)
     prob = SDEProblem{false}(ff, x, (ts[1], ts[end]), p)
-    return solve(prob, de.solver; u0 = x, p, sensealg=TrackerAdjoint(), de.kwargs...), st
+    return solve(prob, de.solver; u0 = x, p, sensealg=TrackerAdjoint(), saveat=ts, de.kwargs...), st
 end
 
 
@@ -131,7 +132,7 @@ function sample_generative(de::SDE, init_map, solver, px₀, u, ts, p, st, n_sam
     end
 
     ensemble_prob = EnsembleProblem(prob, prob_func = prob_func)
-    ensemble_sol = solve(ensemble_prob, solver, EnsembleThreads(); trajectories=n_samples, kwargs...) |> dev
+    ensemble_sol = solve(ensemble_prob, solver, EnsembleThreads(); trajectories=n_samples, saveat=ts, kwargs...) |> dev
     x = permutedims((ensemble_sol), (1, 3, 2, 4)) 
     return x
 
@@ -162,6 +163,9 @@ Arguments :
 """
 function sample_augmented(de::SDE, init_map, solver, px₀, u, c, ts, p, st, n_samples, dev; kwargs...)
     tspan = (ts[1], ts[end])
+    println("ts: ", ts)
+    println("u: ", size(u))
+    println("c: ", size(c))
     u_cont(t) = interp!(ts, u, t)
     c_cont(t) = interp!(ts, c, t)
 
@@ -178,7 +182,7 @@ function sample_augmented(de::SDE, init_map, solver, px₀, u, c, ts, p, st, n_s
     end
 
     ensemble_prob = EnsembleProblem(prob, prob_func = prob_func)
-    ensemble_sol = solve(ensemble_prob, solver, EnsembleThreads(); trajectories=n_samples, kwargs...) |> dev
+    ensemble_sol = solve(ensemble_prob, solver, EnsembleThreads(); trajectories=n_samples, saveat=ts, kwargs...) |> dev
     x = permutedims((ensemble_sol), (1, 3, 2, 4)) 
     return x
 end

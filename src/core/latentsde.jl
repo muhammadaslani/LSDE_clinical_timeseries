@@ -65,7 +65,7 @@ end
 
 
 """
-    predict(model::LatentSDE, y::AbstractArray, t_obs::AbstractArray, t_pred::AbstractArray, u::Union{Nothing, AbstractArray}, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Device)
+    predict(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractArray, t_obs::AbstractArray, t_pred::AbstractArray, u::Union{Nothing, AbstractArray}, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Device)
 
   Predicts the future trajectory of the system given the observations from time `T` to `T+k` given observations from time `1` to `T` and control inputs from time `1` to `T+k`.
   Used for forecasting and control applications.
@@ -103,7 +103,7 @@ end
 
 
 """ 
-    filter(model::LatentSDE, y::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Device)
+    filter(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Device)
 
     Estimates the hidden state of the system at time `t` given the observations from time `1` to `t` and control inputs from time `1` to `t`.
     Typically used for online tracking/monitoring.
@@ -139,7 +139,7 @@ end
 
 
 """ 
-    smooth(model::LatentSDE, y::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Device)
+    smooth(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Device)
 
     Estimates the hidden states of the system at times `1` to `T` given the observations from time `1` to `T` and control inputs from time `1` to `T`.
     Typically used for offline applications. i.e. understanding system dynamics.
@@ -151,6 +151,7 @@ end
 Arguments:
 
   - `model`: The `LatentSDE` model to sample from.
+  - `solver`: The nummerical solver to solve the SDE.
   - `y`: Observations. ``y_{1:T}``
   - `u`: Control inputs from time. ``u_{1:T}``
   - `ts`: Time points at which the observations are made. ``t\\_{1:T}``
@@ -176,7 +177,7 @@ end
 
 
 """ 
-    generate(model::LatentSDE, y::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Device)
+    generate(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, px₀::Tuple, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Device)
 
     Generates new samples from the generative model (potentially conditioned on control inputs)
 
@@ -188,7 +189,7 @@ Arguments:
 
   - `model`: The `LatentSDE` model to sample from.
   - `solver`: The nummerical solver to solve the SDE.
-  - `y`: Observations. ``y_{1:t}``
+  - `px₀`: The distribution of the initial condition (mean and vaiance)
   - `u`: Control inputs from time. ``u_{1:t}``
   - `ts`: Time points at which the observations are made. ``t\\_{0:t}``
   - `ps`: Parameters for the model.
@@ -202,10 +203,9 @@ Returns:
   - `ŷ`: Generated observations. ``y_{1:T}``
 """
 
-function generate(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
-  px₀ = (zeros(model.init_map.out_dim), ones(model.init_map.out_dim))
+function generate(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, px₀::Tuple, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
   u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
-  x̂ = sample_generative(model.dynamics, model.init_map, solver, px₀, u_enc, t_pred, ps, st, n_samples, dev; kwargs...)
+  x̂ = sample_generative(model.dynamics, model.init_map, solver, px₀, u_enc, ts, ps, st, n_samples, dev; kwargs...)
   x̂ = model.state_map(x̂, ps.state_map, st.state_map)[1]
   ŷ = model.obs_decoder(x̂, ps.obs_decoder, st.obs_decoder)[1]
   return x̂, ŷ

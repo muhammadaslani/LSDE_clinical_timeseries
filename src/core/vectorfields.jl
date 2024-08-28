@@ -67,7 +67,7 @@ returns:
     - `LuxCompactLayer`
         
 """
-SparseMLP(Id::Int, Od::Int; activation) = @compact(m=Scale(Id, activation)) do x
+SparseMLP(Id::Int, Od::Int; activation) = @compact(m=Scale(Id, activation, init_weight=identity_init(gain=1.0f0))) do x
                                                             @return m(x)
                                                          end
                                                                 

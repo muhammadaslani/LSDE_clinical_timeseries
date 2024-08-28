@@ -267,10 +267,9 @@ function generate_dataset(;
     @info "Generating observations"
     Y, T = generate_observations(ensemble_sol, sample_rate)
     @info "Done"
-
-    return U, X, Y, T
+    # Return dataset but in Float32 
+    return Array{Float32}.(U), Array{Float32}.(X), Array{Int}.(Y), Array{Float32}.(T)
 end
 
 
-U, X, Y, T = generate_dataset(;n_samples=512);
-#(u_train, x_train, y_train, t_train), (u_test, x_test, y_test, t_test) = splitobs((U, X, Y, T), at=0.8);
+#U, X, Y, T = generate_dataset(;n_samples=512);

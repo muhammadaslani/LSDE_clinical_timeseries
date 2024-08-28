@@ -21,7 +21,7 @@ end
 
 
 
-function create_latentsde(config::Dict, dims::Dict)
+function create_latentsde(config::Dict, dims::Dict, rng::AbstractRNG)
 
     latent_dim = config["latent_dim"]::Int
     context_dim = config["context_dim"]::Int
@@ -34,11 +34,15 @@ function create_latentsde(config::Dict, dims::Dict)
     drift_aug = create_object(config["SDE"]["drift_aug"], [latent_dim, context_dim, input_dim], latent_dim)
     diffusion = create_object(config["SDE"]["diffusion"], latent_dim, latent_dim)
 
-    dynamics = SDE(drift, drift_aug, diffusion, eval(Meta.parse(config["SDE"]["solver"])))
+    sde_kwargs = Dict{Symbol, Any}(Symbol(k) => Float32.(v) for (k, v) in config["SDE"]["kwargs"])
+    dynamics = SDE(drift, drift_aug, diffusion, eval(Meta.parse(config["SDE"]["solver"])), sde_kwargs)
 
     obs_decoder = create_object(config["obs_decoder"], latent_dim, output_dim)
 
-    return LatentSDE(;obs_encoder, dynamics, obs_decoder)
+    model =  LatentSDE(;obs_encoder, dynamics, obs_decoder)
+    θ, st = Lux.setup(rng, model);
+    θ = θ |> ComponentArray{Float32};
+    return model, θ, st
 
 end 
 
