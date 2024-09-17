@@ -92,7 +92,7 @@ Returns:
   - `x_pred`: Predicted hidden states. ``x_{T:T+k}``
   - `y_pred`: Predicted observations. ``y_{T:T+k}``
 """
-function predict(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractArray, t_pred::AbstractArray, u::Union{Nothing, AbstractArray}, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
+function predict(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractArray, u::Union{Nothing, AbstractArray}, t_pred::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
     pxₜ, _ = model.obs_encoder(y, ps.obs_encoder, st.obs_encoder)[1] 
     u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
     x_pred = sample_generative(model.dynamics, model.init_map, solver, pxₜ, u_enc, t_pred, ps, st, n_samples, dev; kwargs...)

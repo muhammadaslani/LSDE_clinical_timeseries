@@ -163,9 +163,6 @@ Arguments :
 """
 function sample_augmented(de::SDE, init_map, solver, px₀, u, c, ts, p, st, n_samples, dev; kwargs...)
     tspan = (ts[1], ts[end])
-    println("ts: ", ts)
-    println("u: ", size(u))
-    println("c: ", size(c))
     u_cont(t) = interp!(ts, u, t)
     c_cont(t) = interp!(ts, c, t)
 

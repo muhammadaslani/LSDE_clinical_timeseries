@@ -43,14 +43,45 @@ function interp!(ts, x::AbstractMatrix, t)
 end
 
 
+#function interp!(ts, x::AbstractArray, t)
+#    CRC.@ignore_derivatives begin
+#        # Determine the actual observation times for x
+#        obs_times = ts[1:size(x, 2)]
+##        
+#        # Create interpolation for each feature and batch
+#        return [
+#            let interp_obj = linear_interpolation(obs_times, view(x, i, :, b), extrapolation_bc=Line())
+#                interp_obj(t)
+#           end
+#            for i in axes(x, 1), b in axes(x, 3)
+#       ]
+#    end
+#end
+
 function interp!(ts, x::AbstractArray, t)
     CRC.@ignore_derivatives begin
         # Determine the actual observation times for x
-        obs_times = ts[1:size(x, 2)]
+        n_obs = min(length(ts), size(x, 2))
+        obs_times = ts[1:n_obs]
+        
+        # If x has more time points than ts, we'll extend the time points
+        if size(x, 2) > length(ts)
+            if length(ts) > 1
+                # Calculate the time step based on the last two points in ts
+                time_step = ts[end] - ts[end-1]
+            else
+                # If ts has only one point, assume a unit time step
+                time_step = 1
+            end
+            
+            # Extend obs_times with consistent time scaling
+            extra_times = [ts[end] + i * time_step for i in 1:(size(x, 2) - length(ts))]
+            obs_times = vcat(obs_times, extra_times)
+        end
         
         # Create interpolation for each feature and batch
         return [
-            let interp_obj = linear_interpolation(obs_times, view(x, i, :, b), extrapolation_bc=Line())
+            let interp_obj = linear_interpolation(obs_times, view(x, i, 1:length(obs_times), b), extrapolation_bc=Line())
                 interp_obj(t)
             end
             for i in axes(x, 1), b in axes(x, 3)
