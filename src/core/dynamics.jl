@@ -11,7 +11,7 @@ Arguments:
   - `solver': The nummerical solver used to solve the SDE.
   - `kwargs`: Additional keyword arguments to pass to the solver.
 """
-struct SDE <: AbstractExplicitContainerLayer{(:drift, :drift_aug, :diffusion)}
+struct SDE <: AbstractLuxContainerLayer{(:drift, :drift_aug, :diffusion)}
     drift
     drift_aug
     diffusion
@@ -67,6 +67,7 @@ function (de::SDE)(x::AbstractArray, u::Union{Nothing, AbstractArray}, c::Abstra
     end
 
     function σ_shared(x, p, t)
+        u_t = u_cont2(t)
         return de.diffusion(x, p, st.diffusion)[1]
     end
 

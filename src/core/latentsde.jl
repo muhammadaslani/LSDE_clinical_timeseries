@@ -96,8 +96,8 @@ function predict(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractAr
     pxₜ, _ = model.obs_encoder(y, ps.obs_encoder, st.obs_encoder)[1] 
     u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
     x_pred = sample_generative(model.dynamics, model.init_map, solver, pxₜ, u_enc, t_pred, ps, st, n_samples, dev; kwargs...)
-    x_pred = model.state_map(x_pred, ps.state_map, st.state_map)[1]
-    y_pred = model.obs_decoder(x_pred, ps.obs_decoder, st.obs_decoder)[1]
+    x_pred_ = model.state_map(x_pred, ps.state_map, st.state_map)[1]
+    y_pred = model.obs_decoder(x_pred_, ps.obs_decoder, st.obs_decoder)[1]
     return x_pred, y_pred
 end 
 
@@ -167,9 +167,9 @@ Returns:
 function smooth(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
     px₀, context = model.obs_encoder(y, ps.obs_encoder, st.obs_encoder)[1]
     u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
-    x̃ = sample_augmented(model.dynamics, model.init_map, solver, px₀, u_enc, context, ts, ps, st, n_samples, dev; kwargs...)
-    x̃ = model.state_map(x̃, ps.state_map, st.state_map)[1]
-    ỹ = model.obs_decoder(x̃, ps.obs_decoder, st.obs_decoder)[1]
+    x̃ = sample_generative(model.dynamics, model.init_map, solver, px₀, u_enc, ts, ps, st, n_samples, dev; kwargs...)
+    x̃_ = model.state_map(x̃, ps.state_map, st.state_map)[1]
+    ỹ = model.obs_decoder(x̃_, ps.obs_decoder, st.obs_decoder)[1]
     return x̃, ỹ
 end
 
@@ -206,7 +206,7 @@ Returns:
 function generate(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, px₀::Tuple, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
   u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
   x̂ = sample_generative(model.dynamics, model.init_map, solver, px₀, u_enc, ts, ps, st, n_samples, dev; kwargs...)
-  x̂ = model.state_map(x̂, ps.state_map, st.state_map)[1]
-  ŷ = model.obs_decoder(x̂, ps.obs_decoder, st.obs_decoder)[1]
+  x̂_ = model.state_map(x̂, ps.state_map, st.state_map)[1]
+  ŷ = model.obs_decoder(x̂_, ps.obs_decoder, st.obs_decoder)[1]
   return x̂, ŷ
 end

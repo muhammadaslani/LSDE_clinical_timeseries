@@ -10,7 +10,7 @@ An encoder is a container layer that contains three networks: `linear_net`, `ini
 - `init_net`: A network that maps the hidden representation to the hidden state
 - `context_net`: A network that maps the hidden representation to the context.
 """
-struct Encoder  <: Lux.AbstractExplicitContainerLayer{(:linear_net, :init_net, :context_net)}
+struct Encoder  <: AbstractLuxContainerLayer{(:linear_net, :init_net, :context_net)}
     linear_net 
     init_net
     context_net
@@ -73,7 +73,7 @@ function Recurrent_Encoder(obs_dim, latent_dim, context_dim; hidden_size)
     linear_net = Dense(obs_dim => hidden_size)
 
     init_net = Chain(
-                    x -> reverse(x, dims=2),
+                    ReverseSequence(dim=2),
                     Recurrence(LSTMCell(hidden_size=>hidden_size)),
                     BranchLayer(Dense(hidden_size => latent_dim), Dense(hidden_size => latent_dim, softplus)))
     

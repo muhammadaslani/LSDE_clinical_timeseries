@@ -40,6 +40,7 @@ function create_latentsde(config::Dict, dims::Dict, rng::AbstractRNG)
     obs_decoder = create_object(config["obs_decoder"], latent_dim, output_dim)
 
     model =  LatentSDE(;obs_encoder, dynamics, obs_decoder)
+    println(model)
     θ, st = Lux.setup(rng, model);
     θ = θ |> ComponentArray{Float32};
     return model, θ, st

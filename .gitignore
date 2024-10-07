@@ -13,3 +13,5 @@ docs/build/
 tmp/
 .vscode/
 /experiments/
+results/
+*.mp4

@@ -33,14 +33,14 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
             @printf("Validation metric: %.3f\n", val_metric)
 
             if epoch % config["viz_freq"] == 0
-                viz_fn(model, θ, st, val_loader, epoch)
+                viz_fn(model, θ, st, ts, first(val_loader), config["validation"]; ch=1, sample_n=1)
             end
 
             if val_metric > best_val_metric
                 @info "Saving best model!"
                 best_val_metric = val_metric
                 θ_best = copy(θ)
-                save_state = (model=model, θ=θ_best, st=st, data_loader=val_loader, epoch=epoch)
+                save_state = (θ=θ_best, st=st, epoch=epoch)
                 save_object(joinpath(exp_path, "bestmodel.jld2"), save_state)
                 counter = 0
             else 

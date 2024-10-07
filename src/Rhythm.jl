@@ -4,9 +4,9 @@ using Lux, ComponentArrays, LinearAlgebra, SciMLSensitivity, Zygote, Distributio
 OptimizationOptimisers, Optimisers, Printf
 import ChainRulesCore as CRC
 using Parameters: @unpack, @with_kw
-import LuxCore: AbstractExplicitContainerLayer, AbstractExplicitLayer
+import LuxCore: AbstractLuxContainerLayer, AbstractLuxWrapperLayer, AbstractLuxLayer
 
-abstract type LatentVariableModel <: AbstractExplicitContainerLayer{(:obs_encoder, :ctrl_encoder, :init_map, :dynamics, :state_map, :obs_decoder, :ctrl_decoder)} end
+abstract type LatentVariableModel <: AbstractLuxContainerLayer{(:obs_encoder, :ctrl_encoder, :init_map, :dynamics, :state_map, :obs_decoder, :ctrl_decoder)} end
 
 # Core stuff
 include("core/dynamics.jl")
@@ -16,19 +16,25 @@ export LatentSDE, predict, generate, filter, smooth
 include("core/encoders.jl")
 export Encoder, Identity_Encoder, Recurrent_Encoder
 include("core/decoders.jl")
-export Decoder, Identity_Decoder, Linear_Decoder, MLP_Decoder
+export Decoder, Identity_Decoder, Linear_Decoder, MLP_Decoder, MultiDecoder, MultiDecoder_linear
 include("core/vectorfields.jl")
-export MLP, SparseMLP
+export MLP, SparseMLP, HopfOscillators, Linear, LimitCycleOscillators, StuartLandauOscillators
 
 
 const TYPE_MAP = Dict(
     "Identity_Encoder" => Identity_Encoder,
     "Recurrent_Encoder" => Recurrent_Encoder,
     "MLP_Decoder" => MLP_Decoder,
+    "MultiDecoder" => MultiDecoder,
+    "MultiDecoder_linear" => MultiDecoder_linear,
     "Identity_Decoder" => Identity_Decoder,
     "Linear_Decoder" => Linear_Decoder,
     "MLP" => MLP,
     "SparseMLP" => SparseMLP,
+    "HopfOscillators" => HopfOscillators,
+    "StuartLandauOscillators" => StuartLandauOscillators,
+    "LimitCycleOscillators" => LimitCycleOscillators,
+    "Linear" => Linear
 )
 
 
@@ -41,7 +47,7 @@ const SOLVER_MAP = Dict(
 
 # Utils
 include("utils/misc.jl")
-export sample_rp, interpolate!, basic_tgrad, dropmean, dropsd, pad_matrices
+export sample_rp, interpolate!, basic_tgrad, dropmean, dropsd, pad_matrices, animate_oscillators
 include("utils/losses.jl")
 export kl_normal, poisson_loglikelihood, normal_loglikelihood, mse, frange_cycle_linear, bits_per_spike
 include("utils/config.jl")

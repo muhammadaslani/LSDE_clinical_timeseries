@@ -4,8 +4,8 @@
 A decoder is a function that takes a latent variable and produces an output (Observations or Control inputs).    
 
 """
-struct Decoder{ON} <: Lux.AbstractExplicitContainerLayer{(:output_net,)} 
-    output_net::ON
+struct Decoder{ON} <: AbstractLuxWrapperLayer{(:output_net)}
+    output_net::ON      
 end
 
 """
@@ -107,4 +107,22 @@ function MLP_Decoder(latent_dim, obs_dim; hidden_size, depth, dist)
 
     return Decoder(output_net)
 end
+
+
+
+function MultiDecoder(latent_dims, obs_dims; hidden_size, depth, dist)
+    decoders = [MLP_Decoder(latent_dims[i], obs_dims[i]; hidden_size=hidden_size, depth=depth, dist=dist) for i in 1:length(latent_dims)]
+    return Decoder(Parallel(vcat, decoders...))
+end
+
+"""
+    MultiDecoder_linear(latent_dims, obs_dims; dist)
+
+TBW
+"""
+function MultiDecoder_linear(latent_dims, obs_dims; dist)
+    decoders = [Linear_Decoder(latent_dims[i], obs_dims[i], dist) for i in 1:length(latent_dims)]
+    return Decoder(Parallel(vcat, decoders...))
+end
+
 
