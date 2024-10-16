@@ -26,7 +26,39 @@ function create_latentsde(config::Dict, dims::Dict, rng::AbstractRNG)
     latent_dim = config["latent_dim"]::Int
     context_dim = config["context_dim"]::Int
     input_dim = dims["input_dim"]::Int
-    output_dim = dims["output_dim"]::Int
+    output_dim = dims["output_dim"]::Union{Int, Vector{Int}}
+
+    if output_dim isa Int
+        state_map = Dense(latent_dim, latent_dim)
+    else
+        state_map = Parallel(nothing, [NoOpLayer() for _ in output_dim]...)
+    end
+    obs_encoder = create_object(config["obs_encoder"], sum(output_dim), latent_dim, context_dim)
+    drift = create_object(config["SDE"]["drift"], [latent_dim, input_dim], latent_dim)
+    drift_aug = create_object(config["SDE"]["drift_aug"], [latent_dim, context_dim, input_dim], latent_dim)
+    diffusion = create_object(config["SDE"]["diffusion"], latent_dim, latent_dim)
+
+    sde_kwargs = Dict{Symbol, Any}(Symbol(k) => Float32.(v) for (k, v) in config["SDE"]["kwargs"])
+    dynamics = SDE(drift, drift_aug, diffusion, eval(Meta.parse(config["SDE"]["solver"])), sde_kwargs)
+
+    obs_decoder = create_object(config["obs_decoder"], latent_dim, output_dim)
+
+    model =  LatentSDE(;obs_encoder, dynamics, state_map, obs_decoder)
+    println(model)
+    θ, st = Lux.setup(rng, model);
+    θ = θ |> ComponentArray{Float32};
+    return model, θ, st
+
+end 
+
+
+
+function create_latentsde_multiouptput(config::Dict, dims::Dict, rng::AbstractRNG)
+
+    latent_dim = config["latent_dim"]::Int
+    context_dim = config["context_dim"]::Int
+    input_dim = dims["input_dim"]::Int
+    output_dims = dims["output_dims"]:: Vector{Int}
 
     obs_encoder = create_object(config["obs_encoder"], output_dim, latent_dim, context_dim)
 
@@ -37,15 +69,13 @@ function create_latentsde(config::Dict, dims::Dict, rng::AbstractRNG)
     sde_kwargs = Dict{Symbol, Any}(Symbol(k) => Float32.(v) for (k, v) in config["SDE"]["kwargs"])
     dynamics = SDE(drift, drift_aug, diffusion, eval(Meta.parse(config["SDE"]["solver"])), sde_kwargs)
 
+    state_map = Lux.Parallel(nothing, [NoOpLayer() for _ in output_dims]...)
+
     obs_decoder = create_object(config["obs_decoder"], latent_dim, output_dim)
 
-    model =  LatentSDE(;obs_encoder, dynamics, obs_decoder)
-    println(model)
+    model =  LatentSDE(;obs_encoder, dynamics, state_map, obs_decoder)
     θ, st = Lux.setup(rng, model);
     θ = θ |> ComponentArray{Float32};
     return model, θ, st
 
 end 
-
-
-

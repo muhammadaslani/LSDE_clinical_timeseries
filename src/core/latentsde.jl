@@ -167,7 +167,7 @@ Returns:
 function smooth(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
     px₀, context = model.obs_encoder(y, ps.obs_encoder, st.obs_encoder)[1]
     u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
-    x̃ = sample_generative(model.dynamics, model.init_map, solver, px₀, u_enc, ts, ps, st, n_samples, dev; kwargs...)
+    x̃ = sample_augmented(model.dynamics, model.init_map, solver, px₀, u_enc, context, ts, ps, st, n_samples, dev; kwargs...)
     x̃_ = model.state_map(x̃, ps.state_map, st.state_map)[1]
     ỹ = model.obs_decoder(x̃_, ps.obs_decoder, st.obs_decoder)[1]
     return x̃, ỹ

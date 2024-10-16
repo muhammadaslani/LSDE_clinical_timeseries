@@ -1,7 +1,7 @@
 module Rhythm
 
-using Lux, ComponentArrays, LinearAlgebra, SciMLSensitivity, Zygote, Distributions, Interpolations, SpecialFunctions, DifferentialEquations, Random, CairoMakie, CUDA, JLD2, FileIO, Printf, WandbMacros,
-OptimizationOptimisers, Optimisers, Printf
+using Lux, LinearAlgebra, SciMLSensitivity, Zygote, Distributions, Interpolations, SpecialFunctions, DifferentialEquations, Random, CairoMakie, CUDA, JLD2, FileIO, Printf, WandbMacros,
+OptimizationOptimisers, Optimisers, Printf, Colors, ComponentArrays
 import ChainRulesCore as CRC
 using Parameters: @unpack, @with_kw
 import LuxCore: AbstractLuxContainerLayer, AbstractLuxWrapperLayer, AbstractLuxLayer
@@ -16,7 +16,7 @@ export LatentSDE, predict, generate, filter, smooth
 include("core/encoders.jl")
 export Encoder, Identity_Encoder, Recurrent_Encoder
 include("core/decoders.jl")
-export Decoder, Identity_Decoder, Linear_Decoder, MLP_Decoder, MultiDecoder, MultiDecoder_linear
+export Decoder, Identity_Decoder, Linear_Decoder, MLP_Decoder, MultiDecoder, MultiDecoder_linear, BranchDecoder, BranchDecoder_linear
 include("core/vectorfields.jl")
 export MLP, SparseMLP, HopfOscillators, Linear, LimitCycleOscillators, StuartLandauOscillators
 
@@ -29,6 +29,8 @@ const TYPE_MAP = Dict(
     "MultiDecoder_linear" => MultiDecoder_linear,
     "Identity_Decoder" => Identity_Decoder,
     "Linear_Decoder" => Linear_Decoder,
+    "BranchDecoder" => BranchDecoder,
+    "BranchDecoder_linear" => BranchDecoder_linear,
     "MLP" => MLP,
     "SparseMLP" => SparseMLP,
     "HopfOscillators" => HopfOscillators,
@@ -47,13 +49,19 @@ const SOLVER_MAP = Dict(
 
 # Utils
 include("utils/misc.jl")
-export sample_rp, interpolate!, basic_tgrad, dropmean, dropsd, pad_matrices, animate_oscillators
+export sample_rp, interpolate!, basic_tgrad, dropmean, dropsd, pad_matrices
 include("utils/losses.jl")
 export kl_normal, poisson_loglikelihood, normal_loglikelihood, mse, frange_cycle_linear, bits_per_spike
 include("utils/config.jl")
 export create_object, create_latentsde
 include("trainer.jl")
 export train, validate, vizualize
+include("utils//theme.jl")
+export atom_one_dark, atom_one_dark_palette, get_atom_one_dark_colors, atom_one_dark_theme
+include("utils//animations.jl")
+export animate_cont, animate_spikes, animate_oscillators, animate_hand 
+
+set_theme!(atom_one_dark_theme)
 
 end
 

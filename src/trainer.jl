@@ -4,7 +4,7 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
     opt = eval(Meta.parse(config["optimizer"]))
     tstate = Training.TrainState(model, θ, st, opt)
     
-    λ_schedule = frange_cycle_linear(config["epochs"]+1, 0.0f0, 1.0f0, 1, 0.5f0)
+    λ_schedule = frange_cycle_linear(config["epochs"]+1, 0.0f0, 5.0f0, 1, 0.3f0)
 
     n_batches = length(train_loader)
     θ_best = nothing
@@ -33,7 +33,7 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
             @printf("Validation metric: %.3f\n", val_metric)
 
             if epoch % config["viz_freq"] == 0
-                viz_fn(model, θ, st, ts, first(val_loader), config["validation"]; ch=1, sample_n=1)
+                viz_fn(model, θ, st, ts, first(val_loader), config["validation"]; sample_n=1)
             end
 
             if val_metric > best_val_metric

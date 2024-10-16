@@ -126,3 +126,50 @@ function MultiDecoder_linear(latent_dims, obs_dims; dist)
 end
 
 
+"""
+    BranchDecoder(latent_dim, obs_dims; hidden_size, depth, dists)
+
+Constructs a decoder with multiple branches from a single latent space.
+
+Arguments:
+
+- `latent_dim`: Dimension of the latent space.
+- `obs_dims`: List of dimensions of the observations.
+- `hidden_size`: Dimension of the hidden layers.
+- `depth`: Number of hidden layers.
+- `dists`: List of observation noise. Default is Gaussian. Options are Gaussian, Poisson, None.
+
+returns: 
+
+    - The decoder.
+        
+"""
+function BranchDecoder(latent_dim, obs_dims; hidden_size, depth, dists)
+    decoders = [MLP_Decoder(latent_dim, obs_dims[i]; hidden_size=hidden_size, depth=depth, dist=dists[i]) for i in 1:length(obs_dims)]
+    return Decoder(Parallel(nothing, decoders...))
+end
+
+
+
+"""
+    BranchDecoder_linear(latent_dim, obs_dims; dists)
+
+Constructs a decoder with multiple branches from a single latent space.
+
+Arguments:
+
+- `latent_dim`: Dimension of the latent space.
+- `obs_dims`: List of dimensions of the observations.
+- `dists`: List of observation noise. Default is Gaussian. Options are Gaussian, Poisson, None.
+
+returns: 
+
+    - The decoder.
+        
+"""
+function BranchDecoder_linear(latent_dim, obs_dims; dists)
+    decoders = [Linear_Decoder(latent_dim, obs_dims[i], dists[i]) for i in 1:length(obs_dims)]
+    return Decoder(Parallel(nothing, decoders...))
+end
+
+

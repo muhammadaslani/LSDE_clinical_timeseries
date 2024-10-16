@@ -65,7 +65,7 @@ returns:
 """
 MLP(Id::Int ,Od::Int; hidden_size, depth, activation) = @compact(m=Chain(Dense(Id => hidden_size, activation), 
                                                                         [Dense(hidden_size, hidden_size, activation) for i in 1:depth]..., 
-                                                                        Dense(hidden_size, Od, tanh))) do x
+                                                                        Dense(hidden_size, Od, swish))) do x
                     
                                                                             @return m(x)
                                                                         end
@@ -127,6 +127,27 @@ HopfOscillators(N::Int) = @compact(σ=truncated_normal(mean=0, std=3, lo=-3, hi=
 
             @return vcat(dx, dy)
         end
+
+
+HopfOscillators(N::Int, M::Int) = @compact(
+    σ=truncated_normal(mean=0, std=3, lo=-3, hi=5)(N),
+    ω=ones32(N),
+    K=Chain(Dense(M, N*N)),  # Coupling strength K
+    name="Controlled HopfOscillators (N=$N)") do xu
+
+    z, u = xu
+    x_ = @view z[1:N,:]
+    y_ = @view z[N+1:2N, :]
+            # Compute the coupling terms
+    bs = size(u, 2)
+    K = softmax(reshape(K(u), N, N, bs), dims=2)
+    coupling_x = dropdims(sum(K .* reshape(x_, (1, N, bs)), dims=2), dims=2)
+    coupling_y = dropdims(sum(K .* reshape(y_, (1, N, bs)), dims=2), dims=2)
+    dx = (-ω.*y_ + x_.*(σ .+ 2(x_.^2 + y_.^2) - (x_.^2 + y_.^2).^2)) .+ coupling_x .+ 0.001f0
+    dy = (ω.*x_ + y_.*(σ .+ 2(x_.^2 + y_.^2) - (x_.^2 + y_.^2).^2))  .+ coupling_y .+ 0.001f0
+
+    @return vcat(dx, dy)
+end
 
 
 

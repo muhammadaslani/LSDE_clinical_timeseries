@@ -43,21 +43,6 @@ function interp!(ts, x::AbstractMatrix, t)
 end
 
 
-#function interp!(ts, x::AbstractArray, t)
-#    CRC.@ignore_derivatives begin
-#        # Determine the actual observation times for x
-#        obs_times = ts[1:size(x, 2)]
-##        
-#        # Create interpolation for each feature and batch
-#        return [
-#            let interp_obj = linear_interpolation(obs_times, view(x, i, :, b), extrapolation_bc=Line())
-#                interp_obj(t)
-#           end
-#            for i in axes(x, 1), b in axes(x, 3)
-#       ]
-#    end
-#end
-
 function interp!(ts, x::AbstractArray, t)
     CRC.@ignore_derivatives begin
         # Determine the actual observation times for x
@@ -309,3 +294,76 @@ function animate_oscillators(z, dims, group_names, ts)
         ax.title = "t = $t s"
     end
 end
+
+
+
+function create_hand_tracking_animation(b, ts, b̂_m, b̂_sd; output_file="hand_tracking_animation.mp4", framerate=20)
+    # Function to create confidence ellipse
+    function confidence_ellipse(x, y, sd_x, sd_y, n_std=2.0)
+        theta = range(0, 2π, length=100)
+        ellipse_x = @. x + n_std * sd_x * cos(theta)
+        ellipse_y = @. y + n_std * sd_y * sin(theta)
+        return Point2f.(ellipse_x, ellipse_y)
+    end
+
+    # Ensure all input arrays have the same number of time points
+    T = min(size(b, 2), length(ts), size(b̂_m, 2), size(b̂_sd, 2))
+
+    # Set up the figure
+    fig = Figure(size=(1000, 600))
+    ax = CairoMakie.Axis(fig[1, 1], 
+              xlabel = "X position", 
+              ylabel = "Y position", 
+              title = "Hand Tracking Animation",
+              aspect = DataAspect())
+
+    limits!(ax, -10, 10, -10, 10)
+
+    # Create observables
+    current_gt_obs = Observable(Point2f(b[1, 1], b[2, 1]))
+    gt_trail_obs = Observable(Point2f[])
+
+    current_prediction_obs = Observable(Point2f(b̂_m[1, 1], b̂_m[2, 1]))
+    prediction_trail_obs = Observable(Point2f[])
+
+    ellipse_obs = Observable(Point2f[]) 
+
+    # Plot observables
+    lines!(ax, gt_trail_obs, color = (:blue, 0.8), linewidth = 3)
+    scatter!(ax, current_gt_obs, color = :blue, markersize = 15, label = "Ground Truth")
+
+    lines!(ax, prediction_trail_obs, color = (:red, 0.8), linewidth = 3)
+    poly!(ax, ellipse_obs, color = (:red, 0.3), strokewidth = 0)
+    scatter!(ax, current_prediction_obs, color = :red, markersize = 15, label = "Prediction")
+
+    # Add legend
+    axislegend(ax)
+
+    # Record the animation
+    record(fig, output_file, 1:T; framerate = framerate) do frame
+        # Update ground truth trail
+        gt_trail_obs[] = [Point2f(b[1, t], b[2, t]) for t in 1:frame]
+        
+        # Update prediction trail
+        prediction_trail_obs[] = [Point2f(b̂_m[1, t], b̂_m[2, t]) for t in 1:frame]
+        
+        # Update current prediction and ground truth
+        current_prediction_obs[] = Point2f(b̂_m[1, frame], b̂_m[2, frame])
+        current_gt_obs[] = Point2f(b[1, frame], b[2, frame])
+        
+        # Update confidence ellipse
+        ellipse_obs[] = confidence_ellipse(b̂_m[1, frame], b̂_m[2, frame], b̂_sd[1, frame], b̂_sd[2, frame])
+
+        
+        # Update title with current time
+        ax.title = "t = $(round(ts[frame], digits=2)) s"
+    end
+
+    println("Animation saved as '$output_file'")
+end
+
+
+
+
+
+

@@ -12,12 +12,12 @@ model:
       type: "MLP"
       hidden_size: 64
       depth: 0
-      activation: tanh
+      activation: swish
     drift_aug:
       type: "MLP"
       hidden_size: 64
       depth: 0
-      activation: tanh
+      activation: swish
     diffusion:
       type: "SparseMLP"
       activation: sigmoid
