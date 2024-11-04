@@ -27,9 +27,9 @@ function create_latentsde(config::Dict, dims::Dict, rng::AbstractRNG)
     context_dim = config["context_dim"]::Int
     input_dim = dims["input_dim"]::Int
     output_dim = dims["output_dim"]::Union{Int, Vector{Int}}
-
+    
     if output_dim isa Int
-        state_map = Dense(latent_dim, latent_dim)
+        state_map = NoOpLayer()
     else
         state_map = Parallel(nothing, [NoOpLayer() for _ in output_dim]...)
     end

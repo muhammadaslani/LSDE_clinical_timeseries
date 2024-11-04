@@ -18,7 +18,7 @@ returns:
 """
 MLP(Id::Vector{Int} ,Od::Int; hidden_size, depth, activation) = @compact(m=Chain(Dense(sum(Id) => hidden_size, activation), 
                                                                         [Dense(hidden_size, hidden_size, activation) for i in 1:depth]..., 
-                                                                        Dense(hidden_size, Od, swish))) do xs
+                                                                        Dense(hidden_size, Od, activation))) do xs
                                                                 
                                                                             @return m(vcat(xs...))
                                                                              end
@@ -65,7 +65,7 @@ returns:
 """
 MLP(Id::Int ,Od::Int; hidden_size, depth, activation) = @compact(m=Chain(Dense(Id => hidden_size, activation), 
                                                                         [Dense(hidden_size, hidden_size, activation) for i in 1:depth]..., 
-                                                                        Dense(hidden_size, Od, swish))) do x
+                                                                        Dense(hidden_size, Od, activation))) do x
                     
                                                                             @return m(x)
                                                                         end

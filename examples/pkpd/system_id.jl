@@ -9,7 +9,7 @@ function generate_dataloader(;n_samples=512, batchsize=64, split=0.8)
     U, X, Y, T = generate_dataset(;n_samples=n_samples);
     Y_padded, Masks, timepoints = pad_matrices(Y, T);
     Y_padded = Y_padded[2:2,:,:]
-    timepoints = timepoints/(7.f0)
+    timepoints = timepoints/(7.f0)/52.0f0
     X_padded, _ = pad_matrices(X, T; return_timepoints=false);
     U = cat(U..., dims=3);
     (u_train, x_train, y_train, mask_train), (u_test, x_test, y_test, mask_test) = splitobs((U, X_padded, Y_padded, Masks), at=split);
@@ -40,7 +40,8 @@ function eval_fn(model, θ, st, ts, data, config)
     u, x, y, mask = data
     solver = eval(Meta.parse(config["solver"]))
     kwargs_dict = Dict(Symbol(k) => v for (k, v) in config["kwargs"])
-    Ex, Ey = smooth(model, solver, y, u, ts, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
+    px₀ = (zeros32(config["latent_dim"], size(y)[end]), ones32(config["latent_dim"], size(y)[end]))
+    Ex, Ey = generate(model, solver, px₀, u, ts, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
     ŷₘ = dropmean(Ey, dims=4)
     return poisson_loglikelihood(ŷₘ, y, mask)
 end
@@ -52,6 +53,7 @@ function viz_fn(model, θ, st, ts, data, config; sample_n=1)
     kwargs_dict = Dict(Symbol(k) => v for (k, v) in config["kwargs"])
     px₀ = (zeros32(config["latent_dim"], size(y)[end]), ones32(config["latent_dim"], size(y)[end]))
     Ex, Ey = generate(model, solver, px₀, u, ts, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
+    ts = ts.*52.0f0 
 
     # Apply mask to Ey
     Ey_masked = Ey .* mask
@@ -63,8 +65,8 @@ function viz_fn(model, θ, st, ts, data, config; sample_n=1)
     
     fig = Figure(size = (1200, 900))
     ax1 = CairoMakie.Axis(fig[1,1], xlabel = "Time (weeks)", ylabel = "Interventions", limits = (nothing, (0, 1.5)), yticks = [0, 1])
-    ax2 = CairoMakie.Axis(fig[2,1], xlabel = "Time (weeks)", ylabel = "Tumor size", limits = (nothing, (0, 60)))
-    ax3 = CairoMakie.Axis(fig[3,1], xlabel = "Time (weeks)", ylabel = "Cell count", limits = (nothing, (0, 60)))
+    ax2 = CairoMakie.Axis(fig[2,1], xlabel = "Time (weeks)", ylabel = "Tumor size")
+    ax3 = CairoMakie.Axis(fig[3,1], xlabel = "Time (weeks)", ylabel = "Cell count")
 
     
     chemo_times = ts[u[1,:,sample_n] .> 0]
@@ -113,13 +115,13 @@ function viz_fn(model, θ, st, ts, data, config; sample_n=1)
 end
 
 
-rng = Random.MersenneTwister(1233)
+rng = Random.MersenneTwister(1234)
 train_loader, val_loader, dims, timepoints = generate_dataloader(;n_samples=512, batchsize=64, split=0.8);
 config = YAML.load_file("./configs/default.yml");
 exp_path = joinpath(config["experiment"]["path"], config["experiment"]["name"])
 isdir(exp_path) ? exp_path : mkpath(exp_path)
 model, θ, st = create_latentsde(config["model"], dims, rng);
-θ_trained = train(model, θ_trained, st, timepoints, loss_fn, eval_fn, viz_fn, train_loader, val_loader, config["training"], exp_path);
+θ_trained = train(model, θ, st, timepoints, loss_fn, eval_fn, viz_fn, train_loader, val_loader, config["training"], exp_path);
 
 fig = viz_fn(model, θ_trained, st, timepoints, first(train_loader), config["training"]["validation"]; sample_n=1)
 save(joinpath(exp_path, "results_prediction_.pdf"), fig)

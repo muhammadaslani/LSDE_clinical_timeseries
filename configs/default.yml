@@ -1,6 +1,6 @@
 model:
   type: "LatentSDE"
-  latent_dim: 8
+  latent_dim: &latentdim 8
   context_dim: 32
 
   obs_encoder:
@@ -23,7 +23,7 @@ model:
       activation: sigmoid
     solver: EM()
     kwargs:
-      dt: 1.0
+        dt: 0.01
 
   obs_decoder:
     type: "MLP_Decoder"
@@ -33,18 +33,19 @@ model:
 
 
 training:
-  learning_rate: 0.001
-  optimizer: AdamW(1e-3)
-  epochs: 500
-  log_freq: 5
+  learning_rate: 0.005
+  optimizer: AdamW(5e-3)
+  epochs: 1000
+  log_freq: 100
   viz_freq: 100
   stop_patience: 5
   lrdecay_patience: 3
   validation:
+      latent_dim: *latentdim  
       solver: EM()
-      mcmc_samples: 100
+      mcmc_samples: 50
       kwargs:
-          dt: 1.0
+          dt: 0.01
 
 experiment:
   name: "LatentSDE_PKPD_V0"
