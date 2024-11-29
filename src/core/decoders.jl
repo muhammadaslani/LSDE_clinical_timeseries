@@ -100,9 +100,9 @@ function MLP_Decoder(latent_dim, obs_dim; hidden_size, depth, dist)
     elseif dist == "Poisson"
         output_net = Chain(mlp, Dense(hidden_size, obs_dim), x -> exp.(x))
     elseif dist == "None"
-        output_net = Chain(mlp, Dense(hidden_size, obs_dim))
+        output_net = Chain(mlp, Dense(hidden_size, obs_dim), softplus)
     else
-        error("Unknown Observation noise: $dataset_name \n Currnet supported distributions: Gaussian, Poisson, None")
+        error("Unknown Observation noise: $dist \n Currnet supported distributions: Gaussian, Poisson, None")
     end
 
     return Decoder(output_net)
@@ -144,8 +144,8 @@ returns:
     - The decoder.
         
 """
-function BranchDecoder(latent_dim, obs_dims; hidden_size, depth, dists)
-    decoders = [MLP_Decoder(latent_dim, obs_dims[i]; hidden_size=hidden_size, depth=depth, dist=dists[i]) for i in 1:length(obs_dims)]
+function BranchDecoder(latent_dim, output_dims; hidden_size, depth, dists)
+    decoders = [MLP_Decoder(latent_dim, output_dims[i]; hidden_size=hidden_size, depth=depth, dist=dists[i]) for i in eachindex(output_dims)]
     return Decoder(Parallel(nothing, decoders...))
 end
 
@@ -173,3 +173,20 @@ function BranchDecoder_linear(latent_dim, obs_dims; dists)
 end
 
 
+"""
+Constructs a decoder that produces multiple outputs from a single latent space.
+
+# Arguments
+- `latent_dim`: Dimension of the latent space.
+- `output_dims`: Dimensions of each output.
+- `hidden_size`: Size of the hidden layers.
+- `depth`: Number of hidden layers.
+- `dist`: Type of distribution for the outputs (e.g., Gaussian, Poisson, None).
+
+# Returns
+- The constructed decoder.
+"""
+function MultiOutputDecoder(latent_dim, output_dims; hidden_size, depth, dist)
+    decoder=BranchLayer([MLP_Decoder(latent_dim, output_dims[i]; hidden_size=hidden_size, depth=depth, dist=dist[i]) for i in 1:length(output_dims)]...)
+    return Decoder(decoder)
+end

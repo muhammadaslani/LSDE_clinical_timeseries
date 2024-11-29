@@ -31,7 +31,8 @@ function create_latentsde(config::Dict, dims::Dict, rng::AbstractRNG)
     if output_dim isa Int
         state_map = NoOpLayer()
     else
-        state_map = Parallel(nothing, [NoOpLayer() for _ in output_dim]...)
+        #state_map = Parallel(nothing, [NoOpLayer() for _ in output_dim]...)
+        state_map = NoOpLayer()
     end
     obs_encoder = create_object(config["obs_encoder"], sum(output_dim), latent_dim, context_dim)
     drift = create_object(config["SDE"]["drift"], [latent_dim, input_dim], latent_dim)
@@ -77,5 +78,4 @@ function create_latentsde_multiouptput(config::Dict, dims::Dict, rng::AbstractRN
     θ, st = Lux.setup(rng, model);
     θ = θ |> ComponentArray{Float32};
     return model, θ, st
-
 end 

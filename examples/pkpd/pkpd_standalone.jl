@@ -48,11 +48,21 @@ Convert health value to a discrete score.
 # Returns
 - `Int`: Discrete score between 1 and 5
 """
-function health_to_score(S::Float64, λ::Float64=3.0)::Int
-    scaled_S = S * λ
-    poisson_dist = Poisson(exp(scaled_S))
-    score = rand(poisson_dist)
-    return clamp(score, 1, 5)
+function health_to_score(S::Float64)::Int
+    S=clamp(S,0.0,1.0)
+    if S<=0.01
+        return 5
+    elseif S<=0.2 && S>0.01
+        return 4
+    elseif S<=0.4 && S>0.2
+        return 3
+    elseif S<=0.6 && S>0.4
+        return 2
+    elseif S<=0.8 && S>0.6
+        return 1
+    elseif S<=1.0 && S>0.8
+        return 0
+    end
 end
 
 """
@@ -95,7 +105,6 @@ function generate_observations(ensemble_sol::EnsembleSolution, sample_rate::Int)
         push!(Y, hcat(H_obs, y_obs)')
         push!(T, t_obs)
     end
-
     return Y, T
 end
 
@@ -198,7 +207,7 @@ Termination condition for the simulation.
 # Returns
 - `Bool`: True if the simulation should terminate
 """
-condition(X::Vector{Float64}, t::Float64, integrator)::Bool = X[5] <= 0
+condition(X::Vector{Float64}, t::Float64, integrator) = X[5]-0.01
 
 """
     affect!(integrator)
@@ -208,8 +217,10 @@ Callback effect for termination.
 # Arguments
 - `integrator`: DifferentialEquations integrator
 """
-affect!(integrator) = terminate!(integrator)
-
+function affect!(integrator)
+    terminate!(integrator)
+    integrator.u[5]=0.01
+end 
 """
     generate_dataset(
         n_samples::Int;
@@ -244,8 +255,8 @@ function generate_dataset(;
 
     Random.seed!(1234)
 
-    ω_cs = rand([2, 3, 4, 5, 6], n_samples)
-    ω_rs = rand([2, 3, 4, 5, 6], n_samples)
+    ω_cs = rand([ 4, 5, 6, 7], n_samples)
+    ω_rs = rand([ 4, 5, 6, 7], n_samples)
 
     @info "Generating inputs"
     U = [generate_inputs(ω_cs[i], ω_rs[i], tspan, sample_rate) for i in 1:n_samples]
@@ -266,9 +277,15 @@ function generate_dataset(;
 
     @info "Generating observations"
     Y, T = generate_observations(ensemble_sol, sample_rate)
+
+    # One-hot encode health status
+    Y₁=[Array(onehotbatch(y[1,:], Array(0:5))) for y in Y]
+    # Extract cancer cell count
+    Y₂=[reshape(y[2,:], 1,:) for y in Y]
+
     @info "Done"
     # Return dataset but in Float32 
-    return Array{Float32}.(U), Array{Float32}.(X), Array{Int}.(Y), Array{Float32}.(T)
+    return Array{Float32}.(U), Array{Float32}.(X), Array{Int}.(Y₁), Array{Int}.(Y₂), Array{Float32}.(T)
 end
 
 

@@ -16,7 +16,7 @@ export LatentSDE, predict, generate, filter, smooth
 include("core/encoders.jl")
 export Encoder, Identity_Encoder, Recurrent_Encoder
 include("core/decoders.jl")
-export Decoder, Identity_Decoder, Linear_Decoder, MLP_Decoder, MultiDecoder, MultiDecoder_linear, BranchDecoder, BranchDecoder_linear
+export Decoder, Identity_Decoder, Linear_Decoder, MLP_Decoder, MultiDecoder, MultiDecoder_linear, BranchDecoder, BranchDecoder_linear, MultiOutputDecoder
 include("core/vectorfields.jl")
 export MLP, SparseMLP, HopfOscillators, Linear, LimitCycleOscillators, StuartLandauOscillators
 
@@ -36,7 +36,8 @@ const TYPE_MAP = Dict(
     "HopfOscillators" => HopfOscillators,
     "StuartLandauOscillators" => StuartLandauOscillators,
     "LimitCycleOscillators" => LimitCycleOscillators,
-    "Linear" => Linear
+    "Linear" => Linear,
+    "MultiOutputDecoder" => MultiOutputDecoder
 )
 
 
@@ -51,7 +52,7 @@ const SOLVER_MAP = Dict(
 include("utils/misc.jl")
 export sample_rp, interpolate!, basic_tgrad, dropmean, dropsd, pad_matrices
 include("utils/losses.jl")
-export kl_normal, poisson_loglikelihood, normal_loglikelihood, mse, frange_cycle_linear, bits_per_spike
+export kl_normal, poisson_loglikelihood, normal_loglikelihood, mse, frange_cycle_linear, bits_per_spike, CrossEntropy_Loss
 include("utils/config.jl")
 export create_object, create_latentsde
 include("trainer.jl")
