@@ -84,8 +84,6 @@ dropsd(A; dims=:) = dropdims(std(A; dims=dims); dims=dims)
 
 basic_tgrad(u, p, t) = zero(u)
 
-
-
 function pad_matrices(Y, T; return_timepoints = true, pad_method = :zero)
     T_max = maximum(size(y, 2) for y in Y)
     

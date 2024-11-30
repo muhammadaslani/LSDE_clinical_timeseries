@@ -174,3 +174,24 @@ function frange_cycle_linear(n_iter, start::T=0.0f0, stop::T=1.0f0,  n_cycle=4, 
     end
     return T.(L)
 end
+
+
+"""
+    CrossEntropy_loss(y, ŷ, mask; agg=mean, logits=true, label_smoothing=0.2)
+
+Compute the cross-entropy loss between ground truth labels `y` and predicted labels `ŷ`, applying a mask.
+
+# Arguments
+- `y`: Ground truth labels.
+- `ŷ`: Predicted labels.
+- `mask`: Boolean mask specifying which elements to include in the calculation.
+- `agg`: Aggregation function (default: `mean`).
+- `logits`: Indicates if `ŷ` contains logits (normalized) (default: `true`).
+- `label_smoothing`: Label smoothing factor (default: `0.2`).
+
+# Returns
+- The computed cross-entropy loss.
+
+"""
+CrossEntropy_Loss( ŷ, y, mask; agg=mean, logits=true, label_smoothing=0.2, epsilon=1e-10) =
+    CrossEntropyLoss(; agg=agg, logits=logits, label_smoothing=label_smoothing, epsilon=epsilon)(mask .* ŷ, mask .* y)
