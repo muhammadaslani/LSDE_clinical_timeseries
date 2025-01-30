@@ -6,7 +6,6 @@ include("pkpd_standalone.jl")
 set_theme!(atom_one_dark_theme)
 function generate_dataloader(;n_samples=512, batchsize=64, split=0.8)
     U, X, Y₁,Y₂, T = generate_dataset(;n_samples=n_samples);
-    @show size(Y₁[2]), size(T[2])
     Y₁_padded, Masks₁, timepoints = pad_matrices(Y₁, T);
     Y₂_padded, Masks₂, timepoints = pad_matrices(Y₂, T);
     timepoints = timepoints/(7.f0)/52.0f0

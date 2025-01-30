@@ -37,17 +37,17 @@ Base.@kwdef struct ModelParameters
 end
 
 """
-    health_to_score(S::Float64, λ::Float64=3.0)::Int
+    health_to_score(S::Float64)::Int
 
-Convert health value to a discrete score.
+Convert health value to a discrete score between 0 (best) and 5 (worst).
 
 # Arguments
-- `S::Float64`: Health value
-- `λ::Float64=3.0`: Scaling factor
+- `S::Float64`: Health value in [0.0, 1.0]
 
 # Returns
-- `Int`: Discrete score between 1 and 5
+- `Int`: Discrete score between 0 and 5
 """
+
 function health_to_score(S::Float64)::Int
     S=clamp(S,0.0,1.0)
     if S<=0.01
@@ -255,8 +255,8 @@ function generate_dataset(;
 
     Random.seed!(1234)
 
-    ω_cs = rand([ 4, 5, 6, 7], n_samples)
-    ω_rs = rand([ 4, 5, 6, 7], n_samples)
+    ω_cs = rand([1, 2, 3, 4, 5, 6, 7], n_samples)
+    ω_rs = rand([1, 2, 3, 4, 5, 6, 7], n_samples)
 
     @info "Generating inputs"
     U = [generate_inputs(ω_cs[i], ω_rs[i], tspan, sample_rate) for i in 1:n_samples]

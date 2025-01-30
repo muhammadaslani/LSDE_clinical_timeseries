@@ -1,6 +1,6 @@
 module Rhythm
 
-using Lux, LinearAlgebra, SciMLSensitivity, Zygote, Distributions, Interpolations, SpecialFunctions, DifferentialEquations, Random, CairoMakie, CUDA, JLD2, FileIO, Printf, WandbMacros,
+using  Lux, LinearAlgebra, SciMLSensitivity, Zygote, Distributions, Interpolations, SpecialFunctions, DifferentialEquations, Random, CairoMakie, CUDA, JLD2, FileIO, Printf, 
 OptimizationOptimisers, Optimisers, Printf, Colors, ComponentArrays
 import ChainRulesCore as CRC
 using Parameters: @unpack, @with_kw
