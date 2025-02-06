@@ -26,6 +26,7 @@ function create_latentsde(config::Dict, dims::Dict, rng::AbstractRNG)
     latent_dim = config["latent_dim"]::Int
     context_dim = config["context_dim"]::Int
     input_dim = dims["input_dim"]::Int
+    obs_dim= dims["obs_dim"]::Int
     output_dim = dims["output_dim"]::Union{Int, Vector{Int}}
     
     if output_dim isa Int
@@ -34,7 +35,7 @@ function create_latentsde(config::Dict, dims::Dict, rng::AbstractRNG)
         #state_map = Parallel(nothing, [NoOpLayer() for _ in output_dim]...)
         state_map = NoOpLayer()
     end
-    obs_encoder = create_object(config["obs_encoder"], sum(output_dim), latent_dim, context_dim)
+    obs_encoder = create_object(config["obs_encoder"], sum(obs_dim), latent_dim, context_dim)
     drift = create_object(config["SDE"]["drift"], [latent_dim, input_dim], latent_dim)
     drift_aug = create_object(config["SDE"]["drift_aug"], [latent_dim, context_dim, input_dim], latent_dim)
     diffusion = create_object(config["SDE"]["diffusion"], latent_dim, latent_dim)
