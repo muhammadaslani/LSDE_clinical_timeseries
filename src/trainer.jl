@@ -8,7 +8,7 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
 
     n_batches = length(train_loader)
     θ_best = nothing
-    best_val_metric = -Inf
+    best_val_metric = Inf
     counter = 0
     @info "Training started"
     for epoch in 1:config["epochs"]
@@ -29,14 +29,14 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
             ttime = time() - stime
             @printf("Epoch %d/%d: \t Training loss: %.3f \t Kl_term:%.3f  \t Time/epoch: %.3f\n", 
                     epoch, config["epochs"], train_loss/n_batches, kl_term/n_batches, ttime/config["log_freq"])
-                    val_metric = validate(model, θ, st, ts, train_loader, eval_fn, config["validation"])
+                    val_metric = validate(model, θ, st, ts, val_loader, eval_fn, config["validation"])
             @printf("Validation metric: %.3f\n", val_metric)
 
             if epoch % config["viz_freq"] == 0
-                viz_fn(model, θ, st, ts, first(train_loader), config["validation"]; sample_n=1)
+                #viz_fn(model, θ, st, ts, first(train_loader), config["validation"]; sample_n=1)
             end
 
-            if val_metric > best_val_metric
+            if val_metric < best_val_metric
                 @info "Saving best model!"
                 best_val_metric = val_metric
                 θ_best = copy(θ)
@@ -56,11 +56,10 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
                 counter += 1
             end 
 
-        end
-    # end  
-    # return θ_best
+        end 
+    
     end
-    return θ
+    return θ_best
 end
 
 

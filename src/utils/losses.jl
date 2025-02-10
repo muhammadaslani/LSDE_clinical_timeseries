@@ -90,9 +90,10 @@ returns:
     - The log-likelihood.
 
 """
-function normal_loglikelihood(μ, σ², y)
+function normal_loglikelihood(μ, log_σ², y)
+    σ² = exp.(log_σ²)
     ll = -0.5f0 * sum(log.(2π * σ²) + ((y - μ).^2 ./ σ²))
-    return ll
+    return -ll
 end
 
 

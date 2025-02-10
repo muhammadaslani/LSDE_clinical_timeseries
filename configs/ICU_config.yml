@@ -1,51 +1,51 @@
 model:
   type: "LatentSDE"
   latent_dim: &latentdim 32
-  context_dim: 32
+  context_dim: 64
 
   obs_encoder:
     type: "Recurrent_Encoder"
-    hidden_size: 32
+    hidden_size: 64
 
   SDE:
     drift:
       type: "MLP"
-      hidden_size: 32
-      depth: 1
+      hidden_size: 64
+      depth: 0
       activation: swish
     drift_aug:
       type: "MLP"
-      hidden_size: 32
-      depth: 1
+      hidden_size: 64
+      depth: 0
       activation: swish
     diffusion:
       type: "SparseMLP"
       activation: sigmoid
     solver: EM()
     kwargs:
-        dt: 0.01
+        dt: 0.001
 
   obs_decoder:
     type: "MLP_Decoder"
-    hidden_size: 32
-    depth: 1
-    dist: "None"
+    hidden_size: 64
+    depth: 0
+    dist: "Gaussian"
 
 
 training:
   learning_rate: 0.005
   optimizer: AdamW(0.005)
-  epochs: 500
-  log_freq: 50
-  viz_freq: 50
-  stop_patience: 5
-  lrdecay_patience: 5
+  epochs: 200
+  log_freq: 10
+  viz_freq: 100
+  stop_patience: 10
+  lrdecay_patience: 10
   validation:
       latent_dim: *latentdim  
       solver: EM()
       mcmc_samples: 10
       kwargs:
-          dt: 0.01
+          dt: 0.001
 
 experiment:
   name: "LatentSDE_ICU_V0"
