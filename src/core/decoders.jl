@@ -171,22 +171,3 @@ function BranchDecoder_linear(latent_dim, obs_dims; dists)
     decoders = [Linear_Decoder(latent_dim, obs_dims[i], dists[i]) for i in 1:length(obs_dims)]
     return Decoder(Parallel(nothing, decoders...))
 end
-
-
-"""
-Constructs a decoder that produces multiple outputs from a single latent space.
-
-# Arguments
-- `latent_dim`: Dimension of the latent space.
-- `output_dims`: Dimensions of each output.
-- `hidden_size`: Size of the hidden layers.
-- `depth`: Number of hidden layers.
-- `dist`: Type of distribution for the outputs (e.g., Gaussian, Poisson, None).
-
-# Returns
-- The constructed decoder.
-"""
-function MultiOutputDecoder(latent_dim, output_dims; hidden_size, depth, dist)
-    decoder=BranchLayer([MLP_Decoder(latent_dim, output_dims[i]; hidden_size=hidden_size, depth=depth, dist=dist[i]) for i in 1:length(output_dims)]...)
-    return Decoder(decoder)
-end

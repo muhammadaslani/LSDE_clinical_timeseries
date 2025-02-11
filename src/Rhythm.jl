@@ -37,7 +37,6 @@ const TYPE_MAP = Dict(
     "StuartLandauOscillators" => StuartLandauOscillators,
     "LimitCycleOscillators" => LimitCycleOscillators,
     "Linear" => Linear,
-    "MultiOutputDecoder" => MultiOutputDecoder
 )
 
 

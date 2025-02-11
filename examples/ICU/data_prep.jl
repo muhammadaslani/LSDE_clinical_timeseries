@@ -9,20 +9,16 @@ function load_data(; n_samples=512, sampling_rate=1, batch_size=32)
         "Creatinine", "HCO3"]
         
         
-    variables_of_interest=["MAP", "HR", "SysABP", "DiasABP", "RespRate", "Temp", "SPO2"]
+    variables_of_interest=["MAP", "HR", "SysABP", "DiasABP", "RespRate", "Temp", "SaO2"]
     win_size=1
-    obs_data, _ = create_tensor(time_series_data, variables_of_interest)
+    obs_data, masks = create_tensor(time_series_data, variables_of_interest)
     inputs_data, _ = create_tensor(time_series_data, ["MechVent"])
     #outcomes_data, outcomes_masks = load_outcomes(outcomes_file)
-    outcomes_data, outcomes_masks = create_tensor(time_series_data, ["HR"])
     obs_data = smooth_data(obs_data[:, 1:sampling_rate:end, 1:n_samples], window_size=win_size) |> Array{Float32}
     #obs_data=z_normalize(obs_data[:, 1:sampling_rate:end, 1:n_samples]) |> Array{Float32}
     inputs_data = inputs_data[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
-    outcomes_data =smooth_data(outcomes_data[:,1:sampling_rate:end, 1:n_samples], window_size=win_size) |> Array{Float32}
-    #outcomes_data =z_normalize( outcomes_data[:, 1:sampling_rate:end, 1:n_samples]) |> Array{Float32}
-    outcomes_masks = outcomes_masks[:, 1:sampling_rate:end,1:n_samples] |> Array{Bool}
-
-    data = (inputs_data, obs_data, outcomes_data, outcomes_masks)
+    masks= masks[:, 1:sampling_rate:end,1:n_samples] |> Array{Bool}
+    data = (inputs_data, obs_data, masks)
     train_data, val_data = splitobs(data, at=0.5)
     train_loader = DataLoader(train_data, batchsize=batch_size, shuffle=true)
     val_loader = DataLoader(val_data, batchsize=batch_size, shuffle=true)
