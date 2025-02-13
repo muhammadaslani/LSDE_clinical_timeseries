@@ -1,5 +1,5 @@
 function load_data(; n_samples=512, sampling_rate=1, batch_size=32)
-    time_series_data = load_multiple_files("/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/time_series")
+    time_series_dataset = load_multiple_files("/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/time_series")
     outcomes_file = "/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/Outcomes-a.txt"
 
   
@@ -7,23 +7,24 @@ function load_data(; n_samples=512, sampling_rate=1, batch_size=32)
         "Temp", "AST", "Bilirubin", "BUN", "RespRate", "Mg", "HCT", "SysABP", "FiO2", "K", "GCS",
         "Cholesterol", "NISysABP", "TroponinT", "MAP", "TroponinI", "PaCO2", "Platelets", "Urine", "NIMAP",
         "Creatinine", "HCO3"]
-        
-        
+    
+    static_features_df,static_features_matrix =extract_static_features("/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/time_series")
+    
+    
     variables_of_interest=["MAP", "HR", "SysABP", "DiasABP", "RespRate", "Temp", "SaO2"]
-    win_size=1
-    obs_data, masks = create_tensor(time_series_data, variables_of_interest)
+    timeseries, masks = create_tensor(time_series_data, variables_of_interest)
     inputs_data, _ = create_tensor(time_series_data, ["MechVent"])
-    #outcomes_data, outcomes_masks = load_outcomes(outcomes_file)
-    obs_data = smooth_data(obs_data[:, 1:sampling_rate:end, 1:n_samples], window_size=win_size) |> Array{Float32}
-    #obs_data=z_normalize(obs_data[:, 1:sampling_rate:end, 1:n_samples]) |> Array{Float32}
+    obs_data=join_static_and_timeseries(static_features_matrix, timeseries)
     inputs_data = inputs_data[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
+    obs_data = obs_data[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
+    timeseries = timeseries[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
     masks= masks[:, 1:sampling_rate:end,1:n_samples] |> Array{Bool}
-    data = (inputs_data, obs_data, masks)
-    train_data, val_data = splitobs(data, at=0.5)
+    data = (inputs_data, obs_data, timeseries, masks)
+    train_data, test_data, val_data = splitobs(data, at=(0.5, 0.3))
     train_loader = DataLoader(train_data, batchsize=batch_size, shuffle=true)
     val_loader = DataLoader(val_data, batchsize=batch_size, shuffle=true)
-
-    return  data, train_loader, val_loader, time_series_data
+    test_loader=DataLoader(test_data, batchsize=batch_size, shuffle=true)
+    return  data, train_loader, test_loader,val_loader, time_series_dataset
 end
 
 function load_outcomes(filepath::String;)
@@ -137,6 +138,86 @@ function create_tensor(data_dict::Dict{String,DataFrame}, features::Vector{Strin
 end
 
 
+function extract_static_features(folder_path)
+    if !isdir(folder_path)
+        error("The specified folder does not exist: $folder_path")
+    end
+    
+    files = Base.filter(f -> endswith(f, ".txt"), readdir(folder_path, join=true))
+    
+    if isempty(files)
+        error("No .txt files found in the specified folder")
+    end
+        n_files = length(files)
+    feature_matrix = Matrix{Union{Float64, Missing}}(undef, n_files, 5)
+    
+    for (i, filepath) in enumerate(files)
+        try
+            df = CSV.read(filepath, DataFrame, header=[:Time, :Parameter, :Value])
+            
+            # Extract initial parameters (they appear at Time="00:00")
+            initial_records = df[df.Time .== "00:00", :]
+                for (j, feature) in enumerate(["Weight", "Age", "Gender", "ICUType", "Height"])
+                feature_row = initial_records[initial_records.Parameter .== feature, :]
+                
+                if size(feature_row, 1) > 0
+                    # Try to convert value to float
+                    try
+                        if typeof(feature_row.Value[1]) <: AbstractString
+                            feature_matrix[i, j] = parse(Float64, strip(feature_row.Value[1]))
+                        else
+                            feature_matrix[i, j] = Float64(feature_row.Value[1])
+                        end
+                    catch
+                        feature_matrix[i, j] = missing
+                    end
+                else
+                    feature_matrix[i, j] = missing
+                end
+            end
+            
+        catch e
+            @warn "Error processing file: $filepath"
+            println("Error: ", e)
+            feature_matrix[i, :] .= missing
+        end
+    end
+    
+    # Create DataFrame with file names and features (now including height)
+    features_df = DataFrame(
+        file_name = basename.(files),
+        weight = feature_matrix[:, 1],
+        age = feature_matrix[:, 2],
+        gender = feature_matrix[:, 3],
+        icu_type = feature_matrix[:, 4],
+        height = feature_matrix[:, 5]
+    )
+    return features_df, feature_matrix
+end
+
+
+
+
+function join_static_and_timeseries(static_matrix, timeseries_matrix)
+    n_static_features = size(static_matrix, 2)
+    n_timeseries_features, n_timepoints, n_samples = size(timeseries_matrix)
+    
+    combined_matrix = Array{Union{Float64, Missing}}(undef, 
+                                                    n_static_features + n_timeseries_features,
+                                                    n_timepoints,
+                                                    n_samples)
+    
+    for sample in 1:n_samples
+        for feature in 1:n_static_features
+            combined_matrix[feature, :, sample] .= static_matrix[sample, feature]
+        end
+    end
+    
+    combined_matrix[n_static_features+1:end, :, :] = timeseries_matrix
+    
+    return combined_matrix
+end
+
 
 
 """
@@ -168,6 +249,22 @@ function smooth_data(input_tensor; window_size=5)
 end
 
 
+"""
+    z_normalize(X::AbstractArray{<:Real})
+
+Z-normalizes the input array `X` along the last dimension.
+
+For each element `x` in `X`, the z-normalized value `z` is computed as:
+`z = (x - μ) / σ`, where `μ` is the mean and `σ` is the standard deviation
+of the elements along the last dimension of `X`.
+
+# Arguments
+- `X::AbstractArray{<:Real}`: Input array of real numbers.
+
+# Returns
+- `AbstractArray{Float64}`: Z-normalized array with the same dimensions as `X`.
+
+"""
 
 function z_normalize(input_tensor)
     normalized_tensor = similar(input_tensor)

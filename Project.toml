@@ -6,6 +6,7 @@ version = "1.0.0-DEV"
 [deps]
 AIHelpMe = "01402e1f-dc83-4213-a98b-42887d758baa"
 Attractors = "f3fd9213-ca85-4dba-9dfd-7fc91308fec7"
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
