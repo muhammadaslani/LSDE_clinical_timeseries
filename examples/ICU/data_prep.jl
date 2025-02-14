@@ -11,10 +11,11 @@ function load_data(; n_samples=512, sampling_rate=1, batch_size=32)
     static_features_df,static_features_matrix =extract_static_features("/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/time_series")
     
     
-    variables_of_interest=["MAP", "HR", "SysABP", "DiasABP", "RespRate", "Temp", "SaO2"]
-    timeseries, masks = create_tensor(time_series_data, variables_of_interest)
-    inputs_data, _ = create_tensor(time_series_data, ["MechVent"])
+    variables_of_interest=["MAP", "HR", "RespRate", "Temp", "SaO2"]
+    timeseries, masks = create_tensor(time_series_dataset, variables_of_interest)
+    inputs_data, _ = create_tensor(time_series_dataset, ["MechVent"])
     obs_data=join_static_and_timeseries(static_features_matrix, timeseries)
+
     inputs_data = inputs_data[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
     obs_data = obs_data[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
     timeseries = timeseries[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
@@ -68,10 +69,17 @@ function load_physionet_file(filepath::String; combine_method::Function=mean)
         return h
     end
 
+    # # Aggregate data based on the hour of the day
     df_long.Hour = time_to_hour.(df_long.Time)
     df_agg = combine(groupby(df_long, [:Hour, :Parameter]), :Value => combine_method =>  :Value)
     df_wide = DataFrames.unstack(df_agg, :Hour, :Parameter, :Value)
     sort!(df_wide, :Hour)
+    # Aggregate data based on the original time points, ignoring hours
+    # df_agg = combine(groupby(df_long, [:Time, :Parameter]), :Value => combine_method => :Value)
+    # df_wide = DataFrames.unstack(df_agg, :Time, :Parameter, :Value)
+
+    # sort!(df_wide, :Time)
+
 
     return df_wide
 end

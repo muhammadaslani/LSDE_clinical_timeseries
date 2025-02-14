@@ -85,8 +85,8 @@ function viz_fn_sys_id(model, θ, st, ts, data, config; sample_n=1, var_of_intrs
     band!(ax1, ts_val, ŷ_ci_lower, ŷ_ci_upper, color=(:red, 0.3), label="95% CI")    
     axislegend(ax1, position=:rt, backgroundcolor=:transparent)
     display(fig)
-    println("MSE for batch:",MSELoss()(  ŷ_val_mean, y_val))
-    println("MSE for sample number $sample_n: ", MSELoss()(ŷ_val_mean[:, sample_n], y_val[:, sample_n]))
+    println("MSE for batch:",MSELoss()(ŷ_val_mean, y_val)/size(y_val)[end]/n_timepoints)
+    println("MSE for sample number $sample_n: ", MSELoss()(ŷ_val_mean[:, sample_n], y_val[:, sample_n])/n_timepoints)
     return fig
 end 
 
@@ -144,8 +144,8 @@ function viz_fn_predictions(history, predictions,ground_truth, ts_o, ts_p; sampl
     band!(ax1, ts_p_val, ŷ_ci_lower, ŷ_ci_upper, color=(:red, 0.3), label="95% CI")
     axislegend(ax1, position=:rt, backgroundcolor=:transparent)
     display(fig)
-    println("MSE for batch:",MSELoss()(  ŷ_val_mean, y_p_val))
-    println("MSE for sample number $sample_n: ", MSELoss()(ŷ_val_mean[:, sample_n], y_p_val[:, sample_n]))
+    println("MSE for batch:",MSELoss()(  ŷ_val_mean, y_p_val)/size(y_p_val)[end]/n_timepoints)
+    println("MSE for sample number $sample_n: ", MSELoss()(ŷ_val_mean[:, sample_n], y_p_val[:, sample_n])/n_timepoints)
     return fig
 end 
 
@@ -156,9 +156,9 @@ model, θ, st = create_latentsde(config["model"], dims, rng);
 ##training the model
 θ_trained = train(model, θ_trained, st, timepoints, loss_fn, eval_fn, viz_fn_sys_id, train_loader, test_loader, config["training"], exp_path);
 
-viz_fn_sys_id(model, θ_trained, st, timepoints, first(test_loader), config["training"]["validation"]; sample_n=1, var_of_intrst=2);
+viz_fn_sys_id(model, θ_trained, st, timepoints, first(test_loader), config["training"]["validation"]; sample_n=1, var_of_intrst=3);
 ##predicting future
-spl=30;
+spl=36;
 ind_observed=1:spl; ind_predict=spl:length(timepoints);
 u,x,y,masks=first(test_loader);
 history = (u[:,ind_observed,:],x[:,ind_observed,:],  y[:, ind_observed,:], masks[:, ind_observed,:]);
@@ -167,4 +167,4 @@ ts_observed=timepoints[ind_observed];
 ts_predict=timepoints[ind_predict];
 
 Ex, Ey_p = predict_future(model, θ_trained, st, history, u, ts_predict, config["training"]["validation"]);
-viz_fn_predictions(history, Ey_p, ground_truth,ts_observed, ts_predict, sample_n=1, var_of_intrst=6);
+viz_fn_predictions(history, Ey_p, ground_truth,ts_observed, ts_predict, sample_n=13, var_of_intrst=7);

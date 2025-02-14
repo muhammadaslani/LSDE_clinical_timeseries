@@ -28,15 +28,15 @@ model:
   obs_decoder:
     type: "BranchDecoder"
     hidden_size: 32
-    depth: 1
+    depth: 0
     dists: ["Gaussian", "Gaussian", "Gaussian", "Gaussian","Gaussian","Gaussian","Gaussian" ]
 
 
 training:
   learning_rate: 0.005
   optimizer: AdamW(0.005)
-  epochs: 500
-  log_freq: 50
+  epochs: 200
+  log_freq: 20
   viz_freq: 100
   stop_patience: 10
   lrdecay_patience: 10
