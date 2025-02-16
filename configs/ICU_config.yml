@@ -39,7 +39,7 @@ training:
   log_freq: 20
   viz_freq: 100
   stop_patience: 10
-  lrdecay_patience: 10
+  lrdecay_patience: 5
   validation:
       latent_dim: *latentdim  
       solver: EM()
@@ -48,6 +48,6 @@ training:
           dt: 0.01
 
 experiment:
-  name: "LatentSDE_ICU_V0"
+  name: "LatentSDE_ICU_Sys_ID_V0"
   description: "First experiment with a Latent SDE model using Rhythm on the ICU dataset"
   path: "experiments/" 

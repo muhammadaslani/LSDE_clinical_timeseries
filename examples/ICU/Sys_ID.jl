@@ -2,11 +2,11 @@
 using Revise, Rhythm, Lux, DifferentialEquations, Random, SciMLSensitivity, ComponentArrays, Optimisers, OptimizationOptimisers, Statistics
 using MLUtils, Printf, SciMLSensitivity, OneHotArrays, CairoMakie, Distributions
 using YAML
-using DataFrames, CSV
+using DataFrames, CSV, JLD2
 include("data_prep.jl");
 
 ##loading data
-data, train_loader ,test_loader, val_loader, time_series_dataset= load_data(;n_samples=128, batch_size=32);
+data, train_loader , val_loader, test_loader, time_series_dataset= load_data(;n_samples=4000, batch_size=128);
 inputs_data, obs_data, timeseries_data, masks=data;
 
 n_timepoints = size(obs_data)[2]
@@ -54,7 +54,7 @@ function viz_fn_sys_id(model, θ, st, ts, data, config; sample_n=1, var_of_intrs
     μ, σ = Ey[var_of_intrst][1], exp.(Ey[var_of_intrst][2])
     valid_indx=findall(masks[var_of_intrst,:,sample_n].==1)
     if isempty(valid_indx)
-        error("No observations available for this sample of this variable (history): valid_indx_o is empty.")
+        error("No observations available for this sample of this variable (history): valid_indx_h is empty.")
     end
 
     # Extract valid time points and observations
@@ -92,33 +92,33 @@ end
 
 
 ## prediction
-function predict_future(model, θ, st, history, u, t_p, config)
-    u_o, x_o, y_o, masks_o = history
+function predict_future(model, θ, st, history, u, t_f, config)
+    u_h, x_h, y_h, masks_h = history
     solver = eval(Meta.parse(config["solver"]))
     kwargs_dict = Dict(Symbol(k) => v for (k, v) in config["kwargs"])
-    Ex, Ey_p = predict(model, solver, reverse(x_o, dims=2), u, t_p, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
+    Ex, Ey_p = predict(model, solver, reverse(x_h, dims=2), u, t_f, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
     return Ex, Ey_p
 end
 
-function viz_fn_predictions(history, predictions,ground_truth, ts_o, ts_p; sample_n=1, var_of_intrst=1)
-    u_o,x_o, y_o, masks_o = history
-    y_p, masks_p=ground_truth
+function viz_fn_predictions(history, predictions, ground_truth, ts_h, ts_f; sample_n=1, var_of_intrst=1)
+    u_h,x_h, y_h, masks_h = history
+    y_f, masks_f=ground_truth
 
     μ,σ = predictions[var_of_intrst][1], exp.(predictions[var_of_intrst][2])
-    valid_indx_o=findall(masks_o[var_of_intrst,:,sample_n].==1)
-    valid_indx_p=findall(masks_p[var_of_intrst,:,sample_n].==1)
-    if isempty(valid_indx_o)
+    valid_indx_h=findall(masks_h[var_of_intrst,:,sample_n].==1)
+    valid_indx_f=findall(masks_f[var_of_intrst,:,sample_n].==1)
+    if isempty(valid_indx_h)
         error("No observations available for this sample of this variable (history): valid_indx_o is empty.")
     end
-    if isempty(valid_indx_p)
+    if isempty(valid_indx_f)
         error("No observations available for this sample of this variable (future): valid_indx_p is empty.")
     end
-    ts_o_val = ts_o[valid_indx_o] .* n_timepoints
-    ts_p_val = ts_p[valid_indx_p] .* n_timepoints
-    y_o_val=y_o[var_of_intrst, valid_indx_o,:]
-    y_p_val=y_p[var_of_intrst, valid_indx_p,:]
-    μ_val=μ[1, valid_indx_p,:, :]
-    σ_val=σ[1, valid_indx_p,:, :]
+    ts_h_val = ts_h[valid_indx_h] .* n_timepoints
+    ts_f_val = ts_f[valid_indx_f] .* n_timepoints
+    y_h_val=y_h[var_of_intrst, valid_indx_h,:]
+    y_f_val=y_f[var_of_intrst, valid_indx_f,:]
+    μ_val=μ[1, valid_indx_f,:, :]
+    σ_val=σ[1, valid_indx_f,:, :]
 
     dists=Normal.(μ_val, sqrt.(σ_val))
     ŷ_val=zeros(Float32, size(μ_val))
@@ -132,20 +132,19 @@ function viz_fn_predictions(history, predictions,ground_truth, ts_o, ts_p; sampl
     ŷ_ci_upper=ŷ_val_mean[:,sample_n].+1.96 * ŷ_val_std_error[:,sample_n]
 
 
-
     fig = Figure(size=(900, 600))
     ax1 = CairoMakie.Axis(fig[1, 1], xlabel="Time (hours)", ylabel="Variable of Interest")
-    scatter!(ax1, ts_o_val, y_o_val[:,sample_n], color=:blue, label="Observed", markersize=15)
-    lines!(ax1, ts_o_val, y_o_val[ :,sample_n], color=:blue)
-    scatter!(ax1, ts_p_val, y_p_val[ :,sample_n], color=:green, label="Ground Truth", markersize=15)
-    lines!(ax1, ts_p_val, y_p_val[:,sample_n], color=:green)
-    scatter!(ax1, ts_p_val, ŷ_val_mean[ :,sample_n], color=:red, label="Predicted", markersize=15)
-    lines!(ax1, ts_p_val, ŷ_val_mean[:,sample_n], color=:red, linestyle=:dash)
-    band!(ax1, ts_p_val, ŷ_ci_lower, ŷ_ci_upper, color=(:red, 0.3), label="95% CI")
+    scatter!(ax1, ts_h_val, y_h_val[:,sample_n], color=:blue, label="Observed", markersize=15)
+    lines!(ax1, ts_h_val, y_h_val[ :,sample_n], color=:blue)
+    scatter!(ax1, ts_f_val, y_f_val[ :,sample_n], color=:green, label="Ground Truth", markersize=15)
+    lines!(ax1, ts_f_val, y_f_val[:,sample_n], color=:green)
+    scatter!(ax1, ts_f_val, ŷ_val_mean[ :,sample_n], color=:red, label="Predicted", markersize=15)
+    lines!(ax1, ts_f_val, ŷ_val_mean[:,sample_n], color=:red, linestyle=:dash)
+    band!(ax1, ts_f_val, ŷ_ci_lower, ŷ_ci_upper, color=(:red, 0.3), label="95% CI")
     axislegend(ax1, position=:rt, backgroundcolor=:transparent)
     display(fig)
-    println("MSE for batch:",MSELoss()(  ŷ_val_mean, y_p_val)/size(y_p_val)[end]/n_timepoints)
-    println("MSE for sample number $sample_n: ", MSELoss()(ŷ_val_mean[:, sample_n], y_p_val[:, sample_n])/n_timepoints)
+    println("MSE for batch:",MSELoss()(  ŷ_val_mean, y_f_val)/size(y_f_val)[end]/n_timepoints)
+    println("MSE for sample number $sample_n: ", MSELoss()(ŷ_val_mean[:, sample_n], y_f_val[:, sample_n])/n_timepoints)
     return fig
 end 
 
@@ -156,15 +155,17 @@ model, θ, st = create_latentsde(config["model"], dims, rng);
 ##training the model
 θ_trained = train(model, θ_trained, st, timepoints, loss_fn, eval_fn, viz_fn_sys_id, train_loader, test_loader, config["training"], exp_path);
 
-viz_fn_sys_id(model, θ_trained, st, timepoints, first(test_loader), config["training"]["validation"]; sample_n=1, var_of_intrst=3);
-##predicting future
+##visualizing the identified model
+viz_fn_sys_id(model, θ_trained, st, timepoints, first(test_loader), config["training"]["validation"]; sample_n=1, var_of_intrst=2);
+
+##using identified model to predict future
 spl=36;
-ind_observed=1:spl; ind_predict=spl:length(timepoints);
+ind_observed=1:spl; ind_predict=spl+1:length(timepoints);
 u,x,y,masks=first(test_loader);
 history = (u[:,ind_observed,:],x[:,ind_observed,:],  y[:, ind_observed,:], masks[:, ind_observed,:]);
 ground_truth=(y[:, ind_predict,:], masks[:, ind_predict,:]);
-ts_observed=timepoints[ind_observed];
-ts_predict=timepoints[ind_predict];
+ts_hist=timepoints[ind_observed];
+ts_fut=timepoints[ind_predict];
 
-Ex, Ey_p = predict_future(model, θ_trained, st, history, u, ts_predict, config["training"]["validation"]);
-viz_fn_predictions(history, Ey_p, ground_truth,ts_observed, ts_predict, sample_n=13, var_of_intrst=7);
+Ex, Ey_p = predict_future(model, θ_trained, st, history, u, ts_fut, config["training"]["validation"]);
+viz_fn_predictions(history, Ey_p, ground_truth,ts_hist, ts_fut, sample_n=1, var_of_intrst=2);

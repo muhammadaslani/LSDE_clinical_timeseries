@@ -9,7 +9,36 @@ function load_data(; n_samples=512, sampling_rate=1, batch_size=32)
         "Creatinine", "HCO3"]
     
     static_features_df,static_features_matrix =extract_static_features("/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/time_series")
+        
+    variables_of_interest=["MAP", "HR", "RespRate", "Temp", "SaO2"]
+    timeseries, masks = create_tensor(time_series_dataset, variables_of_interest)
+    inputs_data, _ = create_tensor(time_series_dataset, ["MechVent"])
+    obs_data=join_static_and_timeseries(static_features_matrix, timeseries)
+
+    inputs_data = inputs_data[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
+    obs_data = obs_data[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
+    timeseries = timeseries[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
+    masks= masks[:, 1:sampling_rate:end,1:n_samples] |> Array{Bool}
+
+    data = (inputs_data, obs_data, timeseries, masks)
+    train_data, test_data, val_data = splitobs(data, at=(0.5, 0.3))
+    train_loader = DataLoader(train_data, batchsize=batch_size, shuffle=true)
+    val_loader = DataLoader(val_data, batchsize=batch_size, shuffle=true)
+    test_loader=DataLoader(test_data, batchsize=batch_size, shuffle=false)
+    return  data, train_loader,val_loader, test_loader, time_series_dataset
+end
+
+function load_data(spl; n_samples=512, sampling_rate=1, batch_size=32)
+    time_series_dataset = load_multiple_files("/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/time_series")
+    outcomes_file = "/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/Outcomes-a.txt"
+
+  
+    time_series_variables = ["ALP", "HR", "DiasABP", "Na", "Lactate", "NIDiasABP", "PaO2", "WBC", "pH", "Albumin", "ALT", "Glucose", "SaO2",
+        "Temp", "AST", "Bilirubin", "BUN", "RespRate", "Mg", "HCT", "SysABP", "FiO2", "K", "GCS",
+        "Cholesterol", "NISysABP", "TroponinT", "MAP", "TroponinI", "PaCO2", "Platelets", "Urine", "NIMAP",
+        "Creatinine", "HCO3"]
     
+    static_features_df,static_features_matrix =extract_static_features("/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/time_series")
     
     variables_of_interest=["MAP", "HR", "RespRate", "Temp", "SaO2"]
     timeseries, masks = create_tensor(time_series_dataset, variables_of_interest)
@@ -20,13 +49,22 @@ function load_data(; n_samples=512, sampling_rate=1, batch_size=32)
     obs_data = obs_data[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
     timeseries = timeseries[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
     masks= masks[:, 1:sampling_rate:end,1:n_samples] |> Array{Bool}
-    data = (inputs_data, obs_data, timeseries, masks)
-    train_data, test_data, val_data = splitobs(data, at=(0.5, 0.3))
+    
+    obs_data_hist, obs_data_fut = obs_data[:, 1:spl, :], obs_data[:, spl+1:end, :]
+    masks_hist, masks_fut = masks[:, 1:spl, :], masks[:, spl+1:end, :]
+    inputs_data_hist, inputs_data_fut = inputs_data[:, 1:spl, :], inputs_data[:, spl+1:end, :]
+    timeseries_hist, timeseries_fut = timeseries[:, 1:spl, :], timeseries[:, spl+1:end, :]
+
+    data = (inputs_data_hist, obs_data_hist, timeseries_hist, masks_hist,inputs_data_fut, obs_data_fut, timeseries_fut, masks_fut)
+    train_data, val_data, test_data = splitobs(data, at=(0.5, 0.3))
     train_loader = DataLoader(train_data, batchsize=batch_size, shuffle=true)
     val_loader = DataLoader(val_data, batchsize=batch_size, shuffle=true)
-    test_loader=DataLoader(test_data, batchsize=batch_size, shuffle=true)
-    return  data, train_loader, test_loader,val_loader, time_series_dataset
+    test_loader=DataLoader(test_data, batchsize=batch_size, shuffle=false)
+    return  data, train_loader, val_loader, test_loader, time_series_dataset
 end
+
+
+
 
 function load_outcomes(filepath::String;)
     lines = readlines(filepath)
