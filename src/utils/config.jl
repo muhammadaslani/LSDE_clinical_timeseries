@@ -26,7 +26,7 @@ function create_latentsde(config::Dict, dims::Dict, rng::AbstractRNG)
     latent_dim = config["latent_dim"]::Int
     context_dim = config["context_dim"]::Int
     input_dim = dims["input_dim"]::Int
-    obs_dim= dims["obs_dim"]::Int
+    obs_dim= dims["obs_dim"]::Union{Int, Vector{Int}}
     output_dim = dims["output_dim"]::Union{Int, Vector{Int}}
     
     if output_dim isa Int

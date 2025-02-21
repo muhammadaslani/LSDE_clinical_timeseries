@@ -75,14 +75,14 @@ end
 
 
 """
-    normal_loglikelihood(μ, σ², y)
+    normal_loglikelihood(μ, log_σ², y)
 
 Compute the log-likelihood of a normal distribution.
 
 Arguments:
 
   - `μ`: Mean of the normal distribution.
-  - `σ²`: Variance of the normal distribution.
+  - `log_σ²`: Log of variance of the normal distribution.
   - `y`: The observed values.
 
 returns: 

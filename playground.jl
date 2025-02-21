@@ -59,3 +59,25 @@ config = (lr =1e-3, epochs=100, optimizer=AdamW(1e-3) , solver=EM(), log_freq=10
 
 train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_loader, config);
 
+
+
+
+Base.@kwdef struct ModelParameters
+    ρ::Float64 = 8e-3    # Tumor growth rate
+    K::Float64 = 100.0   # Tumor carrying capacity
+    β_c::Float64 = 0.15  # Linear effect of chemotherapy
+    ω_c::Float64 = 1.0   # Chemotherapy sessions frequency (every X weeks)
+    α_r::Float64 = 0.4   # Linear effect of radiotherapy
+    β_r::Float64 = 0.1   # Quadratic effect of radiotherapy
+    ω_r::Float64 = 3.0   # Radiotherapy sessions frequency (every X weeks)
+    δ::Float64 = 0.023   # Reduced immune growth rate
+    β_I::Float64 = 0.15  # Increased drug-induced immune suppression
+    α_I::Float64 = 0.16  # Increased radiotherapy-induced immune suppression
+    θ_I::Float64 = 0.08  # Immune stimulation by tumor
+    λ_I::Float64 = 0.002 # Immune suppression by large tumors
+    ω_I::Float64 = 0.07  # Immune decay rate
+    I_max::Float64 = 0.95 # Max immune response
+    γ_S::Float64 = 5e-2  # Immune effect on health
+    θ_S::Float64 = 40.0  # Health recovery rate
+    λ_S::Float64 = 500.0 # Health impact of tumor
+end

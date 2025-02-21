@@ -25,7 +25,7 @@ function load_data(; n_samples=512, sampling_rate=1, batch_size=32)
     train_loader = DataLoader(train_data, batchsize=batch_size, shuffle=true)
     val_loader = DataLoader(val_data, batchsize=batch_size, shuffle=true)
     test_loader=DataLoader(test_data, batchsize=batch_size, shuffle=false)
-    return  data, train_loader,val_loader, test_loader, time_series_dataset
+    return  data, train_loader, val_loader, test_loader, time_series_dataset
 end
 
 function load_data(spl; n_samples=512, sampling_rate=1, batch_size=32)
