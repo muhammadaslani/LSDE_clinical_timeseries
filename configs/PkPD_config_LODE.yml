@@ -20,7 +20,7 @@ model:
       activation: swish
     diffusion:
       type: "SparseMLP_ODE"
-      activation: tanh
+      activation: sigmoid
     solver: EM()
     kwargs:
         dt: 0.01

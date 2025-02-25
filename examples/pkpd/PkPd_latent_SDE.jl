@@ -33,7 +33,6 @@ function loss_fn(model, θ, st, data)
     (u, x, covars, y₁, y₂, mask₁, mask₂), ts, λ = data
     ŷ, px₀, kl_pq = model(vcat(covars,y₁, y₂), u, ts, θ, st)
     ŷ₁, ŷ₂ = ŷ
-    
     val_indx₁= findall(mask₁.==1)
     val_indx₂= findall(mask₂.==1)
 
@@ -132,8 +131,6 @@ function viz_fn_sys_id(model, θ, st, ts, data, config; sample_n=1)
      axislegend(ax3, position=:rt, backgroundcolor=:transparent)
      axislegend(ax4, position=:rt, backgroundcolor=:transparent)
      display(fig)
-    
-     display(fig)
     return fig
 end
 
@@ -184,12 +181,10 @@ function vis_fn_pred(observed_time, predict_timepoints, observed_data, future_tr
     max_t_o_valid= maximum(t_o_d[mask₂_o[1,:,sample_n] .== 1])
     max_t_p_valid= maximum(t_p_w[mask₂_t[1,:,sample_n] .== 1])
     t_o_d_valid= t_o_d[findall(i-> t_o_d[i]<=max_t_o_valid .&& mask₁_o[1,i,sample_n] == 1, 1:length(t_o_d))]
-    t_p_w_valid= t_p_w[findall(i-> t_p_d[i]<=max_t_p_valid .&& mask₁_t[1,i,sample_n] == 1, 1:length(t_p_w))]
     t_p_w_valid= t_p_w[findall(i-> t_p_w[i]<=max_t_p_valid .&& mask₁_t[1,i,sample_n] == 1, 1:length(t_p_w))]
     y₁_o_class_valid=y₁_o_class[findall(i-> t_o_d[i]<=max_t_o_valid .&& mask₁_o[1,i,sample_n] == 1, 1:length(t_o_d)),sample_n]
     y₁_t_class_valid=y₁_t_class[findall(i-> t_p_w[i]<=max_t_p_valid .&& mask₁_t[1,i,sample_n] == 1, 1:length(t_p_w)),sample_n]
     ŷ₁_class_w_valid=ŷ₁_class_w[findall(i-> t_p_w[i]<=max_t_p_valid .&& mask₁_t[1,i,sample_n] == 1, 1:length(t_p_w)),sample_n]
-    ŷ₁_class_w_valid_conf=
     y₂_o_valid=y₂_o[1,findall(i-> t_o_d[i]<=max_t_o_valid .&& mask₂_o[1,i,sample_n] == 1, 1:length(t_o_d)),sample_n]
     y₂_t_valid=y₂_t[1,findall(i-> t_p_w[i]<=max_t_p_valid .&& mask₂_t[1,i,sample_n] == 1, 1:length(t_p_w)),sample_n]
     ŷ₂_m_w_valid=ŷ₂_m_w[1,findall(i-> t_p_w[i]<=max_t_p_valid .&& mask₂_t[1,i,sample_n] == 1, 1:length(t_p_w)),sample_n]
@@ -203,12 +198,16 @@ function vis_fn_pred(observed_time, predict_timepoints, observed_data, future_tr
     valid_indices_radio_p = findall(i -> u_p[2,i, sample_n] == 1 && t_p_d[i] <= max_t_p, 1:length(t_p_w))
 
     #plotting
+    y_max₁, y_max₂, y_max₃=maximum(ŷ₂_count_m_w_valid), maximum(y₂_o_valid), maximum(y₂_t_valid)
+    y₂_count_max=maximum([y_max₁, y_max₂, y_max₃])+maximum([y_max₁, y_max₂, y_max₃])/10
+    x_min, x_max= -0.5, max_t_p_valid+max_t_p_valid/50
+    y_min, y_max=  -0.5, y₂_count_max+1
 
-    fig = Figure(size=(1500, 900))
-    ax1 = CairoMakie.Axis(fig[1, 1], xlabel="Time (days)", ylabel="Interventions",limits=((-5, 370), (0.0, 1.5)),  yticks=[0, 1])
-    ax2 = CairoMakie.Axis(fig[2, 1], xlabel="Time (days)", ylabel="Health status",limits=((-5, 370), (-0.5, 5.5)))
-    ax3 = CairoMakie.Axis(fig[3, 1], xlabel="Time (days)", ylabel="Tumor size",limits=((-5, 370), (-5, 50.5)))
-    ax4 = CairoMakie.Axis(fig[4, 1], xlabel="Time (days)", ylabel="Cell count",limits=((-5, 370), (-5, 50.5)))
+    fig = Figure(size=(1200, 900))
+    ax1 = CairoMakie.Axis(fig[1, 1], xlabel="Time (days)", ylabel="Interventions",limits=((x_min, x_max), (0.0, 1.5)),  yticks=[0, 1],xgridvisible = false, ygridvisible = false)
+    ax2 = CairoMakie.Axis(fig[2, 1], xlabel="Time (days)", ylabel="Health status",limits=((x_min, x_max), (-0.5, 5.5)),xgridvisible = false, ygridvisible = false)
+    ax3 = CairoMakie.Axis(fig[3, 1], xlabel="Time (days)", ylabel="Tumor size",limits=((x_min, x_max), (y_min, y_max)),xgridvisible = false, ygridvisible = false)
+    ax4 = CairoMakie.Axis(fig[4, 1], xlabel="Time (days)", ylabel="Cell count",limits=((x_min, x_max), (y_min, y_max)),xgridvisible = false, ygridvisible = false)
 
     scatter!(ax1, t_o_d[valid_indices_chemo_o], ones(length(u_o[valid_indices_chemo_o])),marker = :utriangle,markersize = 10,color = :blue, label="Chemotherapy regimen")
     scatter!(ax1, t_o_d[valid_indices_radio_o], ones(length(u_o[valid_indices_radio_o])),marker = :star5,markersize = 15,color = :red, label="Radiotherapy regimen")
@@ -222,23 +221,22 @@ function vis_fn_pred(observed_time, predict_timepoints, observed_data, future_tr
     lines!(ax3, Array(1:366), vcat(x_o[1,:, sample_n], x_t[1,:, sample_n]), color = :blue, label="Observed")
     #lines!(ax3, t_p_d, x_t[1,:, sample_n], color = :blue, label="True")
     lines!(ax3, t_p_d, ŷ₂_m[1,:, sample_n], color = :red, label="Predicted (daily)")
-    scatter!(ax3, t_p_w_valid, ŷ₂_m_w_valid, color = :red, label="Predicted (weekly)")
+    scatter!(ax3, t_p_w_valid, ŷ₂_m_w_valid, color = :red, label="Predicted (weekly irregular)")
 
     scatter!(ax4, t_o_d_valid, y₂_o_valid, color = :blue, label="Observed")
     scatter!(ax4, t_p_w_valid, y₂_t_valid, color = :green, label="True")
     scatter!(ax4, t_p_w_valid, ŷ₂_count_m_w_valid, color = :red, label="Predicted")
 
-
     linkxaxes!(ax1, ax2, ax3, ax4)
 
-    poly!(ax1, [-10, length(t_o)*7-1, length(t_o)*7-1, -10], [-10, -10, 50, 50], color=(:blue, 0.1), label="observation period (history)")
-    poly!(ax1, [length(t_o)*7-1, length(t_o)*7 + length(t_p)*7, length(t_o)*7 + length(t_p)*7, length(t_o)*7-1], [-10, -10, 50, 50], color=(:red, 0.1), label="prediction period (future)")
-    poly!(ax2, [-10, length(t_o)*7-1, length(t_o)*7-1, -10], [-10, -10, 50, 50], color=(:blue, 0.1))
-    poly!(ax2, [length(t_o)*7-1, length(t_o)*7 + length(t_p)*7, length(t_o)*7 + length(t_p)*7, length(t_o)*7-1], [-10,-10, 50, 50], color=(:red, 0.1))
-    poly!(ax3, [-10, length(t_o)*7-1, length(t_o)*7-1, -10], [-10, -10, 50, 50], color=(:blue, 0.1))
-    poly!(ax3, [length(t_o)*7-1, length(t_o)*7 + length(t_p)*7, length(t_o)*7 + length(t_p)*7, length(t_o)*7-1], [-10, -10, 50, 50], color=(:red, 0.1))
-    poly!(ax4, [-10, length(t_o)*7-1, length(t_o)*7-1, -10], [-10, -10, 50, 50], color=(:blue, 0.1))
-    poly!(ax4, [length(t_o)*7-1, length(t_o)*7 + length(t_p)*7, length(t_o)*7 + length(t_p)*7, length(t_o)*7-1], [-10, -10, 50, 50], color=(:red, 0.1))
+    poly!(ax1, [-10, length(t_o)*7-1, length(t_o)*7-1, -10], [-10, -10, 500, 500], color=(:blue, 0.1), label="observation period (history)")
+    poly!(ax1, [length(t_o)*7-1, length(t_o)*7 + length(t_p)*7, length(t_o)*7 + length(t_p)*7, length(t_o)*7-1], [-10, -10, 500, 500], color=(:red, 0.1), label="prediction period (future)")
+    poly!(ax2, [-10, length(t_o)*7-1, length(t_o)*7-1, -10], [-10, -10, 500, 500], color=(:blue, 0.1))
+    poly!(ax2, [length(t_o)*7-1, length(t_o)*7 + length(t_p)*7, length(t_o)*7 + length(t_p)*7, length(t_o)*7-1], [-10,-10, 500, 50], color=(:red, 0.1))
+    poly!(ax3, [-10, length(t_o)*7-1, length(t_o)*7-1, -10], [-10, -10, 500, 500], color=(:blue, 0.1))
+    poly!(ax3, [length(t_o)*7-1, length(t_o)*7 + length(t_p)*7, length(t_o)*7 + length(t_p)*7, length(t_o)*7-1], [-10, -10, 500, 500], color=(:red, 0.1))
+    poly!(ax4, [-10, length(t_o)*7-1, length(t_o)*7-1, -10], [-10, -10, 500, 500], color=(:blue, 0.1))
+    poly!(ax4, [length(t_o)*7-1, length(t_o)*7 + length(t_p)*7, length(t_o)*7 + length(t_p)*7, length(t_o)*7-1], [-10, -10, 500, 500], color=(:red, 0.1))
 
     fig[1, 2] = Legend(fig, ax1, framevisible=false)
     fig[2, 2] = Legend(fig, ax2, framevisible=false)
@@ -251,14 +249,25 @@ end
 ## system identification 
 rng = Random.MersenneTwister(123);
 #train_loader, test_loader, val_loader, dims, timepoints, covars = generate_dataloader(; n_samples=256, batchsize=64, split=(0.5,0.3));
-config = YAML.load_file("./configs/PkPD_config.yml");
+
+#latent SDE
+config_lsde = YAML.load_file("./configs/PkPD_config_LSDE.yml");
 exp_path = joinpath(config["experiment"]["path"], config["experiment"]["name"])
 isdir(exp_path) ? exp_path : mkpath(exp_path)
-model, θ, st = create_latentsde(config["model"], dims, rng);
-θ_trained = train(model, θ, st, timepoints, loss_fn, eval_fn, viz_fn_sys_id, train_loader, test_loader, config["training"], exp_path);
+lsde_model, lsde_θ, lsde_st = create_latentsde(config_LSDE["model"], dims, rng);
+lsde_θ_trained = train(lsde_model, lsde_θ, lsde_st, timepoints, loss_fn, eval_fn, viz_fn_sys_id, train_loader, test_loader, config_lsde["training"], exp_path);
+
+#latent ODE
+config_lode = YAML.load_file("./configs/PkPD_config_LODE.yml");
+lode_model, lode_θ, lode_st = create_latentsde(config_lode["model"], dims, rng);
+lode_θ_trained = train(lode_model, lode_θ, lode_st, timepoints, loss_fn, eval_fn, viz_fn_sys_id, train_loader, test_loader, config_lode["training"], exp_path);
 
 ## visualization of the system identification
-fig=viz_fn_sys_id(model, θ_trained, st, Array(0:365)/365, first(val_loader), config["training"]["validation"]; sample_n=1);
+#lsde
+fig=viz_fn_sys_id(lsde_model, lsde_θ_trained, lsde_st, Array(0:365)/365, first(val_loader), config_lsde["training"]["validation"]; sample_n=2);
+#lode
+fig=viz_fn_sys_id(lode_model, lode_θ_trained, lode_st, Array(0:365)/365, first(val_loader), config_lode["training"]["validation"]; sample_n=2);
+
 #save(joinpath(exp_path, "results_system_id_.pdf"), fig);
 
 # validation of model prediction performance
@@ -269,12 +278,18 @@ ind_observed = 1:spl; ind_predict = spl+1:length(timepoints)
 observed_data = (u[:,ind_observed,:], x[:,1:spl*7,:] ,covars[:,ind_observed,:], y₁[:,ind_observed,:], y₂[:,ind_observed,:], mask₁[:,ind_observed,:], mask₂[:,ind_observed,:]);
 future_true_data = (u[:,ind_predict,:],x[:,spl*7+1:end,:],covars[:,ind_predict,:], y₁[:,ind_predict,:], y₂[:,ind_predict,:], mask₁[:,ind_predict,:], mask₂[:,ind_predict,:]);
 observed_time = timepoints[ind_observed];
-predict_time = timepoints[ind_predict] #weekly
-predict_time_d= Array(predict_time[1] .*52.0f0.*7:365) #daily
-predict_timepoints=Array(predict_time_d)/length(predict_time_d)
+predict_time = timepoints[ind_predict]; #weekly
+predict_time_d= Array(predict_time[1] .*52.0f0.*7:365); #daily
+predict_timepoints=Array(predict_time_d)/length(predict_time_d);
 predict_u= u[:,ind_predict,:];
-Ex, Ey₁, Ey₂ = predict_future(model, θ_trained, st, observed_data, predict_u ,predict_timepoints , config["training"]["validation"]);
-predicted_data = (Ex, Ey₁, Ey₂);
 
-fig=vis_fn_pred(observed_time, predict_timepoints, observed_data, future_true_data, predicted_data; sample_n=5);
+#lsde
+lsde_Ex, lsde_Ey₁, lsde_Ey₂ = predict_future(lsde_model, lsde_θ_trained, lsde_st, observed_data, predict_u ,predict_timepoints , config_lsde["training"]["validation"]);
+lsde_predicted_data = (lsde_Ex, lsde_Ey₁, lsde_Ey₂);
+fig=vis_fn_pred(observed_time, predict_timepoints, observed_data, future_true_data, lsde_predicted_data; sample_n=3);
+
+#lode
+lode_Ex, lode_Ey₁, lode_Ey₂ = predict_future(lode_model, lode_θ_trained, lode_st, observed_data, predict_u ,predict_timepoints , config_lode["training"]["validation"]);
+lode_predicted_data = (lode_Ex, lode_Ey₁, lode_Ey₂);
+fig=vis_fn_pred(observed_time, predict_timepoints, observed_data, future_true_data, lode_predicted_data; sample_n=7);
 #save(joinpath(exp_path, "results_prediction.pdf"), fig)
