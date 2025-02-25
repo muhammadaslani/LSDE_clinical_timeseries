@@ -148,82 +148,102 @@ function predict_future(model, θ, st, observed_data, predict_u, predict_time, c
 end
 
 # visualization of prediction performance (validation)
-function vis_fn_pred(observed_time, predict_time, observed_data, future_true_data, predicted_data; sample_n=1)
+function vis_fn_pred(observed_time, predict_timepoints, observed_data, future_true_data, predicted_data; sample_n=1)
     u_o, x_o,covars_o, y₁_o, y₂_o, mask₁_o, mask₂_o = observed_data
     u_t, x_t,covars_t, y₁_t, y₂_t, mask₁_t, mask₂_t = future_true_data
     u_p= u_t
     Ex, Ey₁_p, Ey₂_p = predicted_data
-    t_o, t_p = observed_time, predict_time
-    t_o, t_p = t_o .* 52.0f0*7, t_p .* 52.0f0*7 # Convert time to days
-    timepoints = vcat(t_o, t_p)
+    t_o, t_p = observed_time, predict_timepoints
+    t_o_d= t_o .* 52.0f0*7 # Convert time to days from normalized values but sampled weekly
+    ts_o_d=Array(1:t_o_d[end])
+    t_p_d= t_p .* length(t_p) # Convert back to days from normalized values
+    t_p_w= t_p_d[1:7:end]
+    #ts_d = vcat(t_o_d, t_p_d)
 
     #results 
-    y₁_p_m = dropmean(Ey₁_p, dims=4)
-    y₂_p_m = dropmean(Ey₂_p, dims=4)
-    y₂_p_s = dropmean(std(Ey₂_p, dims=4), dims=4)
+    ŷ₁_m = dropmean(Ey₁_p, dims=4)
+    ŷ₂_m = dropmean(Ey₂_p, dims=4)
+    ŷ₂_s = dropmean(std(Ey₂_p, dims=4), dims=4)
 
-    y₂_count_p = rand.(Poisson.(Ey₂_p))
-    y₂_count_p_m = dropmean(y₂_count_p, dims=4)
-    y₂_count_p_s = dropmean(std(y₂_count_p, dims=4), dims=4)
+    ŷ₂_count = rand.(Poisson.(Ey₂_p))
+    ŷ₂_count_m = dropmean(ŷ₂_count, dims=4)
+    ŷ₂_count_s = dropmean(std(ŷ₂_count, dims=4), dims=4)
 
+    #sampling prediction weekly 
+    ŷ₁_m_w = ŷ₁_m[:, 1:7:end, :]
+    ŷ₂_m_w = ŷ₂_m[:, 1:7:end, :]
+    ŷ₂_s_w = ŷ₂_s[:, 1:7:end, :]
+    ŷ₂_count_m_w = ŷ₂_count_m[:, 1:7:end, :]
+    ŷ₂_count_s_w = ŷ₂_count_s[:, 1:7:end, :]
     y₁_o_class = onecold(y₁_o, Array(0:5))
     y₁_t_class = onecold(y₁_t, Array(0:5))
-    y₁_p_class = onecold(y₁_p_m, Array(0:5))
+    ŷ₁_class_w = onecold(ŷ₁_m_w, Array(0:5))
+    ## max time for observed and predicted data
+    max_t_o= maximum(t_o_d)
+    max_t_p= maximum(t_p_w)
+    max_t_o_valid= maximum(t_o_d[mask₂_o[1,:,sample_n] .== 1])
+    max_t_p_valid= maximum(t_p_w[mask₂_t[1,:,sample_n] .== 1])
+    t_o_d_valid= t_o_d[findall(i-> t_o_d[i]<=max_t_o_valid .&& mask₁_o[1,i,sample_n] == 1, 1:length(t_o_d))]
+    t_p_w_valid= t_p_w[findall(i-> t_p_d[i]<=max_t_p_valid .&& mask₁_t[1,i,sample_n] == 1, 1:length(t_p_w))]
+    t_p_w_valid= t_p_w[findall(i-> t_p_w[i]<=max_t_p_valid .&& mask₁_t[1,i,sample_n] == 1, 1:length(t_p_w))]
+    y₁_o_class_valid=y₁_o_class[findall(i-> t_o_d[i]<=max_t_o_valid .&& mask₁_o[1,i,sample_n] == 1, 1:length(t_o_d)),sample_n]
+    y₁_t_class_valid=y₁_t_class[findall(i-> t_p_w[i]<=max_t_p_valid .&& mask₁_t[1,i,sample_n] == 1, 1:length(t_p_w)),sample_n]
+    ŷ₁_class_w_valid=ŷ₁_class_w[findall(i-> t_p_w[i]<=max_t_p_valid .&& mask₁_t[1,i,sample_n] == 1, 1:length(t_p_w)),sample_n]
+    ŷ₁_class_w_valid_conf=
+    y₂_o_valid=y₂_o[1,findall(i-> t_o_d[i]<=max_t_o_valid .&& mask₂_o[1,i,sample_n] == 1, 1:length(t_o_d)),sample_n]
+    y₂_t_valid=y₂_t[1,findall(i-> t_p_w[i]<=max_t_p_valid .&& mask₂_t[1,i,sample_n] == 1, 1:length(t_p_w)),sample_n]
+    ŷ₂_m_w_valid=ŷ₂_m_w[1,findall(i-> t_p_w[i]<=max_t_p_valid .&& mask₂_t[1,i,sample_n] == 1, 1:length(t_p_w)),sample_n]
+    ŷ₂_s_w_valid=ŷ₂_s_w[1,findall(i-> t_p_w[i]<=max_t_p_valid .&& mask₂_t[1,i,sample_n] == 1, 1:length(t_p_w)),sample_n]
+    ŷ₂_count_m_w_valid=ŷ₂_count_m_w[1,findall(i-> t_p_w[i]<=max_t_p_valid .&& mask₂_t[1,i,sample_n] == 1, 1:length(t_p_w)),sample_n]
+    ŷ₂_count_s_w_valid=ŷ₂_count_s_w[1,findall(i-> t_p_w[i]<=max_t_p_valid .&& mask₂_t[1,i,sample_n] == 1, 1:length(t_p_w)),sample_n]
+    #chemptherapy and radiotherapy sessions 
+    valid_indices_chemo_o = findall(i -> u_o[1,i, sample_n] == 1 && t_o_d[i] <= max_t_o, 1:length(t_o_d))
+    valid_indices_radio_o = findall(i -> u_o[2,i, sample_n] == 1 && t_o_d[i] <= max_t_o, 1:length(t_o_d))
+    valid_indices_chemo_p = findall(i -> u_p[1,i, sample_n] == 1 && t_p_d[i] <= max_t_p, 1:length(t_p_w))
+    valid_indices_radio_p = findall(i -> u_p[2,i, sample_n] == 1 && t_p_d[i] <= max_t_p, 1:length(t_p_w))
 
-    println("y2 MSE: ", MSELoss()(y₂_t , y₂_p_m))
+    #plotting
 
-    ##plots 
-    valid_indx_o= findall(mask₁_o[1,:,sample_n].==1)
-    valid_indx_p= findall(mask₁_t[1,:,sample_n].==1)
+    fig = Figure(size=(1500, 900))
+    ax1 = CairoMakie.Axis(fig[1, 1], xlabel="Time (days)", ylabel="Interventions",limits=((-5, 370), (0.0, 1.5)),  yticks=[0, 1])
+    ax2 = CairoMakie.Axis(fig[2, 1], xlabel="Time (days)", ylabel="Health status",limits=((-5, 370), (-0.5, 5.5)))
+    ax3 = CairoMakie.Axis(fig[3, 1], xlabel="Time (days)", ylabel="Tumor size",limits=((-5, 370), (-5, 50.5)))
+    ax4 = CairoMakie.Axis(fig[4, 1], xlabel="Time (days)", ylabel="Cell count",limits=((-5, 370), (-5, 50.5)))
 
-    t_o_valid, u_o_valid= t_o[valid_indx_o], u_o[:,valid_indx_o,sample_n]
-    t_p_valid, u_p_valid= t_p[valid_indx_p], u_p[:,valid_indx_p,sample_n]
-    x_max, x_min, y_min, y_max = t_p[end] + 0.5, -0.5, -2, 45
+    scatter!(ax1, t_o_d[valid_indices_chemo_o], ones(length(u_o[valid_indices_chemo_o])),marker = :utriangle,markersize = 10,color = :blue, label="Chemotherapy regimen")
+    scatter!(ax1, t_o_d[valid_indices_radio_o], ones(length(u_o[valid_indices_radio_o])),marker = :star5,markersize = 15,color = :red, label="Radiotherapy regimen")
+    scatter!(ax1, t_p_w[valid_indices_chemo_p], ones(length(u_p[valid_indices_chemo_p])),marker = :utriangle,markersize = 10,color = :blue)
+    scatter!(ax1, t_p_w[valid_indices_radio_p], ones(length(u_p[valid_indices_radio_p])),marker = :star5,markersize = 15,color = :red)
 
-    fig = Figure(size=(1200, 900))
-    ax1 = CairoMakie.Axis(fig[1, 1], xlabel="Time (weeks)", ylabel="Interventions", limits=((x_min, x_max), (0.0, 1.5)), yticks=[0, 1])
-    ax2 = CairoMakie.Axis(fig[2, 1], xlabel="Time (weeks)", ylabel="Health status", limits=((x_min, x_max), (-0.5, 5.5)))
-    ax3 = CairoMakie.Axis(fig[3, 1], xlabel="Time (weeks)", ylabel="Tumor size", limits=((x_min, x_max), (y_min, 50)))
-    ax4 = CairoMakie.Axis(fig[4, 1], xlabel="Time (weeks)", ylabel="Cell count", limits=((x_min, x_max), (y_min, 50)))
+    scatter!(ax2, t_o_d_valid, y₁_o_class_valid, color = :blue, label="Observed")
+    scatter!(ax2, t_p_w_valid, y₁_t_class_valid, color = :green, label="True")
+    scatter!(ax2, t_p_w_valid, ŷ₁_class_w_valid, color = :red, label="Predicted")
 
-    chemo_times_o, radio_times_o = t_o_valid[u_o_valid[1, :] .> 0], t_o_valid[u_o_valid[2, :] .> 0]
-    chemo_times_p, radio_times_p = t_p_valid[u_p_valid[1, :] .> 0], t_p_valid[u_p_valid[2, :] .> 0]
+    lines!(ax3, Array(1:366), vcat(x_o[1,:, sample_n], x_t[1,:, sample_n]), color = :blue, label="Observed")
+    #lines!(ax3, t_p_d, x_t[1,:, sample_n], color = :blue, label="True")
+    lines!(ax3, t_p_d, ŷ₂_m[1,:, sample_n], color = :red, label="Predicted (daily)")
+    scatter!(ax3, t_p_w_valid, ŷ₂_m_w_valid, color = :red, label="Predicted (weekly)")
 
-    scatter!(ax1, chemo_times_o, fill(1, length(chemo_times_o)), color=:darkgreen, marker=:utriangle, markersize=15, label="Chemotherapy session")
-    scatter!(ax1, radio_times_o, fill(1, length(radio_times_o)), color=:darkorange, marker=:star5, markersize=15, label="Radiotherapy session")
-    scatter!(ax1, chemo_times_p, fill(1, length(chemo_times_p)), color=:darkgreen, marker=:utriangle, markersize=15)
-    scatter!(ax1, radio_times_p, fill(1, length(radio_times_p)), color=:darkorange, marker=:star5, markersize=15)
+    scatter!(ax4, t_o_d_valid, y₂_o_valid, color = :blue, label="Observed")
+    scatter!(ax4, t_p_w_valid, y₂_t_valid, color = :green, label="True")
+    scatter!(ax4, t_p_w_valid, ŷ₂_count_m_w_valid, color = :red, label="Predicted")
 
-    scatter!(ax2, t_o_valid, y₁_o_class[valid_indx_o, sample_n], color=:red, markersize=15, label="Health status class(observed)")
-    scatter!(ax2, t_p_valid, y₁_t_class[valid_indx_p, sample_n], color=(:red, 0.5), markersize=15, label="True Health status class(future)")
-    scatter!(ax2, t_p_valid, y₁_p_class[valid_indx_p, sample_n], color=(:dodgerblue2, 0.7), markersize=10, label="Predicted Health status class")
-
-    lines!(ax3, Array(1:t_o[end]), x_o[1, :, sample_n], linewidth=2, color=:red, label="Tumor size(observed)")
-    lines!(ax3, Array(t_o[end]+1:t_p[end]), x_t[1, :, sample_n], linewidth=2, color=(:red, 0.5), linestyle=:dash, label="True Tumor size (future)")
-    lines!(ax3, t_p, y₂_p_m[1, :, sample_n], color=(:dodgerblue2, 0.5), linewidth=2)
-    band!(ax3, t_p, y₂_p_m[1, :,sample_n] .- sqrt.(y₂_p_s[1, :,sample_n]), y₂_p_m[1, :,sample_n] .+ sqrt.(y₂_p_s[1, :,sample_n]), color=(:dodgerblue2, 0.5), label="Inferred Tumor size (future)")
-
-    scatter!(ax4, t_o_valid, y₂_o[1, valid_indx_o, sample_n], color=:red, markersize=15, label="Cell count (observed)")
-    scatter!(ax4, t_p_valid, y₂_t[1, valid_indx_p, sample_n], color=(:red, 0.5), markersize=15, label="True Cell count (future)")
-    scatter!(ax4, t_p_valid, y₂_count_p_m[1, valid_indx_p,sample_n], color=(:dodgerblue2, 0.7), markersize=10, label="Predicted Cell count")
-    errorbars!(ax4, t_p_valid, y₂_count_p_m[1, valid_indx_p,sample_n], y₂_count_p_s[1, valid_indx_p,sample_n], color=(:dodgerblue2, 0.7), whiskerwidth=8)
 
     linkxaxes!(ax1, ax2, ax3, ax4)
 
-    poly!(ax1, [-0.5, length(t_o)*7-1, length(t_o)*7-1, -0.5], [0, 0, 50, 50], color=(:blue, 0.1), label="observation period (history)")
-    poly!(ax1, [length(t_o)*7-1, length(t_o)*7 + length(t_p)*7, length(t_o)*7 + length(t_p), length(t_o)-1], [0, 0, 50, 50], color=(:red, 0.1), label="prediction period (future)")
-    poly!(ax2, [-0.5, length(t_o)*7-1, length(t_o)*7-1, -0.5], [-0.5, -0.5, 50, 50], color=(:blue, 0.1))
-    poly!(ax2, [length(t_o)*7-1, length(t_o)*7 + length(t_p)*7, length(t_o)*7 + length(t_p)*7, length(t_o)*7-1], [-0.5, -0.5, 50, 50], color=(:red, 0.1))
-    poly!(ax3, [-0.5, length(t_o)*7-1, length(t_o)*7-1, -0.5], [-2, -2, 50, 50], color=(:blue, 0.1))
-    poly!(ax3, [length(t_o)*7-1, length(t_o)*7 + length(t_p)*7, length(t_o)*7 + length(t_p)*7, length(t_o)*7-1], [-2, -2, 50, 50], color=(:red, 0.1))
-    poly!(ax4, [-0.5, length(t_o)*7-1, length(t_o)*7-1, -0.5], [-2, -2, 50, 50], color=(:blue, 0.1))
-    poly!(ax4, [length(t_o)*7-1, length(t_o)*7 + length(t_p)*7, length(t_o)*7 + length(t_p)*7, length(t_o)*7-1], [-2, -2, 50, 50], color=(:red, 0.1))
+    poly!(ax1, [-10, length(t_o)*7-1, length(t_o)*7-1, -10], [-10, -10, 50, 50], color=(:blue, 0.1), label="observation period (history)")
+    poly!(ax1, [length(t_o)*7-1, length(t_o)*7 + length(t_p)*7, length(t_o)*7 + length(t_p)*7, length(t_o)*7-1], [-10, -10, 50, 50], color=(:red, 0.1), label="prediction period (future)")
+    poly!(ax2, [-10, length(t_o)*7-1, length(t_o)*7-1, -10], [-10, -10, 50, 50], color=(:blue, 0.1))
+    poly!(ax2, [length(t_o)*7-1, length(t_o)*7 + length(t_p)*7, length(t_o)*7 + length(t_p)*7, length(t_o)*7-1], [-10,-10, 50, 50], color=(:red, 0.1))
+    poly!(ax3, [-10, length(t_o)*7-1, length(t_o)*7-1, -10], [-10, -10, 50, 50], color=(:blue, 0.1))
+    poly!(ax3, [length(t_o)*7-1, length(t_o)*7 + length(t_p)*7, length(t_o)*7 + length(t_p)*7, length(t_o)*7-1], [-10, -10, 50, 50], color=(:red, 0.1))
+    poly!(ax4, [-10, length(t_o)*7-1, length(t_o)*7-1, -10], [-10, -10, 50, 50], color=(:blue, 0.1))
+    poly!(ax4, [length(t_o)*7-1, length(t_o)*7 + length(t_p)*7, length(t_o)*7 + length(t_p)*7, length(t_o)*7-1], [-10, -10, 50, 50], color=(:red, 0.1))
 
     fig[1, 2] = Legend(fig, ax1, framevisible=false)
     fig[2, 2] = Legend(fig, ax2, framevisible=false)
     fig[3, 2] = Legend(fig, ax3, framevisible=false)
     fig[4, 2] = Legend(fig, ax4, framevisible=false)
-
     display(fig)
     return fig
 end
@@ -238,7 +258,7 @@ model, θ, st = create_latentsde(config["model"], dims, rng);
 θ_trained = train(model, θ, st, timepoints, loss_fn, eval_fn, viz_fn_sys_id, train_loader, test_loader, config["training"], exp_path);
 
 ## visualization of the system identification
-fig=viz_fn_sys_id(model, θ_trained, st, Array(0:365)/365, first(val_loader), config["training"]["validation"]; sample_n=2);
+fig=viz_fn_sys_id(model, θ_trained, st, Array(0:365)/365, first(val_loader), config["training"]["validation"]; sample_n=1);
 #save(joinpath(exp_path, "results_system_id_.pdf"), fig);
 
 # validation of model prediction performance

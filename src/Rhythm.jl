@@ -18,7 +18,7 @@ export Encoder, Identity_Encoder, Recurrent_Encoder
 include("core/decoders.jl")
 export Decoder, Identity_Decoder, Linear_Decoder, MLP_Decoder, MultiDecoder, MultiDecoder_linear, BranchDecoder, BranchDecoder_linear, MultiOutputDecoder
 include("core/vectorfields.jl")
-export MLP, SparseMLP, HopfOscillators, Linear, LimitCycleOscillators, StuartLandauOscillators
+export MLP, SparseMLP,SparseMLP_ODE, HopfOscillators, Linear, LimitCycleOscillators, StuartLandauOscillators
 
 
 const TYPE_MAP = Dict(
@@ -33,6 +33,7 @@ const TYPE_MAP = Dict(
     "BranchDecoder_linear" => BranchDecoder_linear,
     "MLP" => MLP,
     "SparseMLP" => SparseMLP,
+    "SparseMLP_ODE" => SparseMLP_ODE,
     "HopfOscillators" => HopfOscillators,
     "StuartLandauOscillators" => StuartLandauOscillators,
     "LimitCycleOscillators" => LimitCycleOscillators,

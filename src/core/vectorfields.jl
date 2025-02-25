@@ -93,6 +93,9 @@ SparseMLP(Id::Int, Od::Int; activation) = @compact(m=Scale(Id, activation, init_
 
                                        
                                                          
+SparseMLP_ODE(Id::Int, Od::Int; activation) = @compact(m=Scale(Id, activation, init_weight=(args...) -> zeros(Float32, Id))) do x
+                                                            @return m(x)
+                                                        end |> l -> Lux.Experimental.freeze(l)
 """
     HopfOscillators(N::Int)
 
