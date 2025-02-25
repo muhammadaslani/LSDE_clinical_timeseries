@@ -55,52 +55,6 @@ function eval_fn(model, θ, st, ts, data, config)
     return CrossEntropyLoss(;agg=mean, logits=true,  epsilon=1e-10)(ŷ₁_m[val_indx₁], y₁[val_indx₁]) - poisson_loglikelihood(ŷ₂_m[val_indx₂], y₂[val_indx₂])
 end
 
-function viz_fn_sys_id2(model, θ, st, ts, data, config; sample_n=1)
-    u, x, covars, y₁, y₂, mask₁, mask₂ = data
-    solver = eval(Meta.parse(config["solver"]))
-    kwargs_dict = Dict(Symbol(k) => v for (k, v) in config["kwargs"])
-    px₀ = (zeros32(config["latent_dim"], size(y₁)[end]), ones32(config["latent_dim"], size(y₁)[end]))
-    Ex, Ey = generate(model, solver, px₀, u, ts, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
-    Ey₁, Ey₂ = Ey   # Ey₁ is the predicted porbability for health status classes, Ey₂ is the predicted tumor size
-
-    ts = ts .* 52.0f0
-    # Find valid indices
-    valid_indx = findall(mask₁[1, :, sample_n] .== 1)
-    ts_valid = ts[valid_indx]
-    y₁_valid, y₂_valid= y₁[:, valid_indx, sample_n],y₂[:, valid_indx, sample_n]
-    
-    ŷ₁_m ,ŷ₁_s= dropmean(Ey₁, dims=4),dropmean(std(Ey₁, dims=4), dims=4)
-    ŷ₂_m ,ŷ₂_s= dropmean(Ey₂, dims=4), dropmean(std(Ey₂, dims=4), dims=4)
-    
-    #estimate cell counts from Inferred tumor size
-    Ey₂_count = rand.(Poisson.(Ey₂))
-    ŷ₂_count_m, ŷ₂_count_s = dropmean(Ey₂_count, dims=4),dropmean(std(Ey₂_count, dims=4), dims=4)
-
-
-    max_valid_time= ts_valid[end]
-    valid_indices_chemo = findall(i -> u[1,i, sample_n] == 1 && ts[i] <= max_valid_time, 1:length(ts))
-    valid_indices_radio = findall(i -> u[2,i, sample_n] == 1 && ts[i] <= max_valid_time, 1:length(ts))
-    fig = Figure(size=(900, 600))
-
-
-    ax1= CairoMakie.Axis(fig[1, 1], xlabel="Time (weeks)", ylabel="Interventions", limits=(nothing, (0, 1.5)), yticks=[0,1])
-    ax2 = CairoMakie.Axis(fig[2, 1], xlabel="Time (weeks)", ylabel="Health status", limits=(nothing, (-0.5, 6.0)))
-    ax3 = CairoMakie.Axis(fig[3, 1], xlabel="Time (weeks)", ylabel="Tumor size")
-    ax4 = CairoMakie.Axis(fig[4, 1], xlabel="Time (weeks)", ylabel="Cell count")
-    scatter!(ax1, ts[valid_indices_chemo], ones(length(u[valid_indices_chemo])),marker = :utriangle,markersize = 15,color = :blue)
-    scatter!(ax1, ts[valid_indices_radio], ones(length(u[valid_indices_radio])),marker = :star5,markersize = 15,color = :red)
-    xlims!(ax1, minimum(ts), maximum(ts))
-    lines!(ax3, Array(0:365)/7, x[1,:, sample_n], linewidth=2, color=(atom_one_dark[:gray], 1.0), label="True Tumor size (unobserved)")
-    lines!(ax3, ts, ŷ₂_m[1,:,sample_n], linewidth=2, color=(atom_one_dark[:cyan], 0.9), label="Inferred Tumor size")
-    band!(ax3, ts, ŷ₂_m[1,:,sample_n] .- sqrt.(ŷ₂_s[1,:,sample_n]), ŷ₂_m[1,:,sample_n] .+ sqrt.(ŷ₂_s[1,:,sample_n]), color=(atom_one_dark[:cyan], 0.3))
-    lines!(ax1, ax3, ts_valid, ŷ₂_m[1,valid_indx,sample_n], linewidth=3, color=(atom_one_dark[:purple], 0.7), label=" valid")
-    scatter!(ax3, ts, ŷ₂_m[1,:,sample_n], color=(atom_one_dark[:cyan], 0.7), markersize=10)
-    scatter!(ax3, ts_valid, ŷ₂_m[1,valid_indx,sample_n], color=(atom_one_dark[:purple], 0.7), markersize=10)
-
-    display(fig)
-    return fig
-end
-
 function viz_fn_sys_id(model, θ, st, ts, data, config; sample_n=1)
     u, x, covars, y₁, y₂, mask₁, mask₂ = data
     solver = eval(Meta.parse(config["solver"]))
@@ -183,15 +137,13 @@ function viz_fn_sys_id(model, θ, st, ts, data, config; sample_n=1)
     return fig
 end
 
-  
-
 
 ## prediction
-function predict_future(model, θ, st, history, u_p, t_p, config)
-    u_o, x_o,covars_o, y₁_o, y₂_o = history
+function predict_future(model, θ, st, observed_data, predict_u, predict_time, config)
+    u_o, x_o,covars_o, y₁_o, y₂_o = observed_data
     solver = eval(Meta.parse(config["solver"]))
     kwargs_dict = Dict(Symbol(k) => v for (k, v) in config["kwargs"])
-    Ex, Ey_p = predict(model, solver, vcat(covars_o,reverse(y₁_o, dims=2), reverse(y₂_o, dims=2)), u_p, t_p, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
+    Ex, Ey_p = predict(model, solver, vcat(covars_o,reverse(y₁_o, dims=2), reverse(y₂_o, dims=2)), predict_u, predict_time, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
     return Ex, Ey_p[1], Ey_p[2]
 end
 
@@ -278,39 +230,31 @@ end
 
 ## system identification 
 rng = Random.MersenneTwister(123);
-train_loader, test_loader, val_loader, dims, timepoints, covars = generate_dataloader(; n_samples=256, batchsize=64, split=(0.5,0.3));
+#train_loader, test_loader, val_loader, dims, timepoints, covars = generate_dataloader(; n_samples=256, batchsize=64, split=(0.5,0.3));
 config = YAML.load_file("./configs/PkPD_config.yml");
 exp_path = joinpath(config["experiment"]["path"], config["experiment"]["name"])
 isdir(exp_path) ? exp_path : mkpath(exp_path)
 model, θ, st = create_latentsde(config["model"], dims, rng);
-θ_trained = train(model, θ_trained, st, timepoints, loss_fn, eval_fn, viz_fn_sys_id, train_loader, test_loader, config["training"], exp_path);
+θ_trained = train(model, θ, st, timepoints, loss_fn, eval_fn, viz_fn_sys_id, train_loader, test_loader, config["training"], exp_path);
 
 ## visualization of the system identification
-fig=viz_fn_sys_id(model, θ_trained, st, Array(0:365)/365, first(val_loader), config["training"]["validation"]; sample_n=5);
+fig=viz_fn_sys_id(model, θ_trained, st, Array(0:365)/365, first(val_loader), config["training"]["validation"]; sample_n=2);
 #save(joinpath(exp_path, "results_system_id_.pdf"), fig);
 
 # validation of model prediction performance
 u, x,covars, y₁, y₂, mask₁, mask₂= first(val_loader);
 #x=x[:,1:7:end,:];
-spl=5
-ind_observed = 1:spl; ind_predict = spl+1:length(timepoints);
-observed_data = (u[:,ind_observed,:], x[:,1:(ind_observed[end]-1)*7,:] ,covars[:,ind_observed,:], y₁[:,ind_observed,:], y₂[:,ind_observed,:], mask₁[:,ind_observed,:], mask₂[:,ind_observed,:]);
-future_true_data = (u[:,ind_predict,:],x[:,(ind_observed[end]-1)*7+1:364,:],covars[:,ind_predict,:], y₁[:,ind_predict,:], y₂[:,ind_predict,:], mask₁[:,ind_predict,:], mask₂[:,ind_predict,:]);
-observed_time = timepoints[ind_observed]; predict_time = timepoints[ind_predict];
+spl=10
+ind_observed = 1:spl; ind_predict = spl+1:length(timepoints)
+observed_data = (u[:,ind_observed,:], x[:,1:spl*7,:] ,covars[:,ind_observed,:], y₁[:,ind_observed,:], y₂[:,ind_observed,:], mask₁[:,ind_observed,:], mask₂[:,ind_observed,:]);
+future_true_data = (u[:,ind_predict,:],x[:,spl*7+1:end,:],covars[:,ind_predict,:], y₁[:,ind_predict,:], y₂[:,ind_predict,:], mask₁[:,ind_predict,:], mask₂[:,ind_predict,:]);
+observed_time = timepoints[ind_observed];
+predict_time = timepoints[ind_predict] #weekly
+predict_time_d= Array(predict_time[1] .*52.0f0.*7:365) #daily
+predict_timepoints=Array(predict_time_d)/length(predict_time_d)
 predict_u= u[:,ind_predict,:];
-Ex, Ey₁, Ey₂ = predict_future(model, θ_trained, st, observed_data, predict_u ,predict_time , config["training"]["validation"]);
+Ex, Ey₁, Ey₂ = predict_future(model, θ_trained, st, observed_data, predict_u ,predict_timepoints , config["training"]["validation"]);
 predicted_data = (Ex, Ey₁, Ey₂);
 
-fig=vis_fn_pred(observed_time, predict_time, observed_data, future_true_data, predicted_data; sample_n=1);
+fig=vis_fn_pred(observed_time, predict_timepoints, observed_data, future_true_data, predicted_data; sample_n=5);
 #save(joinpath(exp_path, "results_prediction.pdf"), fig)
-
-u, x, covars, y₁, y₂, mask₁, mask₂= first(val_loader);
-
-ŷ, px₀, kl_pq = model(vcat(covars,y₁, y₂), u, timepoints, θ, st)
-ŷ₁, ŷ₂ = ŷ
-val_indx₁= findall(mask₁.==1)
-val_indx₂= findall(mask₂.==1)
-
-recon_loss = CrossEntropyLoss()(ŷ₁[val_indx₁], y₁[val_indx₁]) - poisson_loglikelihood(ŷ₂[val_indx₂], y₂[val_indx₂])
-kl_loss = kl_normal(px₀...) / size(x)[end] + mean(kl_pq[end, :])
-loss = recon_loss + 0.1 * kl_loss
