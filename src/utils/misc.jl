@@ -1,4 +1,84 @@
+function predictive_entropy(ŷ::Array{T,3}) where T 
+    p_entropy = zeros(1, size(ŷ, 2), size(ŷ, 3))
+    
+    for i in 1:size(ŷ, 3)
+        for j in 1:size(ŷ, 2)
+            p_entropy[1, j, i] = predictive_entropy(ŷ[:, j, i])
+        end
+    end
+    
+    return p_entropy
+end
+
+function predictive_entropy(ŷ::Vector{T}) where T 
+    ŷ_softmax = softmax(ŷ, dims=1)
+    return -sum(ŷ_softmax .* log.(ŷ_softmax))  # Removed unnecessary dims=1
+end
+
+
+
+
 """
+    split_matrix(X::Array{T,3}, obs_fraction::Float64 = 0.5) where T
+
+Split a 3D array along the second dimension (time dimension) according to the specified observation fraction.
+
+# Arguments
+- `X::Array{T,3}`: 3D array with dimensions (n_features, n_timepoints, n_samples).
+- `obs_fraction::Float64=0.5`: Fraction of timepoints to include in the observed part (default: 0.5).
+
+# Returns
+- `observed::Array{T,3}`: First part of the split array containing the observed timepoints.
+- `forecast::Array{T,3}`: Second part of the split array containing the timepoints to forecast.
+
+# Example
+"""
+function split_matrix(X::Array{T,3}, obs_fraction::Float64 = 0.5) where T
+    n_features, n_timepoints, n_samples = size(X)
+    mid = round(Int, n_timepoints * obs_fraction)  # Compute split index
+
+    observed = X[:, 1:mid, :]
+    forecast = X[:, mid+1:end, :]
+
+    return observed, forecast
+end
+
+function split_matrix(X::Array{T,2}, obs_fraction::Float64 = 0.5) where T
+    n_features, n_timepoints = size(X)
+    mid = round(Int, n_timepoints * obs_fraction)  # Compute split index
+
+    observed = X[:, 1:mid]
+    forecast = X[:, mid+1:end]
+
+    return observed, forecast
+end
+
+function split_matrix(X::Vector{T}, obs_fraction::Float64 = 0.5) where T
+    n_timepoints = length(X)
+    mid = round(Int, n_timepoints * obs_fraction)  # Compute split index
+
+    observed = X[1:mid]
+    forecast = X[mid+1:end]
+
+    return observed, forecast
+end
+
+"""
+    irregularize(y1::AbstractMatrix, y2::AbstractMatrix, mask1::AbstractMatrix, mask2::AbstractMatrix)
+
+Randomly sets 20% of the values in the input matrices `y1` and `y2` to zero and updates the corresponding positions in the mask matrices `mask1` and `mask2` to indicate the irregularized entries.
+
+# Arguments
+- `y1::AbstractMatrix`: The first input matrix.
+- `y2::AbstractMatrix`: The second input matrix.
+- `mask1::AbstractMatrix`: The mask matrix corresponding to `y1`.
+- `mask2::AbstractMatrix`: The mask matrix corresponding to `y2`.
+
+# Returns
+- `y1::AbstractMatrix`: The irregularized first input matrix.
+- `y2::AbstractMatrix`: The irregularized second input matrix.
+- `mask1::AbstractMatrix`: The updated mask matrix for `y1`.
+- `mask2::AbstractMatrix`: The updated mask matrix for `y2`.
 
 """
 
@@ -8,7 +88,7 @@ function irregularize(y1,y2, mask1, mask2)
     mask2=copy(mask2)
     for i in 1:size(y1)[3]
         for j in 1:size(y1)[2]
-            samp=rand(0:1)<0.8
+            samp=rand(0:0.1:1)<0.8
             if samp==0
                 y1[:,j,i].=0
                 y2[:,j,i].=0
@@ -20,6 +100,8 @@ function irregularize(y1,y2, mask1, mask2)
     end 
     return y1, y2, mask1, mask2
 end 
+
+
 
 """
     sample_rp(x::Tuple)

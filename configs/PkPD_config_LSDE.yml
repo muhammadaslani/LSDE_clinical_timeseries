@@ -37,7 +37,7 @@ model:
 training:
   learning_rate: 0.005
   optimizer: AdamW(0.005)
-  epochs: 300
+  epochs: 500
   log_freq: 50
   viz_freq: 10
   stop_patience: 10
@@ -45,7 +45,7 @@ training:
   validation:
       latent_dim: *latentdim  
       solver: EM()
-      mcmc_samples: 10
+      mcmc_samples: 50
       kwargs:
           dt: 0.01
 
