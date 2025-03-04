@@ -45,7 +45,7 @@ training:
   validation:
       latent_dim: *latentdim  
       solver: EM()
-      mcmc_samples: 10
+      mcmc_samples: 50
       kwargs:
           dt: 0.01
 

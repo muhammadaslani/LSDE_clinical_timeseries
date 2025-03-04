@@ -1,21 +1,37 @@
-function predictive_entropy(ŷ::Array{T,3}) where T 
+"""
+    prediction_entropy(predictions; dims=1)
+
+Calculate the entropy of model predictions (uncertainty quantification).
+
+# Arguments
+- `predictions`: Array of model predictions, typically probabilities or class scores
+- `dims=1`: Dimension along which to compute entropy (default: 1)
+
+# Returns
+- Entropy values computed across the specified dimension
+
+# Description
+Computes the Shannon entropy of the predictions, which measures the uncertainty
+in the model's predictions. Higher entropy values indicate higher uncertainty.
+The function applies a small epsilon to avoid log(0) issues.
+
+"""
+function prediction_entropy(ŷ::Array{T,3}) where T 
     p_entropy = zeros(1, size(ŷ, 2), size(ŷ, 3))
     
     for i in 1:size(ŷ, 3)
         for j in 1:size(ŷ, 2)
-            p_entropy[1, j, i] = predictive_entropy(ŷ[:, j, i])
+            p_entropy[1, j, i] = prediction_entropy(ŷ[:, j, i])
         end
     end
     
     return p_entropy
 end
 
-function predictive_entropy(ŷ::Vector{T}) where T 
+function prediction_entropy(ŷ::Vector{T}) where T 
     ŷ_softmax = softmax(ŷ, dims=1)
-    return -sum(ŷ_softmax .* log.(ŷ_softmax))  # Removed unnecessary dims=1
+    return -sum(ŷ_softmax .* log.(ŷ_softmax .+1e-10, 2))
 end
-
-
 
 
 """

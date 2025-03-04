@@ -11,12 +11,12 @@ model:
     drift:
       type: "MLP"
       hidden_size: 32
-      depth: 0
+      depth: 1
       activation: swish
     drift_aug:
       type: "MLP"
       hidden_size: 32
-      depth: 0
+      depth: 1
       activation: swish
     diffusion:
       type: "SparseMLP"
@@ -27,7 +27,7 @@ model:
 
   obs_decoder:
     type: "BranchDecoder"
-    hidden_size: 64
+    hidden_size: 32
     depth: 1
     dists: 
     - "None"
