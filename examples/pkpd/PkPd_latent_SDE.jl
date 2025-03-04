@@ -44,12 +44,14 @@ function loss_fn(model, θ, st, data)
     #data_obs, data_forecast= data_
     u_obs, x_obs, covars_obs, y₁_obs, y₂_obs, mask₁_obs, mask₂_obs = data_obs
     u_forecast, x_forecast, covars_forecast, y₁_forecast, y₂_forecast, mask₁_forecast, mask₂_forecast = data_forecast
-    ŷ, px₀, kl_pq = model(vcat(covars_obs, y₁_obs, y₂_obs), hcat(u_obs,u_forecast), ts, θ, st)
+    ŷ, px₀, kl_pq = model(vcat(y₁_obs, y₂_obs, covars_obs), hcat(u_obs,u_forecast), ts, θ, st)
     ŷ₁, ŷ₂ = ŷ
     val_indx₁= findall(mask₁_forecast.==1)
     val_indx₂= findall(mask₂_forecast.==1)
 
-    recon_loss = CrossEntropyLoss(;agg=mean, logits=true,  epsilon=1e-10)(ŷ₁[val_indx₁], y₁_forecast[val_indx₁]) - poisson_loglikelihood(ŷ₂[val_indx₂], y₂_forecast[val_indx₂])
+    recon_loss_1 = CrossEntropyLoss(;agg=sum, logits=true,  epsilon=1e-10)(ŷ₁[val_indx₁], y₁_forecast[val_indx₁])/size(y₁_forecast)[end]
+    recon_loss_2= - poisson_loglikelihood(ŷ₂[val_indx₂], y₂_forecast[val_indx₂])/ size(y₂_forecast)[end]
+    recon_loss= recon_loss_1 + recon_loss_2
     kl_loss = kl_normal(px₀...) / size(x_obs)[end] + mean(kl_pq[end, :])
     loss = recon_loss + λ * kl_loss
     return loss, st, kl_loss
@@ -67,7 +69,7 @@ function eval_fn(model, θ, st, ts, data, config)
     ŷ₁_m, ŷ₂_m = dropmean(Ey[1], dims=4), dropmean(Ey[2], dims=4)
     val_indx₁= findall(mask₁_forecast.==1)
     val_indx₂= findall(mask₂_forecast.==1)
-    return CrossEntropyLoss(;agg=mean, logits=true,  epsilon=1e-10)(ŷ₁_m[val_indx₁], y₁_forecast[val_indx₁]) - poisson_loglikelihood(ŷ₂_m[val_indx₂], y₂_forecast[val_indx₂])
+    return CrossEntropyLoss(;agg=sum, logits=true,  epsilon=1e-10)(ŷ₁_m[val_indx₁], y₁_forecast[val_indx₁])/ size(y₂_forecast)[end] - poisson_loglikelihood(ŷ₂_m[val_indx₂], y₂_forecast[val_indx₂])/ size(y₂_forecast)[end]
 end
 
 ## forecasting
@@ -75,7 +77,7 @@ function forecast(model, θ, st, obs_data, u_forecast, time_forecast, config)
     u_obs, x_obs, covars_obs, y₁_obs, y₂_obs, mask₁_obs, mask₂_obs = obs_data
     solver = eval(Meta.parse(config["solver"]))
     kwargs_dict = Dict(Symbol(k) => v for (k, v) in config["kwargs"])
-    Ex, Ey_p = predict(model, solver, vcat(covars_obs,reverse(y₁_obs, dims=2), reverse(y₂_obs, dims=2)), u_forecast, time_forecast, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
+    Ex, Ey_p = predict(model, solver, vcat(reverse(y₁_obs, dims=2), reverse(y₂_obs, dims=2),covars_obs), u_forecast, time_forecast, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
     return Ex, Ey_p[1], Ey_p[2]
 end
 
@@ -203,7 +205,7 @@ config_lsde = YAML.load_file("./configs/PkPD_config_LSDE.yml");
 exp_path = joinpath(config_lsde["experiment"]["path"], config_lsde["experiment"]["name"])
 isdir(exp_path) ? exp_path : mkpath(exp_path)
 lsde_model, lsde_θ, lsde_st = create_latentsde(config_lsde["model"], dims, rng);
-lsde_θ_trained = train(lsde_model, lsde_θ, lsde_st, timepoints_forecast, loss_fn, eval_fn, vis_fn_forecast, train_loader, test_loader, config_lsde["training"], exp_path);
+lsde_θ_trained = train(lsde_model, lsde_θ_trained, lsde_st, timepoints_forecast, loss_fn, eval_fn, vis_fn_forecast, train_loader, test_loader, config_lsde["training"], exp_path);
 
 #latent ODE
 config_lode = YAML.load_file("./configs/PkPD_config_LODE.yml");
@@ -212,7 +214,7 @@ lode_θ_trained = train(lode_model, lode_θ, lode_st, timepoints_forecast, loss_
 
 
 # visualization of prediction performance (validation)
-data_obs, data_forecast= first(val_loader);
+data_obs, data_forecast= first(test_loader);
 u_obs, x_obs, covars_obs, y₁_obs, y₂_obs, mask₁_obs, mask₂_obs= data_obs;
 u_forecast, x_forecast, covars_forecast, y₁_forecast, y₂_forecast, mask₁_forecast, mask₂_forecast= data_forecast;
 
@@ -222,9 +224,9 @@ timepoints_forecast_n=Array(timepoints_forecast_d)/length(timepoints_forecast_d)
 #lsde
 lsde_Ex, lsde_Ey₁, lsde_Ey₂ = forecast(lsde_model, lsde_θ_trained, lsde_st, data_obs, u_forecast ,timepoints_forecast_n , config_lsde["training"]["validation"]);
 lsde_forecasted_data = (lsde_Ex, lsde_Ey₁, lsde_Ey₂);
-fig=vis_fn_forecast(timepoints_obs, timepoints_forecast_n, data_obs, data_forecast, lsde_forecasted_data; sample_n=3);
+fig=vis_fn_forecast(timepoints_obs, timepoints_forecast_n, data_obs, data_forecast, lsde_forecasted_data; sample_n=2);
 
 #lode
 lode_Ex, lode_Ey₁, lode_Ey₂ = forecast(lode_model, lode_θ_trained, lode_st, data_obs, u_forecast ,timepoints_forecast_n , config_lode["training"]["validation"]);
 lode_forecasted_data = (lode_Ex, lode_Ey₁, lode_Ey₂);
-fig=vis_fn_forecast(timepoints_obs, timepoints_forecast_n, data_obs, data_forecast, lode_forecasted_data; sample_n=2);
+fig=vis_fn_forecast(timepoints_obs, timepoints_forecast_n, data_obs, data_forecast, lode_forecasted_data; sample_n=3);
