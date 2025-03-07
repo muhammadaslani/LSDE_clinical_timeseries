@@ -44,14 +44,13 @@ function loss_fn(model, θ, st, data)
     #data_obs, data_forecast= data_
     u_obs, x_obs, covars_obs, y₁_obs, y₂_obs, mask₁_obs, mask₂_obs = data_obs
     u_forecast, x_forecast, covars_forecast, y₁_forecast, y₂_forecast, mask₁_forecast, mask₂_forecast = data_forecast
+    batch_size= size(y₁_obs)[end]
     ŷ, px₀, kl_pq = model(vcat(y₁_obs, y₂_obs, covars_obs), hcat(u_obs,u_forecast), ts, θ, st)
     ŷ₁, ŷ₂ = ŷ
     val_indx₁= findall(mask₁_forecast.==1)
     val_indx₂= findall(mask₂_forecast.==1)
 
-    recon_loss_1 = CrossEntropyLoss(;agg=sum, logits=true,  epsilon=1e-10)(ŷ₁[val_indx₁], y₁_forecast[val_indx₁])/size(y₁_forecast)[end]
-    recon_loss_2= - poisson_loglikelihood(ŷ₂[val_indx₂], y₂_forecast[val_indx₂])/ size(y₂_forecast)[end]
-    recon_loss= recon_loss_1 + recon_loss_2
+    recon_loss = CrossEntropyLoss(;agg=sum, logits=true,  epsilon=1e-10)(ŷ₁[val_indx₁], y₁_forecast[val_indx₁])/batch_size - poisson_loglikelihood(ŷ₂[val_indx₂], y₂_forecast[val_indx₂])/ batch_size
     kl_loss = kl_normal(px₀...) / size(x_obs)[end] + mean(kl_pq[end, :])
     loss = recon_loss + λ * kl_loss
     return loss, st, kl_loss
@@ -61,7 +60,7 @@ function eval_fn(model, θ, st, ts, data, config)
     data_obs, data_forecast= data
     u_obs, x_obs, covars_obs, y₁_obs, y₂_obs, mask₁_obs, mask₂_obs = data_obs
     u_forecast, x_forecast, covars_forecast, y₁_forecast, y₂_forecast, mask₁_forecast, mask₂_forecast = data_forecast
-
+    batch_size= size(y₁_obs)[end]
     solver = eval(Meta.parse(config["solver"]))
     kwargs_dict = Dict(Symbol(k) => v for (k, v) in config["kwargs"])
     px₀ = (zeros32(config["latent_dim"], size(y₁_obs)[end]), ones32(config["latent_dim"], size(y₁_obs)[end]))
@@ -69,7 +68,7 @@ function eval_fn(model, θ, st, ts, data, config)
     ŷ₁_m, ŷ₂_m = dropmean(Ey[1], dims=4), dropmean(Ey[2], dims=4)
     val_indx₁= findall(mask₁_forecast.==1)
     val_indx₂= findall(mask₂_forecast.==1)
-    return CrossEntropyLoss(;agg=sum, logits=true,  epsilon=1e-10)(ŷ₁_m[val_indx₁], y₁_forecast[val_indx₁])/ size(y₂_forecast)[end] - poisson_loglikelihood(ŷ₂_m[val_indx₂], y₂_forecast[val_indx₂])/ size(y₂_forecast)[end]
+    return CrossEntropyLoss(;agg=sum, logits=true,  epsilon=1e-10)(ŷ₁_m[val_indx₁], y₁_forecast[val_indx₁])/ batch_size -poisson_loglikelihood(ŷ₂_m[val_indx₂], y₂_forecast[val_indx₂])/batch_size
 end
 
 ## forecasting
@@ -116,6 +115,8 @@ function vis_fn_forecast(obs_timepoints, for_timepoints, obs_data, future_true_d
     ŷ₂_count_m_valid=ŷ₂_count_m[1,findall(i-> t_p[i]<=max_t_p_valid .&& mask₂_t[1,i,sample_n] == 1, 1:length(t_p)),sample_n]
     ŷ₂_count_s_valid=ŷ₂_count_s[1,findall(i-> t_p[i]<=max_t_p_valid .&& mask₂_t[1,i,sample_n] == 1, 1:length(t_p)),sample_n]
     
+    ŷ₁_max = maximum(softmax(ŷ₁_m,dims=1), dims=1)
+    ŷ₁_conf_valid=ŷ₁_max[1,findall(i-> t_p[i]<=max_t_p_valid .&& mask₁_t[1,i,sample_n] == 1, 1:length(t_p)),sample_n]
     ## errors and confidences
     ŷ₁_cross_entropy_valid=CrossEntropyLoss(;agg=sum, logits=true,  epsilon=1e-5)(ŷ₁_m[findall(mask₁_t.==1)], y₁_t[findall(mask₁_t.==1)])/length(ŷ₁_m[findall(mask₁_t.==1)])
     ŷ₁_entropy=prediction_entropy(ŷ₁_m)
@@ -141,7 +142,7 @@ function vis_fn_forecast(obs_timepoints, for_timepoints, obs_data, future_true_d
     y_max_fig₄=maximum([maximum(ŷ₂_count_m_valid), maximum(y₂_o_valid), maximum(y₂_t_valid)])+3
     y_min= -2.0
 
-    fig = Figure(size=(1200, 900))
+    fig = Figure(size=(1200, 900), fontsize=20)
     ax1 = CairoMakie.Axis(fig[1, 1], xlabel="Time (days)", ylabel="Interventions",limits=((x_min, x_max), (0.0, 1.5)),  yticks=[0, 1],xgridvisible = false, ygridvisible = false)
     ax2 = CairoMakie.Axis(fig[2, 1], xlabel="Time (days)", ylabel="Health status",limits=((x_min, x_max), (-2.0, 6)),xgridvisible = false, ygridvisible = false)
     ax3 = CairoMakie.Axis(fig[3, 1], xlabel="Time (days)", ylabel="Tumor size",limits=((x_min, x_max), (y_min,y_max_fig₃)),xgridvisible = false, ygridvisible = false)
@@ -154,9 +155,10 @@ function vis_fn_forecast(obs_timepoints, for_timepoints, obs_data, future_true_d
 
     scatter!(ax2, t_o_valid, y₁_o_class_valid, color = :blue, markersize=10, label="Observed")
     scatter!(ax2, t_p_valid, y₁_t_class_valid, color = (:green,0.5), markersize=15, label="True")
-    scatter!(ax2, t_p_valid, ŷ₁_class_valid, color = (:red, 0.5),markersize=10, label="Predicted")
+    scatter!(ax2, t_p_valid, ŷ₁_class_valid, color = (:red, 0.9),markersize=10, label="Predicted")
     errorbars!(ax2, t_p_valid, ŷ₁_class_valid, ŷ₁_entropy_valid, color=(atom_one_dark[:red], 0.5), whiskerwidth=8, label="Prediction uncertainty")
-
+    #errorbars!(ax2, t_p_valid, ŷ₁_class_valid, ŷ₁_conf_valid, color=(atom_one_dark[:green], 0.3), whiskerwidth=8, label="Prediction uncertainty")
+    
     lines!(ax3, Array(1:366), vcat(x_o[1,:, sample_n], x_t[1,:, sample_n]), color = :blue, label="Observed (underlying tumor size)")
     lines!(ax3, t_p, ŷ₂_m[1,:, sample_n], color = :red, label="Predicted (contiuous)")
     scatter!(ax3, t_p_valid, ŷ₂_m_valid, color = :red, label="Predicted (weekly irregular)")
@@ -164,8 +166,8 @@ function vis_fn_forecast(obs_timepoints, for_timepoints, obs_data, future_true_d
 
     scatter!(ax4, t_o_valid, y₂_o_valid, color = :blue, label="Observed")
     scatter!(ax4, t_p_valid, y₂_t_valid, color = (:green,0.5),markersize=15, label="True")
-    scatter!(ax4, t_p_valid, ŷ₂_count_m_valid, color = (:red, 0.5), label="Predicted")
-    errorbars!(ax4, t_p_valid, ŷ₂_count_m_valid, ŷ₂_count_confidence_valid, color=(atom_one_dark[:red], 0.3), whiskerwidth=8, label="Prediction uncertainty")
+    scatter!(ax4, t_p_valid, ŷ₂_count_m_valid, color = (:red, 0.9), label="Predicted")
+    errorbars!(ax4, t_p_valid, ŷ₂_count_m_valid, ŷ₂_count_confidence_valid, color=(atom_one_dark[:red], 0.5), whiskerwidth=8, label="Prediction uncertainty")
 
     poly!(ax1, [-10, t_o[end], t_o[end], -10], [-10, -10, 500, 500], color=(:blue, 0.05), label="observation period (history)")
     poly!(ax1, [t_o[end], t_o[end] + max_t_p_valid, t_o[end] + max_t_p_valid, t_o[end]], [-10, -10, 500, 500], color=(:red, 0.05), label="prediction period (future)")
@@ -179,16 +181,16 @@ function vis_fn_forecast(obs_timepoints, for_timepoints, obs_data, future_true_d
 
 
     linkxaxes!(ax1, ax2, ax3, ax4)
-    fig[1, 2] = Legend(fig, ax1, framevisible=false)
-    fig[2, 2] = Legend(fig, ax2, framevisible=false)
-    fig[3, 2] = Legend(fig, ax3, framevisible=false)
-    fig[4, 2] = Legend(fig, ax4, framevisible=false)
+    fig[1, 2] = Legend(fig, ax1, framevisible=false,halign=:left)
+    fig[2, 2] = Legend(fig, ax2, framevisible=false,halign=:left)
+    fig[3, 2] = Legend(fig, ax3, framevisible=false,halign=:left)
+    fig[4, 2] = Legend(fig, ax4, framevisible=false,halign=:left)
     display(fig)
     return fig
 end
 ## system identification 
 rng = Random.MersenneTwister(123);
-train_loader, test_loader, val_loader, dims, timepoints_obs, timepoints_forecast = generate_dataloader(; n_samples=512, batchsize=64, split=(0.6,0.3), obs_fraction=0.1);
+train_loader, test_loader, val_loader, dims, timepoints_obs, timepoints_forecast = generate_dataloader(; n_samples=512, batchsize=64, split=(0.4,0.5), obs_fraction=0.2);
 
 #latent SDE
 config_lsde = YAML.load_file("./configs/PkPD_config_LSDE.yml");
@@ -200,7 +202,7 @@ lsde_θ_trained = train(lsde_model, lsde_θ, lsde_st, timepoints_forecast, loss_
 #latent ODE
 config_lode = YAML.load_file("./configs/PkPD_config_LODE.yml");
 lode_model, lode_θ, lode_st = create_latentsde(config_lode["model"], dims, rng);
-lode_θ_trained = train(lode_model, lode_θ, lode_st, timepoints_forecast, loss_fn, eval_fn, vis_fn_forecast, train_loader, test_loader, config_lode["training"], exp_path);
+lode_θ_trained = train(lode_model, lode_θ_trained, lode_st, timepoints_forecast, loss_fn, eval_fn, vis_fn_forecast, train_loader, test_loader, config_lode["training"], exp_path);
 
 
 # visualization of prediction performance (validation)
@@ -208,15 +210,13 @@ data_obs, data_forecast= first(val_loader);
 u_obs, x_obs, covars_obs, y₁_obs, y₂_obs, mask₁_obs, mask₂_obs= data_obs;
 u_forecast, x_forecast, covars_forecast, y₁_forecast, y₂_forecast, mask₁_forecast, mask₂_forecast= data_forecast;
 
-timepoints_forecast_d= Array(timepoints_forecast[1] .*52.0f0.*7:365); #daily
-timepoints_forecast_n=Array(timepoints_forecast_d)/365; #normalized
-
 #lsde
 lsde_Ex, lsde_Ey₁, lsde_Ey₂ = forecast(lsde_model, lsde_θ_trained, lsde_st, data_obs, u_forecast ,timepoints_forecast , config_lsde["training"]["validation"]);
 lsde_forecasted_data = (lsde_Ex, lsde_Ey₁, lsde_Ey₂);
-fig=vis_fn_forecast(timepoints_obs, timepoints_forecast, data_obs, data_forecast, lsde_forecasted_data; sample_n=2);
-
+lsde_fig=vis_fn_forecast(timepoints_obs, timepoints_forecast, data_obs, data_forecast, lsde_forecasted_data; sample_n=6);
+#save("examples/pkpd/lsde_forecast.eps", lsde_fig)
 #lode
 lode_Ex, lode_Ey₁, lode_Ey₂ = forecast(lode_model, lode_θ_trained, lode_st, data_obs, u_forecast ,timepoints_forecast , config_lode["training"]["validation"]);
 lode_forecasted_data = (lode_Ex, lode_Ey₁, lode_Ey₂);
-fig=vis_fn_forecast(timepoints_obs, timepoints_forecast, data_obs, data_forecast, lode_forecasted_data; sample_n=2);
+lode_fig=vis_fn_forecast(timepoints_obs, timepoints_forecast, data_obs, data_forecast, lode_forecasted_data; sample_n=2);
+#save("examples/pkpd/lode_forecast.eps", lode_fig)

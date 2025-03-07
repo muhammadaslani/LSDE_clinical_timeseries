@@ -25,24 +25,24 @@ Base.@kwdef mutable struct ModelParameters
     # Derived parameters
     BSA::Float64 = sqrt((height * weight) / 3600) # Body surface area
     BMI::Float64 = weight / ((height / 100)^2)    # Body mass index
-    ρ::Float64 = rand(Normal(5e-4,1e-4)) * (1 + 0.005*(age - 50)/30) * (gender == 0 ? 1.05 : 0.95) * (tumor_type == "SCLC" ? 1.1 : 1.0)  # Tumor growth rate
+    ρ::Float64 = rand(Normal(1e-4,1e-5)) * (1 + 0.005*(age - 50)/30) * (gender == 0 ? 1.05 : 0.95) * (tumor_type == "SCLC" ? 1.1 : 1.0)  # Tumor growth rate
     K::Float64 = abs(rand(Normal(400.0,20))) * (gender == 0 ? 1.2 : 1.0) * (tumor_type == "SCLC" ? 0.8 : 1.0) # Tumor carrying capacity
-    β_c::Float64 = abs(rand(Normal(0.15,0.05))) * (1 - 0.003*(age - 50)) * (1 / BSA) * (tumor_type == "SCLC" ? 1.2 : 1.0) # Linear effect of chemotherapy
+    β_c::Float64 = abs(rand(Normal(0.1,0.1))) * (1 - 0.003*(age - 50)) * (1 / BSA) * (tumor_type == "SCLC" ? 1.2 : 1.0) # Linear effect of chemotherapy
     ω_c::Float64 = 1.0   # Chemotherapy sessions frequency (every X weeks)
-    α_r::Float64 = rand(Normal(0.1,0.1)) * (1 - 0.002*(age - 50)) * (tumor_type == "SCLC" ? 1.2 : 1.0) # Linear effect of radiotherapy
-    β_r::Float64 = rand(Normal(0.05,0.01))   # Quadratic effect of radiotherapy
+    α_r::Float64 = rand(Normal(0.05,0.1)) * (1 - 0.002*(age - 50)) * (tumor_type == "SCLC" ? 1.2 : 1.0) # Linear effect of radiotherapy
+    β_r::Float64 = rand(Normal(0.07,0.1))   # Quadratic effect of radiotherapy
     ω_r::Float64 = 3.0   # Radiotherapy sessions frequency (every X weeks)
-    δ::Float64 = rand(Normal(0.023,0.01)) * (1 + 0.015*(age - 50)/30) * (BMI > 30 ? 0.9 : 1.0) # Reduced immune growth rate
-    β_I::Float64 = rand(Normal(0.15,0.1)) * (1 - 0.002*(age - 50)) * (BMI > 30 ? 1.1 : 1.0) # Increased drug-induced immune suppression
-    α_I::Float64 = rand(Normal(0.16,0.1)) * (BMI > 30 ? 1.1 : 1.0) # Increased radiotherapy-induced immune suppression
-    θ_I::Float64 = rand(Normal(0.08,0.02)) * (tumor_type == "SCLC" ? 0.9 : 1.0)
-    λ_I::Float64 = rand(Normal(0.002,0.0005)) # Immune suppression by large tumors
-    ω_I::Float64 = rand(Normal(0.07,0.01))  # Immune decay rate
+    δ::Float64 = rand(Normal(0.023,0.005)) * (1 + 0.015*(age - 50)/30) * (BMI > 30 ? 0.9 : 1.0) # Reduced immune growth rate
+    β_I::Float64 = rand(Normal(0.2,0.05)) * (1 - 0.002*(age - 50)) * (BMI > 30 ? 1.1 : 1.0) # Increased drug-induced immune suppression
+    α_I::Float64 = rand(Normal(0.2,0.05)) * (BMI > 30 ? 1.1 : 1.0) # Increased radiotherapy-induced immune suppression
+    θ_I::Float64 = rand(Normal(0.05,0.01)) * (tumor_type == "SCLC" ? 0.9 : 1.0)
+    λ_I::Float64 = rand(Normal(0.001,0.0001)) # Immune suppression by large tumors
+    ω_I::Float64 = rand(Normal(0.02,0.005))  # Immune decay rate
     I_max::Float64 = 0.95 * (BMI > 30 ? 0.9 : 1.0) #Maximum immune system response
     # Health effects
     γ_S::Float64 = rand(Normal(5e-2,1e-2))  # Immune effect on health
     θ_S::Float64 = rand(Normal(300.0,50)) * (1 - 0.005*(age - 50)) * (BMI > 30 ? 0.9 : 1.0) #Health recovery rate
-    λ_S::Float64 = rand(Normal(500.0,50)) * (gender == 0 ? 1.1 : 1.0) #Health impact of tumor
+    λ_S::Float64 = rand(Normal(400.0,50)) * (gender == 0 ? 1.1 : 1.0) #Health impact of tumor
 end
 
 """
@@ -200,7 +200,7 @@ Diffusion term for the stochastic differential equation.
 - `t::Float64`: Time
 """
 function diffusion(dX::Vector{Float64}, X::Vector{Float64}, p::ModelParameters, t::Float64)
-    dX[1] = 1e-2 * sqrt(X[1]^2)
+    dX[1] = 1e-1 * sqrt(X[1]^2)
 end
 
 """

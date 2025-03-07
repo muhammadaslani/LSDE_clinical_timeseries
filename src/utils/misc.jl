@@ -30,7 +30,7 @@ end
 
 function prediction_entropy(ŷ::Vector{T}) where T 
     ŷ_softmax = softmax(ŷ, dims=1)
-    return -sum(ŷ_softmax .* log.(ŷ_softmax .+1e-10, 2))
+    return -sum(ŷ_softmax .* log.(ŷ_softmax .+1e-10))
 end
 
 
