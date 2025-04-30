@@ -206,7 +206,7 @@ lode_θ_trained = train(lode_model, lode_θ_trained, lode_st, timepoints_forecas
 
 
 # visualization of prediction performance (validation)
-data_obs, data_forecast= first(val_loader);
+data_obs, data_forecast= va_loader.data;
 u_obs, x_obs, covars_obs, y₁_obs, y₂_obs, mask₁_obs, mask₂_obs= data_obs;
 u_forecast, x_forecast, covars_forecast, y₁_forecast, y₂_forecast, mask₁_forecast, mask₂_forecast= data_forecast;
 

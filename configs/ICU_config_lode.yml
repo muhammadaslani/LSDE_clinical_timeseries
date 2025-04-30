@@ -1,25 +1,25 @@
 model:
   type: "LatentSDE"
   latent_dim: &latentdim 8
-  context_dim: 32
+  context_dim: 16
 
   obs_encoder:
     type: "Recurrent_Encoder"
-    hidden_size: 32
+    hidden_size: 16
 
   SDE:
     drift:
       type: "MLP"
-      hidden_size: 32
-      depth: 0
+      hidden_size: 16
+      depth: 1
       activation: swish
     drift_aug:
       type: "MLP"
-      hidden_size: 32
-      depth: 0
+      hidden_size: 16
+      depth: 1
       activation: swish
     diffusion:
-      type: "SparseMLP"
+      type: "SparseMLP_ODE"
       activation: sigmoid
     solver: EM()
     kwargs:
@@ -27,23 +27,23 @@ model:
 
   obs_decoder:
     type: "BranchDecoder"
-    hidden_size: 32
-    depth: 0
+    hidden_size: 16
+    depth: 1
     dists: ["Gaussian", "Gaussian", "Gaussian", "Gaussian","Gaussian","Gaussian","Gaussian" ]
 
 
 training:
-  learning_rate: 0.005
-  optimizer: AdamW(0.005)
-  epochs: 200
-  log_freq: 20
+  learning_rate: 0.001
+  optimizer: AdamW(0.001)
+  epochs: 2000
+  log_freq: 10
   viz_freq: 100
   stop_patience: 10
   lrdecay_patience: 5
   validation:
       latent_dim: *latentdim  
       solver: EM()
-      mcmc_samples: 10
+      mcmc_samples: 50
       kwargs:
           dt: 0.01
 

@@ -1,0 +1,53 @@
+model:
+  type: "LatentSDE"
+  latent_dim: &latentdim 8
+  context_dim: 16
+
+  obs_encoder:
+    type: "Recurrent_Encoder"
+    hidden_size: 16
+
+  SDE:
+    drift:
+      type: "MLP"
+      hidden_size: 16
+      depth: 3
+      activation: swish
+    drift_aug:
+      type: "MLP"
+      hidden_size: 16
+      depth: 3
+      activation: swish
+    diffusion:
+      type: "SparseMLP"
+      activation: sigmoid
+    solver: EM()
+    kwargs:
+        dt: 0.01
+
+  obs_decoder:
+    type: "BranchDecoder"
+    hidden_size: 16
+    depth: 4
+    dists: ["Gaussian", "Gaussian", "Gaussian", "Gaussian","Gaussian","Gaussian","Gaussian" ]
+
+
+training:
+  learning_rate: 0.005
+  optimizer: AdamW(0.005)
+  epochs: 500
+  log_freq: 20
+  viz_freq: 100
+  stop_patience: 10
+  lrdecay_patience: 5
+  validation:
+      latent_dim: *latentdim  
+      solver: EM()
+      mcmc_samples: 50
+      kwargs:
+          dt: 0.01
+
+experiment:
+  name: "LatentSDE_ICU_Sys_ID_V0"
+  description: "First experiment with a Latent SDE model using Rhythm on the ICU dataset"
+  path: "experiments/" 

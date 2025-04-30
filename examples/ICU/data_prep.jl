@@ -1,59 +1,34 @@
-function load_data(; n_samples=512, sampling_rate=1, batch_size=32)
+# Description: This file contains functions to load and preprocess the PhysioNet 2012 challenge dataset.
+function load_data(;split_at=24, n_samples=512, sampling_rate=1, batch_size=32, variables_of_interest=["MAP", "HR", "Temp"])
     time_series_dataset = load_multiple_files("/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/time_series")
-    outcomes_file = "/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/Outcomes-a.txt"
+    #outcomes_file = "/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/Outcomes-a.txt"
+    #time_series_dataset = load_multiple_files("/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a & set_b")
 
+    
   
     time_series_variables = ["ALP", "HR", "DiasABP", "Na", "Lactate", "NIDiasABP", "PaO2", "WBC", "pH", "Albumin", "ALT", "Glucose", "SaO2",
         "Temp", "AST", "Bilirubin", "BUN", "RespRate", "Mg", "HCT", "SysABP", "FiO2", "K", "GCS",
         "Cholesterol", "NISysABP", "TroponinT", "MAP", "TroponinI", "PaCO2", "Platelets", "Urine", "NIMAP",
         "Creatinine", "HCO3"]
     
-    static_features_df,static_features_matrix =extract_static_features("/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/time_series")
-        
-    variables_of_interest=["MAP", "HR", "RespRate", "Temp", "SaO2"]
+    static_features_df,static_features_matrix =extract_static_features("/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/time_series") 
     timeseries, masks = create_tensor(time_series_dataset, variables_of_interest)
+    timeseries_, masks_ = create_tensor(time_series_dataset, time_series_variables)
+    timeseries=z_normalize(timeseries)
+    timeseries_=z_normalize(timeseries_)
+    #timeseries=min_max_normalize(timeseries, 0.0, 1.0)
     inputs_data, _ = create_tensor(time_series_dataset, ["MechVent"])
-    obs_data=join_static_and_timeseries(static_features_matrix, timeseries)
-
-    inputs_data = inputs_data[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
-    obs_data = obs_data[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
-    timeseries = timeseries[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
-    masks= masks[:, 1:sampling_rate:end,1:n_samples] |> Array{Bool}
-
-    data = (inputs_data, obs_data, timeseries, masks)
-    train_data, test_data, val_data = splitobs(data, at=(0.5, 0.3))
-    train_loader = DataLoader(train_data, batchsize=batch_size, shuffle=true)
-    val_loader = DataLoader(val_data, batchsize=batch_size, shuffle=true)
-    test_loader=DataLoader(test_data, batchsize=batch_size, shuffle=false)
-    return  data, train_loader, val_loader, test_loader, time_series_dataset
-end
-
-function load_data(spl; n_samples=512, sampling_rate=1, batch_size=32)
-    time_series_dataset = load_multiple_files("/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/time_series")
-    outcomes_file = "/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/Outcomes-a.txt"
-
-  
-    time_series_variables = ["ALP", "HR", "DiasABP", "Na", "Lactate", "NIDiasABP", "PaO2", "WBC", "pH", "Albumin", "ALT", "Glucose", "SaO2",
-        "Temp", "AST", "Bilirubin", "BUN", "RespRate", "Mg", "HCT", "SysABP", "FiO2", "K", "GCS",
-        "Cholesterol", "NISysABP", "TroponinT", "MAP", "TroponinI", "PaCO2", "Platelets", "Urine", "NIMAP",
-        "Creatinine", "HCO3"]
-    
-    static_features_df,static_features_matrix =extract_static_features("/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/time_series")
-    
-    variables_of_interest=["MAP", "HR", "RespRate", "Temp", "SaO2"]
-    timeseries, masks = create_tensor(time_series_dataset, variables_of_interest)
-    inputs_data, _ = create_tensor(time_series_dataset, ["MechVent"])
-    obs_data=join_static_and_timeseries(static_features_matrix, timeseries)
+    obs_data=join_static_and_timeseries(static_features_matrix, timeseries_)
 
     inputs_data = inputs_data[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
     obs_data = obs_data[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
     timeseries = timeseries[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
     masks= masks[:, 1:sampling_rate:end,1:n_samples] |> Array{Bool}
     
-    obs_data_hist, obs_data_fut = obs_data[:, 1:spl, :], obs_data[:, spl+1:end, :]
-    masks_hist, masks_fut = masks[:, 1:spl, :], masks[:, spl+1:end, :]
-    inputs_data_hist, inputs_data_fut = inputs_data[:, 1:spl, :], inputs_data[:, spl+1:end, :]
-    timeseries_hist, timeseries_fut = timeseries[:, 1:spl, :], timeseries[:, spl+1:end, :]
+    obs_data_hist, obs_data_fut = obs_data[:, 1:split_at, :], obs_data[:, split_at+1:end, :]
+    masks_hist, masks_fut = masks[:, 1:split_at, :], masks[:, split_at+1:end, :]
+    inputs_data_hist, inputs_data_fut = inputs_data[:, 1:split_at, :], inputs_data[:, split_at+1:end, :]
+    timeseries_hist, timeseries_fut = timeseries[:, 1:split_at, :], timeseries[:, split_at+1:end, :]
 
     data = (inputs_data_hist, obs_data_hist, timeseries_hist, masks_hist,inputs_data_fut, obs_data_fut, timeseries_fut, masks_fut)
     train_data, val_data, test_data = splitobs(data, at=(0.5, 0.3))
@@ -62,8 +37,6 @@ function load_data(spl; n_samples=512, sampling_rate=1, batch_size=32)
     test_loader=DataLoader(test_data, batchsize=batch_size, shuffle=false)
     return  data, train_loader, val_loader, test_loader, time_series_dataset
 end
-
-
 
 
 function load_outcomes(filepath::String;)
@@ -108,20 +81,19 @@ function load_physionet_file(filepath::String; combine_method::Function=mean)
     end
 
     # # Aggregate data based on the hour of the day
-    df_long.Hour = time_to_hour.(df_long.Time)
-    df_agg = combine(groupby(df_long, [:Hour, :Parameter]), :Value => combine_method =>  :Value)
-    df_wide = DataFrames.unstack(df_agg, :Hour, :Parameter, :Value)
-    sort!(df_wide, :Hour)
+    # df_long.Hour = time_to_hour.(df_long.Time)
+    # df_agg = combine(groupby(df_long, [:Hour, :Parameter]), :Value => combine_method =>  :Value)
+    # df_wide = DataFrames.unstack(df_agg, :Hour, :Parameter, :Value)
+    # sort!(df_wide, :Hour)
     # Aggregate data based on the original time points, ignoring hours
-    # df_agg = combine(groupby(df_long, [:Time, :Parameter]), :Value => combine_method => :Value)
-    # df_wide = DataFrames.unstack(df_agg, :Time, :Parameter, :Value)
+    df_agg = combine(groupby(df_long, [:Time, :Parameter]), :Value => combine_method => :Value)
+    df_wide = DataFrames.unstack(df_agg, :Time, :Parameter, :Value)
 
-    # sort!(df_wide, :Time)
+    sort!(df_wide, :Time)
 
 
     return df_wide
 end
-
 
 
 function load_multiple_files(directory::String, pattern::String="*.txt")
@@ -318,6 +290,27 @@ function z_normalize(input_tensor)
                 μ=mean(input_tensor[i,:,:])
                 σ=std(input_tensor[i,:,:])
                 normalized_tensor[i, :,:] = (input_tensor[i,:,:] .- μ) ./ σ
+    end
+    return normalized_tensor
+end
+
+
+function min_max_normalize(input_tensor, target_min=0.0, target_max=1.0)
+    normalized_tensor = similar(input_tensor)
+    for i in axes(input_tensor)[1]
+        # Find the minimum and maximum values for the current slice
+        min_val = minimum(input_tensor[i,:,:])
+        max_val = maximum(input_tensor[i,:,:])
+        
+        # Avoid division by zero if all values are the same
+        if max_val ≈ min_val
+            normalized_tensor[i,:,:] .= target_min
+        else
+            # Scale to the target range
+            range = max_val - min_val
+            normalized_tensor[i,:,:] = target_min .+ (target_max - target_min) .* 
+                                      (input_tensor[i,:,:] .- min_val) ./ range
+        end
     end
     return normalized_tensor
 end
