@@ -32,11 +32,11 @@ Base.@kwdef struct ModelParameters
     δ::Float64 = 0.023   # Reduced immune growth rate
     β_I::Float64 = 0.15  # Increased drug-induced immune suppression
     α_I::Float64 = 0.16  # Increased radiotherapy-induced immune suppression
-    θ_I::Float64 = 0.08  # Immune stimulation by tumor
+    θ_I::Float64 = 0.01  # Immune stimulation by tumor
     λ_I::Float64 = 0.002 # Immune suppression by large tumors
     ω_I::Float64 = 0.07  # Immune decay rate
     I_max::Float64 = 0.95 # Max immune response
-    γ_S::Float64 = 5e-2  # Immune effect on health
+    γ_S::Float64 = 1e-2  # Immune effect on health
     θ_S::Float64 = 40.0  # Health recovery rate
     λ_S::Float64 = 100.0 # Health impact of tumor
 end
@@ -284,8 +284,8 @@ function generate_dataset(;
     X₀::Vector{Float64} = [40.0, 0.0, 0.0, 0.8, 0.9],
     X₀_mean::Vector{Float64} = [50.0, 0.0, 0.0, 0.8, 0.9],
     X₀_std::Vector{Float64} = [10.0, 0.0, 0.0, 0.3, 0.3],    
-    tspan::Tuple{Float64,Float64} = (0.0, 365.0),
-    sample_rate::Int = 7,
+    tspan::Tuple{Float64,Float64} = (0.0, 50.0),
+    sample_rate::Int = 1,
     params::ModelParameters = ModelParameters()
 )
 

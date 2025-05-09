@@ -4,7 +4,7 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
     tstate = Training.TrainState(model, θ, st, opt)
     
     # Keep the lambda schedule for KL annealing
-    λ_schedule = frange_cycle_linear(config["epochs"]+1, 0.0f0, 5.0f0, 10, 0.3f0)
+    λ_schedule = frange_cycle_linear(config["epochs"]+1, 0.0f0, 1.0f0, 5, 0.3f0)
     
     # Initialize exponential learning rate schedule
     initial_lr = config["learning_rate"]
@@ -29,16 +29,14 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
         train_loss = 0.f0
         kl_term = 0.f0
         recon_loss = 0.f0
-        recon_loss_1 = 0.f0
-        recon_loss_2 = 0.f0
+
 
         for batch in train_loader
-            _, loss, (kl_loss, r_loss, r_loss_1, r_loss_2), tstate = Training.single_train_step!(AutoZygote(), loss_fn, (batch, ts, λ_schedule[epoch]), tstate) 
+            _, loss, (kl_loss, r_loss), tstate = Training.single_train_step!(AutoZygote(), loss_fn, (batch, ts, λ_schedule[epoch]), tstate) 
             train_loss += loss
             kl_term += kl_loss
             recon_loss += r_loss
-            recon_loss_1 += r_loss_1
-            recon_loss_2 += r_loss_2
+
         end
 
         θ = tstate.parameters
@@ -46,12 +44,12 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
 
         if epoch % config["log_freq"] == 0
             ttime = time() - stime
-            @printf("Epoch %d/%d: \t Training loss: %.3f \t λ: %.3f \t LR: %.6f \t Kl_term:%.3f \t recon_loss:%.3f \t recon_loss_1:%.3f \t recon_loss_2:%.3f \t Time/epoch: %.3f\n", 
+            @printf("Epoch %d/%d: \t Training loss: %.3f \t λ: %.3f \t LR: %.6f \t Kl_term:%.3f \t recon_loss:%.3f \t  Time/epoch: %.3f\n", 
                     epoch, config["epochs"], train_loss/n_batches, λ_schedule[epoch], current_lr, kl_term/n_batches, 
-                    recon_loss/n_batches, recon_loss_1/n_batches, recon_loss_2/n_batches, ttime/config["log_freq"])
+                    recon_loss/n_batches,  ttime/config["log_freq"])
                     
-            val_metric, (val_metric_1, val_metric_2) = validate(model, θ, st, ts, val_loader, eval_fn, config["validation"])
-            @printf("Validation metric: %.3f\t val metric 1: %.3f\t val metric 2: %.3f\n", val_metric, val_metric_1, val_metric_2)
+            val_metric = validate(model, θ, st, ts, val_loader, eval_fn, config["validation"])
+            @printf("Validation metric: %.3f\t val metric 1: \n", val_metric)
 
             if epoch % config["viz_freq"] == 0
                 #viz_fn(model, θ, st, ts, first(train_loader), config["validation"]; sample_n=1)
@@ -79,13 +77,11 @@ end
 
 function validate(model, θ, st, ts, val_loader, eval_fn, config)
     val_metric = 0.0f0
-    val_metric_1 = 0.0f0
-    val_metric_2 = 0.0f0
+
     for batch in val_loader
-        val_m, (val_m_1, val_m_2) = eval_fn(model, θ, st, ts, batch, config)
+        val_m= eval_fn(model, θ, st, ts, batch, config)
         val_metric += val_m
-        val_metric_1 += val_m_1
-        val_metric_2 += val_m_2
+
     end
-    return val_metric/length(val_loader), (val_metric_1/length(val_loader), val_metric_2/length(val_loader))
+    return val_metric/length(val_loader)
 end
