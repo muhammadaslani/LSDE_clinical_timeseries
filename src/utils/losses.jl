@@ -14,7 +14,7 @@ returns:
 
 """
 function kl_normal(μ, σ²)
-    kl = 0.5f0 * sum(σ² .+ μ .^ 2 .- 1 .- log.(σ²))
+    kl = 0.5f0 * mean(σ² .+ μ .^ 2 .- 1 .- log.(σ²))
     return kl
 end
 """
@@ -72,6 +72,24 @@ function poisson_loglikelihood(λ::AbstractArray, y::AbstractArray,  mask::Abstr
     
     return ll
 end
+
+
+"""
+Negative log‑likelihood for a Poisson with **log‑rates**.
+
+logλ  – model output (same shape as y)
+y     – non‑negative integer counts
+Returns a scalar loss to **minimise**.
+"""
+function poisson_nll_lograte(logλ::AbstractArray, y::AbstractArray)
+    @assert size(logλ) == size(y)
+    @assert all(y .>= 0)
+
+    ll = y .* logλ .- exp.(logλ) .- loggamma.(y .+ 1)   # log‑likelihood
+    return -mean(ll)   # negative mean log‑likelihood
+end
+
+
 
 
 """

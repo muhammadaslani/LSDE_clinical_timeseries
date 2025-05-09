@@ -52,7 +52,7 @@ const SOLVER_MAP = Dict(
 include("utils/misc.jl")
 export sample_rp, interpolate!, basic_tgrad, dropmean, dropsd, pad_matrices, irregularize, split_matrix, prediction_entropy
 include("utils/losses.jl")
-export kl_normal, poisson_loglikelihood, normal_loglikelihood, mse, frange_cycle_linear, bits_per_spike, CrossEntropy_Loss
+export kl_normal, poisson_loglikelihood,poisson_nll_lograte, normal_loglikelihood, mse, frange_cycle_linear, bits_per_spike, CrossEntropy_Loss
 include("utils/config.jl")
 export create_object, create_latentsde
 include("trainer.jl")

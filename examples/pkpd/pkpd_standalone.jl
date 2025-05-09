@@ -16,34 +16,58 @@ using DifferentialEquations, Random, Distributions, CairoMakie, Lux
 """
     ModelParameters
 """
-Base.@kwdef mutable struct ModelParameters
+Base.@kwdef struct ModelParameters
     gender::Int = rand(0:1)       # 0 for male, 1 for female
     age::Float64 = rand(20:80)    # Age in years
     weight::Float64 = rand(50:120) # Weight in kg
     height::Float64 = rand(150:190) # Height in cm
     tumor_type::String = rand(["NSCLC", "SCLC"]) # Tumor type
-    # Derived parameters
-    BSA::Float64 = sqrt((height * weight) / 3600) # Body surface area
-    BMI::Float64 = weight / ((height / 100)^2)    # Body mass index
-    ρ::Float64 = rand(Normal(1e-4,1e-5)) * (1 + 0.005*(age - 50)/30) * (gender == 0 ? 1.05 : 0.95) * (tumor_type == "SCLC" ? 1.1 : 1.0)  # Tumor growth rate
-    K::Float64 = abs(rand(Normal(400.0,20))) * (gender == 0 ? 1.2 : 1.0) * (tumor_type == "SCLC" ? 0.8 : 1.0) # Tumor carrying capacity
-    β_c::Float64 = abs(rand(Normal(0.1,0.1))) * (1 - 0.003*(age - 50)) * (1 / BSA) * (tumor_type == "SCLC" ? 1.2 : 1.0) # Linear effect of chemotherapy
+    ρ::Float64 = 8e-3    # Tumor growth rate
+    K::Float64 = 100.0   # Tumor carrying capacity
+    β_c::Float64 = 0.1  # Linear effect of chemotherapy
     ω_c::Float64 = 1.0   # Chemotherapy sessions frequency (every X weeks)
-    α_r::Float64 = rand(Normal(0.05,0.1)) * (1 - 0.002*(age - 50)) * (tumor_type == "SCLC" ? 1.2 : 1.0) # Linear effect of radiotherapy
-    β_r::Float64 = rand(Normal(0.07,0.1))   # Quadratic effect of radiotherapy
+    α_r::Float64 = 0.1   # Linear effect of radiotherapy
+    β_r::Float64 = 0.1   # Quadratic effect of radiotherapy
     ω_r::Float64 = 3.0   # Radiotherapy sessions frequency (every X weeks)
-    δ::Float64 = rand(Normal(0.023,0.005)) * (1 + 0.015*(age - 50)/30) * (BMI > 30 ? 0.9 : 1.0) # Reduced immune growth rate
-    β_I::Float64 = rand(Normal(0.2,0.05)) * (1 - 0.002*(age - 50)) * (BMI > 30 ? 1.1 : 1.0) # Increased drug-induced immune suppression
-    α_I::Float64 = rand(Normal(0.2,0.05)) * (BMI > 30 ? 1.1 : 1.0) # Increased radiotherapy-induced immune suppression
-    θ_I::Float64 = rand(Normal(0.05,0.01)) * (tumor_type == "SCLC" ? 0.9 : 1.0)
-    λ_I::Float64 = rand(Normal(0.001,0.0001)) # Immune suppression by large tumors
-    ω_I::Float64 = rand(Normal(0.02,0.005))  # Immune decay rate
-    I_max::Float64 = 0.95 * (BMI > 30 ? 0.9 : 1.0) #Maximum immune system response
-    # Health effects
-    γ_S::Float64 = rand(Normal(5e-2,1e-2))  # Immune effect on health
-    θ_S::Float64 = rand(Normal(300.0,50)) * (1 - 0.005*(age - 50)) * (BMI > 30 ? 0.9 : 1.0) #Health recovery rate
-    λ_S::Float64 = rand(Normal(400.0,50)) * (gender == 0 ? 1.1 : 1.0) #Health impact of tumor
+    δ::Float64 = 0.023   # Reduced immune growth rate
+    β_I::Float64 = 0.15  # Increased drug-induced immune suppression
+    α_I::Float64 = 0.16  # Increased radiotherapy-induced immune suppression
+    θ_I::Float64 = 0.08  # Immune stimulation by tumor
+    λ_I::Float64 = 0.002 # Immune suppression by large tumors
+    ω_I::Float64 = 0.07  # Immune decay rate
+    I_max::Float64 = 0.95 # Max immune response
+    γ_S::Float64 = 5e-2  # Immune effect on health
+    θ_S::Float64 = 40.0  # Health recovery rate
+    λ_S::Float64 = 100.0 # Health impact of tumor
 end
+# Base.@kwdef mutable struct ModelParameters
+#     gender::Int = rand(0:1)       # 0 for male, 1 for female
+#     age::Float64 = rand(20:80)    # Age in years
+#     weight::Float64 = rand(50:120) # Weight in kg
+#     height::Float64 = rand(150:190) # Height in cm
+#     tumor_type::String = rand(["NSCLC", "SCLC"]) # Tumor type
+#     # Derived parameters
+#     BSA::Float64 = sqrt((height * weight) / 3600) # Body surface area
+#     BMI::Float64 = weight / ((height / 100)^2)    # Body mass index
+#     ρ::Float64 = rand(Normal(1e-4,1e-5)) * (1 + 0.005*(age - 50)/30) * (gender == 0 ? 1.05 : 0.95) * (tumor_type == "SCLC" ? 1.1 : 1.0)  # Tumor growth rate
+#     K::Float64 = abs(rand(Normal(400.0,20))) * (gender == 0 ? 1.2 : 1.0) * (tumor_type == "SCLC" ? 0.8 : 1.0) # Tumor carrying capacity
+#     β_c::Float64 = abs(rand(Normal(0.1,0.1))) * (1 - 0.003*(age - 50)) * (1 / BSA) * (tumor_type == "SCLC" ? 1.2 : 1.0) # Linear effect of chemotherapy
+#     ω_c::Float64 = 1.0   # Chemotherapy sessions frequency (every X weeks)
+#     α_r::Float64 = rand(Normal(0.05,0.1)) * (1 - 0.002*(age - 50)) * (tumor_type == "SCLC" ? 1.2 : 1.0) # Linear effect of radiotherapy
+#     β_r::Float64 = rand(Normal(0.07,0.1))   # Quadratic effect of radiotherapy
+#     ω_r::Float64 = 3.0   # Radiotherapy sessions frequency (every X weeks)
+#     δ::Float64 = rand(Normal(0.023,0.005)) * (1 + 0.015*(age - 50)/30) * (BMI > 30 ? 0.9 : 1.0) # Reduced immune growth rate
+#     β_I::Float64 = rand(Normal(0.2,0.05)) * (1 - 0.002*(age - 50)) * (BMI > 30 ? 1.1 : 1.0) # Increased drug-induced immune suppression
+#     α_I::Float64 = rand(Normal(0.2,0.05)) * (BMI > 30 ? 1.1 : 1.0) # Increased radiotherapy-induced immune suppression
+#     θ_I::Float64 = rand(Normal(0.05,0.01)) * (tumor_type == "SCLC" ? 0.9 : 1.0)
+#     λ_I::Float64 = rand(Normal(0.001,0.0001)) # Immune suppression by large tumors
+#     ω_I::Float64 = rand(Normal(0.02,0.005))  # Immune decay rate
+#     I_max::Float64 = 0.95 * (BMI > 30 ? 0.9 : 1.0) #Maximum immune system response
+#     # Health effects
+#     γ_S::Float64 = rand(Normal(5e-2,1e-2))  # Immune effect on health
+#     θ_S::Float64 = rand(Normal(300.0,50)) * (1 - 0.005*(age - 50)) * (BMI > 30 ? 0.9 : 1.0) #Health recovery rate
+#     λ_S::Float64 = rand(Normal(400.0,50)) * (gender == 0 ? 1.1 : 1.0) #Health impact of tumor
+# end
 
 """
     health_to_score(S::Float64)::Int
@@ -116,6 +140,7 @@ function generate_observations(ensemble_sol::EnsembleSolution, sample_rate::Int)
     end
     return Y, T
 end
+
 
 """
     u_c(t::Float64, ω_c::Float64)::Float64
@@ -200,7 +225,7 @@ Diffusion term for the stochastic differential equation.
 - `t::Float64`: Time
 """
 function diffusion(dX::Vector{Float64}, X::Vector{Float64}, p::ModelParameters, t::Float64)
-    dX[1] = 1e-1 * sqrt(X[1]^2)
+    dX[1] = 1e-2 * sqrt(X[1]^2)
 end
 
 """
@@ -256,7 +281,9 @@ Generate a dataset of PKPD model simulations.
 """
 function generate_dataset(;
     n_samples::Int,
-    X₀::Vector{Float64} = [30.0, 0.0, 0.0, 0.8, 0.9],
+    X₀::Vector{Float64} = [40.0, 0.0, 0.0, 0.8, 0.9],
+    X₀_mean::Vector{Float64} = [50.0, 0.0, 0.0, 0.8, 0.9],
+    X₀_std::Vector{Float64} = [10.0, 0.0, 0.0, 0.3, 0.3],    
     tspan::Tuple{Float64,Float64} = (0.0, 365.0),
     sample_rate::Int = 7,
     params::ModelParameters = ModelParameters()
@@ -264,8 +291,8 @@ function generate_dataset(;
 
     Random.seed!(1234)
 
-    ω_cs = rand([1, 2, 3, 4, 5, 6, 7,10,15, 20], n_samples)
-    ω_rs = rand([1, 2, 3, 4, 5, 6, 7,10,15, 20], n_samples)
+    ω_cs = rand([ 4, 5, 6, 7], n_samples)
+    ω_rs = rand([ 4, 5, 6, 7], n_samples)
     covariates=zeros(5,n_samples)
     
     @info "Generating inputs"
@@ -277,7 +304,12 @@ function generate_dataset(;
 
     function prob_func(prob, i, repeat)
         new_params = ModelParameters(ω_c = ω_cs[i], ω_r = ω_rs[i])
-        new_X₀ = X₀ .+ [rand(-10:10), 0, 0, 0, 0]
+        #new_X₀ = X₀ .+ [rand(-5:5), 0, 0, 0, 0]
+         new_X₀ = X₀_mean .+ X₀_std .* randn(length(X₀_mean))
+         new_X₀ = max.(new_X₀, 0.0) # Ensure initial conditions are non-negative
+         new_X₀[5] = min(new_X₀[5], 1.0) # Ensure max health is 1.0
+         new_X₀[4] = min(new_X₀[4], 1.0) # Ensure max immune response is 1.0
+
         covariates[:,i].=[new_params.gender ,new_params.age, new_params.weight, new_params.height, new_params.tumor_type == "SCLC" ? 1 : 0]
         remake(prob, u0 = new_X₀, p = new_params)
     end
