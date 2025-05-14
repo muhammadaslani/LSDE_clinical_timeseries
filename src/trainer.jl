@@ -4,7 +4,7 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
     tstate = Training.TrainState(model, θ, st, opt)
     
     # Keep the lambda schedule for KL annealing
-    λ_schedule = frange_cycle_linear(config["epochs"]+1, 0.0f0, 0.1f0, 10, 0.3f0)
+    λ_schedule = frange_cycle_linear(config["epochs"]+1, 0.0f0, 1.0f0, 10, 0.3f0)
     
     # Initialize exponential learning rate schedule
     initial_lr = config["learning_rate"]
@@ -49,7 +49,7 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
                     recon_loss/n_batches,  ttime/config["log_freq"])
                     
             val_metric = validate(model, θ, st, ts, val_loader, eval_fn, config["validation"])
-            @printf("Validation metric: %.3f\t val metric 1: \n", val_metric)
+            @printf("Validation metric: %.3f\n", val_metric)
 
             if epoch % config["viz_freq"] == 0
                 #viz_fn(model, θ, st, ts, first(train_loader), config["validation"]; sample_n=1)

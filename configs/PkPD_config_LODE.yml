@@ -21,9 +21,9 @@ model:
     diffusion:
       type: "SparseMLP_ODE"
       activation: sigmoid
-    solver: Euler()
+    solver: EM()
     kwargs:
-        dt: 0.01
+        dt: 0.1
 
   obs_decoder:
     type: "MLP_Decoder"
@@ -45,10 +45,10 @@ training:
     step_every: 10  # Apply decay every epoch
   validation:
       latent_dim: *latentdim  
-      solver: Euler()
-      mcmc_samples: 20
+      solver: EM()
+      mcmc_samples: 25
       kwargs:
-          dt: 0.005
+          dt: 0.1
 
 experiment:
   name: "LatentSDE_PKPD_V0"

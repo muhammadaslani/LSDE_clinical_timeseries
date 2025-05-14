@@ -46,10 +46,9 @@ training:
   validation:
       latent_dim: *latentdim  
       solver: EM()
-      mcmc_samples: 20
+      mcmc_samples: 25
       kwargs:
           dt: 0.1
-
 experiment:
   name: "LatentSDE_PKPD_V0"
   description: "First experiment with a Latent SDE model using Rhythm on the PKPD model"
