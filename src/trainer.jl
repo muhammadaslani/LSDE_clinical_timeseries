@@ -4,7 +4,7 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
     tstate = Training.TrainState(model, θ, st, opt)
     
     # Keep the lambda schedule for KL annealing
-    λ_schedule = frange_cycle_linear(config["epochs"]+1, 0.0f0, 1.0f0, 5, 0.3f0)
+    λ_schedule = frange_cycle_linear(config["epochs"]+1, 0.0f0, 0.1f0, 10, 0.3f0)
     
     # Initialize exponential learning rate schedule
     initial_lr = config["learning_rate"]

@@ -8,22 +8,22 @@ function generate_dataloader(; n_samples=512, batchsize=64, split=(0.5,0.3), obs
     Y₁_padded, Masks₁, timepoints = pad_matrices(Y₁, T)
     Y₂_padded, Masks₂, _ = pad_matrices(Y₂, T)
     X_padded, _ = pad_matrices(X, T; return_timepoints=false)
-    Y₁_irreg, Y₂_irreg, Masks₁, Masks₂ = irregularize(Y₁_padded,Y₂_padded, Masks₁, Masks₂)
-    timepoints /= 50  # Normalize timepoints
+    #Y₁_irreg, Y₂_irreg, Masks₁, Masks₂ = irregularize(Y₁_padded,Y₂_padded, Masks₁, Masks₂)
+    timepoints = timepoints / 5
+    #timepoints = timepoints/10
 
     covars=repeat(reshape(covariates,5,1,size(covariates,2)),1,size(Y₁_padded)[2],1)
     U = cat(U..., dims=3)
-    U_obs, U_forcast=split_matrix(U, obs_fraction)
-    X_obs, X_forcast=split_matrix(X_padded, obs_fraction)
+    U_obs, U_forecast=split_matrix(U, obs_fraction)
+    X_obs, X_forecast=split_matrix(X_padded, obs_fraction)
     Covars_obs, Covars_forcast=split_matrix(covars, obs_fraction)
-    Y₁_obs, Y₁_forcast=split_matrix(Y₁_irreg, obs_fraction)
-    Y₂_obs, Y₂_forcast=split_matrix(Y₂_irreg, obs_fraction)
-    Masks₁_obs, Masks₁_forcast=split_matrix(Masks₁, obs_fraction)
-    Masks₂_obs, Masks₂_forcast=split_matrix(Masks₂, obs_fraction)
+    Y₁_obs, Y₁_forecast=split_matrix(Y₁_padded, obs_fraction)
+    Y₂_obs, Y₂_forecast=split_matrix(Y₂_padded, obs_fraction)
+    Masks₁_obs, Masks₁_forecast=split_matrix(Masks₁, obs_fraction)
+    Masks₂_obs, Masks₂_forecast=split_matrix(Masks₂, obs_fraction)
     timepoints_obs, timepoints_forecast= split_matrix(timepoints, obs_fraction)
-
-    data_obs= (U_obs, X_obs, Y₂_obs, Masks₂_obs)
-    data_forecast= (U_forcast, X_forcast, Y₂_forcast, Masks₂_forcast)
+    data_obs= (U_obs, X_obs, Y₁_obs, Y₂_obs, Masks₂_obs)
+    data_forecast= (U_forecast, X_forecast, Y₁_forecast, Y₂_forecast, Masks₂_forecast)
     
     (train_data, val_data, test_data,) = splitobs((data_obs, data_forecast), at=split)
     train_loader = DataLoader(train_data, batchsize=batchsize, shuffle=true)
@@ -31,15 +31,15 @@ function generate_dataloader(; n_samples=512, batchsize=64, split=(0.5,0.3), obs
     test_loader = DataLoader(test_data, batchsize=batchsize, shuffle=false)
 
     dims = Dict(
-        "obs_dim" => [size(Y₂_irreg, 1)],
+        "obs_dim" => size(Y₁_padded, 1)+ size(Y₂_padded, 1),
         "input_dim" => size(U, 1),
         "state_dim" => size(X_padded, 1),
-        "output_dim" => [ size(Y₂_irreg, 1)]
+        "output_dim" => size(Y₂_padded, 1)
     )
     return train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast
 end
 
-function generate_dataloader(; n_samples=512, batchsize=64, split=(0.5,0.3), obs_fraction=0.5, chunk_size=500)
+function generate_dataloader_n(; n_samples=512, batchsize=64, split=(0.5,0.3), obs_fraction=0.5, chunk_size=500)
     # Calculate number of chunks needed
     n_chunks = ceil(Int, n_samples / chunk_size)
     
@@ -158,55 +158,58 @@ end
 
 function loss_fn(model, θ, st, data)
     (data_obs, data_forecast), ts, λ = data
-    u_obs, x_obs, y₂_obs, mask₂_obs = data_obs
-    u_forecast, x_forecast, y₂_forecast, mask₂_forecast = data_forecast
+    u_obs, x_obs, y₁_obs, y₂_obs, mask₂_obs = data_obs
+    u_forecast, x_forecast, y₁_forecast, y₂_forecast, mask₂_forecast = data_forecast
     batch_size= size(x_forecast)[end]
-    ŷ₂, px₀, kl_pq = model(y₂_obs, hcat(u_obs,u_forecast), ts, θ, st)
+    ŷ₂, px₀, kl_pq = model(vcat(y₁_obs, y₂_obs), hcat(u_obs,u_forecast), ts, θ, st)
     val_indx₂= findall(mask₂_forecast.==1)
-    recon_loss = poisson_nll_lograte(ŷ₂[1][val_indx₂], y₂_forecast[val_indx₂])
-    kl_loss = kl_normal(px₀...) + mean(kl_pq[end, :])
+    #recon_loss = poisson_nll_lograte(ŷ₂.*mask₂_forecast.+1e-10, y₂_forecast.*mask₂_forecast.+1e-10)
+    recon_loss = -poisson_loglikelihood(ŷ₂, y₂_forecast, mask₂_forecast)/batch_size
+    kl_loss = kl_normal(px₀...)/batch_size + mean(kl_pq[end, :])
     loss = recon_loss + λ * kl_loss
     return loss, st, (kl_loss, recon_loss)
 end
 
 function eval_fn(model, θ, st, ts, data, config)
     data_obs, data_forecast= data
-    u_obs, x_obs, y₂_obs, mask₂_obs = data_obs
-    u_forecast, x_forecast, y₂_forecast, mask₂_forecast = data_forecast
+    u_obs, x_obs, y₁_obs, y₂_obs, mask₂_obs = data_obs
+    u_forecast, x_forecast, y₁_forecast, y₂_forecast, mask₂_forecast = data_forecast
     batch_size= size(x_forecast)[end]
     solver = eval(Meta.parse(config["solver"]))
     kwargs_dict = Dict(Symbol(k) => v for (k, v) in config["kwargs"])
     px₀ = (zeros32(config["latent_dim"], size(x_obs)[end]), ones32(config["latent_dim"], size(x_obs)[end]))
-    Ex, Ey = generate(model, solver, px₀, hcat(u_obs,u_forecast), ts, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
-    ŷ₂_m = dropmean(Ey[1], dims=4)
+    #Ex, Ey = generate(model, solver, px₀, hcat(u_obs,u_forecast), ts, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
+    Ex, Ey = predict(model, solver, vcat(reverse(y₁_obs, dims=2), reverse(y₂_obs, dims=2)), u_forecast, ts, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
+    ŷ₂_m = dropmean(Ey, dims=4)
     val_indx₂= findall(mask₂_forecast.==1)
-    eval_loss = poisson_nll_lograte(ŷ₂_m[val_indx₂], y₂_forecast[val_indx₂])
+    #eval_loss = poisson_nll_lograte(ŷ₂_m.*mask₂_forecast.+1e-10, y₂_forecast.*mask₂_forecast.+1e-10)
+    eval_loss = -poisson_loglikelihood(ŷ₂_m, y₂_forecast, mask₂_forecast)/batch_size
     return eval_loss
 end
 
 ## forecasting
 function forecast(model, θ, st, obs_data, u_forecast, time_forecast, config)
-    u_obs, x_obs, y₂_obs, mask₂_obs = obs_data
+    u_obs, x_obs, y₁_obs, y₂_obs, mask₂_obs = obs_data
     solver = eval(Meta.parse(config["solver"]))
     kwargs_dict = Dict(Symbol(k) => v for (k, v) in config["kwargs"])
-    Ex, Ey_p = predict(model, solver,  reverse(y₂_obs, dims=2), u_forecast, time_forecast, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
-    return Ex, Ey_p[1]
+    Ex, Ey_p = predict(model, solver, vcat(reverse(y₁_obs, dims=2), reverse(y₂_obs, dims=2)), u_forecast, time_forecast, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
+    return Ex, Ey_p
 end
 
 # visualization of prediction performance (validation)
 
 function vis_fn_forecast(obs_timepoints, for_timepoints, obs_data, future_true_data, forecasted_data; sample_n=1)
-    u_o, x_o, y₂_o, mask₂_o = obs_data
-    u_t, x_t, y₂_t, mask₂_t = future_true_data
+    u_o, x_o, y₁_o, y₂_o, mask₂_o = obs_data
+    u_t, x_t, y₂_t, y₂_t, mask₂_t = future_true_data
     u_p= u_t
     Ex, Ey₂_p = forecasted_data
     n_timepoints=length(vcat(obs_timepoints, for_timepoints))
-    t_o, t_p = obs_timepoints.* 50, for_timepoints.* 50
+    t_o, t_p = obs_timepoints*5, for_timepoints*5
 
     #results 
-    ŷ₂_m = dropmean(exp.(Ey₂_p), dims=4)
-    ŷ₂_s = dropmean(std(exp.(Ey₂_p), dims=4), dims=4)
-    ŷ₂_count = rand.(Poisson.(exp.(Ey₂_p)))
+    ŷ₂_m = dropmean((Ey₂_p), dims=4)
+    ŷ₂_s = dropmean(std((Ey₂_p), dims=4), dims=4)
+    ŷ₂_count = rand.(Poisson.((Ey₂_p)))
     ŷ₂_count_m = dropmean(ŷ₂_count, dims=4)
     ŷ₂_count_s = dropmean(std(ŷ₂_count, dims=4), dims=4)   
 
@@ -226,7 +229,7 @@ function vis_fn_forecast(obs_timepoints, for_timepoints, obs_data, future_true_d
     ŷ₂_CI_low, ŷ₂_CI_up=ŷ₂_m[1,:,sample_n].-1.96*ŷ₂_s[1,:,sample_n], ŷ₂_m[1,:,sample_n].+1.96*ŷ₂_s[1,:,sample_n]
 
     ŷ₂_count_confidence_valid=1.96*sqrt.(ŷ₂_m_valid)
-    ŷ₂_count_nll_valid=poisson_nll_lograte(dropmean(Ey₂_p, dims=4)[1,findall(i-> t_p[i]<=max_t_p_valid .&& mask₂_t[1,i,sample_n] == 1, 1:length(t_p)),sample_n], y₂_t_valid)
+    ŷ₂_count_nll_valid=-poisson_loglikelihood(dropmean(Ey₂_p, dims=4)[1,findall(i-> t_p[i]<=max_t_p_valid .&& mask₂_t[1,i,sample_n] == 1, 1:length(t_p)),sample_n], y₂_t_valid)
     println("Cell count Negative log likelihood: ", ŷ₂_count_nll_valid)
     
     #chemptherapy and radiotherapy sessions 
@@ -238,7 +241,7 @@ function vis_fn_forecast(obs_timepoints, for_timepoints, obs_data, future_true_d
     
     #plotting
     x_min, x_max= -2.0, max_t_p_valid+max_t_p_valid/50
-    y_max_fig₃=maximum([maximum(ŷ₂_m_valid), maximum(x_o[1,:, sample_n])])+3
+    y_max_fig₃=maximum([maximum(ŷ₂_m_valid), maximum(x_o[1,:, sample_n]), maximum(x_t[1,:,sample_n])])+3
     y_max_fig₄=maximum([maximum(ŷ₂_count_m_valid), maximum(y₂_o_valid), maximum(y₂_t_valid)])+3
     y_min= -2.0
 
@@ -284,30 +287,29 @@ function vis_fn_forecast(obs_timepoints, for_timepoints, obs_data, future_true_d
 end
 ## system identification 
 rng = Random.MersenneTwister(123);
-train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast = generate_dataloader(; n_samples=64, batchsize=8, split=(0.7,0.2), obs_fraction=0.3);
+train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast = generate_dataloader(; n_samples=512, batchsize=32, split=(0.7,0.2), obs_fraction=0.1);
 #train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast = generate_dataloader(; n_samples=1024, batchsize=64, split=(0.7,0.2), obs_fraction=0.1, chunk_size=128);
 #latent SDE
 config_lsde = YAML.load_file("./configs/PkPD_config_LSDE.yml");
 exp_path = joinpath(config_lsde["experiment"]["path"], config_lsde["experiment"]["name"])
 isdir(exp_path) ? exp_path : mkpath(exp_path)
 lsde_model, lsde_θ, lsde_st = create_latentsde(config_lsde["model"], dims, rng);
-lsde_θ_trained = train(lsde_model, lsde_θ, lsde_st, timepoints_forecast, loss_fn, eval_fn, vis_fn_forecast, train_loader, train_loader, config_lsde["training"], exp_path);
+lsde_θ_trained = train(lsde_model, lsde_θ, lsde_st, timepoints_forecast, loss_fn, eval_fn, vis_fn_forecast, train_loader, val_loader, config_lsde["training"], exp_path);
 
 #latent ODE
 config_lode = YAML.load_file("./configs/PkPD_config_LODE.yml");
 lode_model, lode_θ, lode_st = create_latentsde(config_lode["model"], dims, rng);
-lode_θ_trained = train(lode_model, lode_θ_trained, lode_st, timepoints_forecast, loss_fn, eval_fn, vis_fn_forecast, train_loader, test_loader, config_lode["training"], exp_path);
-
+lode_θ_trained = train(lode_model, lode_θ_trained, lode_st, timepoints_forecast, loss_fn, eval_fn, vis_fn_forecast, train_loader, val_loader, config_lode["training"], exp_path);
 
 # visualization of prediction performance (validation)
-data_obs, data_forecast= train_loader.data;
-u_obs, x_obs, y₂_obs, mask₂_obs= data_obs;
-u_forecast, x_forecast, y₂_forecast, mask₂_forecast= data_forecast;
+data_obs, data_forecast= val_loader.data;
+u_obs, x_obs,y₁_obs, y₂_obs, mask₂_obs= data_obs;
+u_forecast, x_forecast, y₁_forecast, y₂_forecast, mask₂_forecast= data_forecast;
 
 #lsde
 lsde_Ex, lsde_Ey₁ = forecast(lsde_model, lsde_θ_trained, lsde_st, data_obs, u_forecast ,timepoints_forecast , config_lsde["training"]["validation"]);
 lsde_forecasted_data = (lsde_Ex, lsde_Ey₁);
-lsde_fig=vis_fn_forecast(timepoints_obs, timepoints_forecast, data_obs, data_forecast, lsde_forecasted_data; sample_n=1);
+lsde_fig=vis_fn_forecast(timepoints_obs, timepoints_forecast, data_obs, data_forecast, lsde_forecasted_data; sample_n=2);
 #save("examples/pkpd/lsde_forecast.eps", lsde_fig)
 #lode
 lode_Ex, lode_Ey₁, lode_Ey₂ = forecast(lode_model, lode_θ_trained, lode_st, data_obs, u_forecast ,timepoints_forecast , config_lode["training"]["validation"]);

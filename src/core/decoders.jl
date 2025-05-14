@@ -98,7 +98,7 @@ function MLP_Decoder(latent_dim, obs_dim; hidden_size, depth, dist)
     if dist == "Gaussian"
         output_net = Chain(mlp, BranchLayer(Dense(hidden_size, obs_dim), Dense(hidden_size, obs_dim)))
     elseif dist == "Poisson"
-        output_net = Chain(mlp, Dense(hidden_size, obs_dim))
+        output_net = Chain(mlp, Dense(hidden_size, obs_dim), x -> exp.(x))
     elseif dist== "Classification"
         output_net = Chain(mlp, Dense(hidden_size, obs_dim))
     elseif dist == "None"

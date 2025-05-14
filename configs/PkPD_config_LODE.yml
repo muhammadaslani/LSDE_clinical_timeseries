@@ -26,33 +26,32 @@ model:
         dt: 0.01
 
   obs_decoder:
-    type: "BranchDecoder"
+    type: "MLP_Decoder"
     hidden_size: 32
     depth: 1
-    dists: 
-    - "Classification"
-    - "Poisson"
+    dist: "Poisson"
 
 
 training:
-  learning_rate: 0.005
-  optimizer: AdamW(0.005)
-  epochs: 500
-  log_freq: 50
+  learning_rate: 0.01
+  optimizer: AdamW(0.01) 
+  epochs: 200
+  log_freq: 10
   viz_freq: 10
-  stop_patience: 10
-lr_decay:
+  stop_patience: 20
+  lr_decay:
     type: "exponential"
     gamma: 0.95  # Decay factor per epoch (0.95 means 95% of previous value)
     step_every: 10  # Apply decay every epoch
   validation:
       latent_dim: *latentdim  
       solver: Euler()
-      mcmc_samples: 50
+      mcmc_samples: 20
       kwargs:
-          dt: 0.01
+          dt: 0.005
 
 experiment:
   name: "LatentSDE_PKPD_V0"
   description: "First experiment with a Latent SDE model using Rhythm on the PKPD model"
   path: "experiments/" 
+

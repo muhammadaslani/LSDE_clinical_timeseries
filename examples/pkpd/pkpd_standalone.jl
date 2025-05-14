@@ -22,23 +22,23 @@ Base.@kwdef struct ModelParameters
     weight::Float64 = rand(50:120) # Weight in kg
     height::Float64 = rand(150:190) # Height in cm
     tumor_type::String = rand(["NSCLC", "SCLC"]) # Tumor type
-    ρ::Float64 = 8e-3    # Tumor growth rate
+    ρ::Float64 = 8e-2    # Tumor growth rate
     K::Float64 = 100.0   # Tumor carrying capacity
-    β_c::Float64 = 0.1  # Linear effect of chemotherapy
+    β_c::Float64 = 0.3  # Linear effect of chemotherapy
     ω_c::Float64 = 1.0   # Chemotherapy sessions frequency (every X weeks)
-    α_r::Float64 = 0.1   # Linear effect of radiotherapy
-    β_r::Float64 = 0.1   # Quadratic effect of radiotherapy
+    α_r::Float64 = 0.4   # Linear effect of radiotherapy
+    β_r::Float64 = 0.5   # Quadratic effect of radiotherapy
     ω_r::Float64 = 3.0   # Radiotherapy sessions frequency (every X weeks)
     δ::Float64 = 0.023   # Reduced immune growth rate
     β_I::Float64 = 0.15  # Increased drug-induced immune suppression
     α_I::Float64 = 0.16  # Increased radiotherapy-induced immune suppression
-    θ_I::Float64 = 0.01  # Immune stimulation by tumor
-    λ_I::Float64 = 0.002 # Immune suppression by large tumors
-    ω_I::Float64 = 0.07  # Immune decay rate
+    θ_I::Float64 = 0.08  # Immune stimulation by tumor
+    λ_I::Float64 = 0.005 # Immune suppression by large tumors
+    ω_I::Float64 = 0.1  # Immune decay rate
     I_max::Float64 = 0.95 # Max immune response
-    γ_S::Float64 = 1e-2  # Immune effect on health
-    θ_S::Float64 = 40.0  # Health recovery rate
-    λ_S::Float64 = 100.0 # Health impact of tumor
+    γ_S::Float64 = 5e-3  # Immune effect on health
+    θ_S::Float64 = 100.0  # Health recovery rate
+    λ_S::Float64 = 200.0 # Health impact of tumor
 end
 # Base.@kwdef mutable struct ModelParameters
 #     gender::Int = rand(0:1)       # 0 for male, 1 for female
@@ -154,7 +154,7 @@ Chemotherapy input function.
 # Returns
 - `Float64`: Chemotherapy input (0 or 1)
 """
-u_c(t::Float64, ω_c::Union{Int64, Float64})::Float64 = (t % (ω_c*7) < 1) && t > 1 ? 1.0 : 0.0
+u_c(t::Float64, ω_c::Union{Int64, Float64})::Float64 = (t % (ω_c*10) < 1) && t > 1 ? 1.0 : 0.0
 
 """
     u_r(t::Float64, ω_r::Float64)::Float64
@@ -168,7 +168,7 @@ Radiotherapy input function.
 # Returns
 - `Float64`: Radiotherapy input (0 or 1)
 """
-u_r(t::Float64, ω_r::Union{Int64, Float64})::Float64 = (t % (ω_r*7) < 1) && t > 1 ? 1.0 : 0.0
+u_r(t::Float64, ω_r::Union{Int64, Float64})::Float64 = (t % (ω_r*10) < 1) && t > 1 ? 1.0 : 0.0
 
 """
     generate_inputs(ω_c::Float64, ω_r::Float64, tspan::Tuple{Float64,Float64}, sample_rate::Int)::Matrix{Float64}
@@ -225,7 +225,7 @@ Diffusion term for the stochastic differential equation.
 - `t::Float64`: Time
 """
 function diffusion(dX::Vector{Float64}, X::Vector{Float64}, p::ModelParameters, t::Float64)
-    dX[1] = 1e-2 * sqrt(X[1]^2)
+    dX[1] = 5e-2 * sqrt(X[1]^2)
 end
 
 """
@@ -281,18 +281,18 @@ Generate a dataset of PKPD model simulations.
 """
 function generate_dataset(;
     n_samples::Int,
-    X₀::Vector{Float64} = [40.0, 0.0, 0.0, 0.8, 0.9],
+    X₀::Vector{Float64} = [30.0, 0.0, 0.0, 0.8, 0.9],
     X₀_mean::Vector{Float64} = [50.0, 0.0, 0.0, 0.8, 0.9],
     X₀_std::Vector{Float64} = [10.0, 0.0, 0.0, 0.3, 0.3],    
-    tspan::Tuple{Float64,Float64} = (0.0, 50.0),
-    sample_rate::Int = 1,
+    tspan::Tuple{Float64,Float64} = (0.0, 100.0),
+    sample_rate::Int =5,
     params::ModelParameters = ModelParameters()
 )
 
     Random.seed!(1234)
 
-    ω_cs = rand([ 4, 5, 6, 7], n_samples)
-    ω_rs = rand([ 4, 5, 6, 7], n_samples)
+    ω_cs = rand([1, 2, 5, 6, 7], n_samples)
+    ω_rs = rand([1, 2, 5, 6, 7], n_samples)
     covariates=zeros(5,n_samples)
     
     @info "Generating inputs"
@@ -304,11 +304,11 @@ function generate_dataset(;
 
     function prob_func(prob, i, repeat)
         new_params = ModelParameters(ω_c = ω_cs[i], ω_r = ω_rs[i])
-        #new_X₀ = X₀ .+ [rand(-5:5), 0, 0, 0, 0]
-         new_X₀ = X₀_mean .+ X₀_std .* randn(length(X₀_mean))
-         new_X₀ = max.(new_X₀, 0.0) # Ensure initial conditions are non-negative
-         new_X₀[5] = min(new_X₀[5], 1.0) # Ensure max health is 1.0
-         new_X₀[4] = min(new_X₀[4], 1.0) # Ensure max immune response is 1.0
+        new_X₀ = X₀ .+ [rand(-10:10), 0, 0, 0, 0]
+        #  new_X₀ = X₀_mean .+ X₀_std .* randn(length(X₀_mean))
+        #  new_X₀ = max.(new_X₀, 0.0) # Ensure initial conditions are non-negative
+        #  new_X₀[5] = min(new_X₀[5], 1.0) # Ensure max health is 1.0
+        #  new_X₀[4] = min(new_X₀[4], 1.0) # Ensure max immune response is 1.0
 
         covariates[:,i].=[new_params.gender ,new_params.age, new_params.weight, new_params.height, new_params.tumor_type == "SCLC" ? 1 : 0]
         remake(prob, u0 = new_X₀, p = new_params)
@@ -322,7 +322,8 @@ function generate_dataset(;
     Y, T = generate_observations(ensemble_sol, sample_rate)
 
     # One-hot encode health status
-    Y₁=[Array(onehotbatch(y[1,:], Array(0:5))) for y in Y]
+    #Y₁=[Array(onehotbatch(y[1,:], Array(0:5))) for y in Y]
+    Y₁=[reshape(y[1,:], 1,:) for y in Y]
     # Extract cancer cell count
     Y₂=[reshape(y[2,:], 1,:) for y in Y]
 
