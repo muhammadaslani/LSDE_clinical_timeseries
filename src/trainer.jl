@@ -19,13 +19,13 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
     best_val_metric = Inf
     counter = 0
     @info "Training started"
+    stime = time()
     
     for epoch in 1:config["epochs"]
         # Apply learning rate for this epoch
         current_lr = lr_schedule[epoch]
         Optimisers.adjust!(tstate.optimizer_state, current_lr)
         
-        stime = time()
         train_loss = 0.f0
         kl_term = 0.f0
         recon_loss = 0.f0
@@ -43,10 +43,10 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
         st = tstate.states
 
         if epoch % config["log_freq"] == 0
-            ttime = time() - stime
-            @printf("Epoch %d/%d: \t Training loss: %.3f \t λ: %.3f \t LR: %.6f \t Kl_term:%.3f \t recon_loss:%.3f \t  Time/epoch: %.3f\n", 
+            
+            @printf("Epoch %d/%d: \t Training loss: %.3f \t λ: %.3f \t LR: %.6f \t Kl_term:%.3f \t recon_loss:%.3f \n", 
                     epoch, config["epochs"], train_loss/n_batches, λ_schedule[epoch], current_lr, kl_term/n_batches, 
-                    recon_loss/n_batches,  ttime/config["log_freq"])
+                    recon_loss/n_batches)
                     
             val_metric = validate(model, θ, st, ts, val_loader, eval_fn, config["validation"])
             @printf("Validation metric: %.3f\n", val_metric)
@@ -71,7 +71,9 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
             end 
         end 
     end
-    
+    ttime = time() - stime
+    @info "Training finished in $(ttime) seconds"
+    @info "Best validation metric: $(best_val_metric)"
     return θ_best
 end
 

@@ -176,11 +176,9 @@ function eval_fn(model, θ, st, ts, data, config)
     batch_size= size(x_forecast)[end]
     solver = eval(Meta.parse(config["solver"]))
     kwargs_dict = Dict(Symbol(k) => v for (k, v) in config["kwargs"])
-    #px₀ = (zeros32(config["latent_dim"], size(x_obs)[end]), ones32(config["latent_dim"], size(x_obs)[end]))
-    #Ex, Ey = generate(model, solver, px₀, hcat(u_obs,u_forecast), ts, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
     Ex, Ey = predict(model, solver, vcat(reverse(y₁_obs, dims=2), reverse(y₂_obs, dims=2)), u_forecast, ts, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
     ŷ₂_m = dropmean(Ey, dims=4)
-    val_indx₂= findall(mask₂_forecast.==1)
+
     #eval_loss = poisson_nll_lograte(ŷ₂_m.*mask₂_forecast.+1e-10, y₂_forecast.*mask₂_forecast.+1e-10)
     eval_loss = -poisson_loglikelihood(ŷ₂_m, y₂_forecast, mask₂_forecast)/batch_size
     return eval_loss
@@ -288,7 +286,7 @@ function vis_fn_forecast(obs_timepoints, for_timepoints, obs_data, future_true_d
 end
 ## system identification 
 rng = Random.MersenneTwister(123);
-train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast = generate_dataloader(; n_samples=256, batchsize=32, split=(0.7,0.2), obs_fraction=0.7);
+train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast = generate_dataloader(; n_samples=256, batchsize=32, split=(0.7,0.2), obs_fraction=0.5);
 #train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast = generate_dataloader(; n_samples=1024, batchsize=64, split=(0.7,0.2), obs_fraction=0.1, chunk_size=128);
 #latent SDE
 config_lsde = YAML.load_file("./configs/PkPD_config_LSDE.yml");
@@ -300,7 +298,7 @@ lsde_θ_trained = train(lsde_model, lsde_θ_trained, lsde_st, timepoints_forecas
 #latent ODE
 config_lode = YAML.load_file("./configs/PkPD_config_LODE.yml");
 lode_model, lode_θ, lode_st = create_latentsde(config_lode["model"], dims, rng);
-lode_θ_trained = train(lode_model, lode_θ_trained, lode_st, timepoints_forecast, loss_fn, eval_fn, vis_fn_forecast, train_loader, val_loader, config_lode["training"], exp_path);
+lode_θ_trained = train(lode_model, lode_θ, lode_st, timepoints_forecast, loss_fn, eval_fn, vis_fn_forecast, train_loader, val_loader, config_lode["training"], exp_path);
 
 # visualization of prediction performance (validation)
 data_obs, data_forecast= test_loader.data;

@@ -22,23 +22,23 @@ Base.@kwdef struct ModelParameters
     weight::Float64 = rand(50:120) # Weight in kg
     height::Float64 = rand(150:190) # Height in cm
     tumor_type::String = rand(["NSCLC", "SCLC"]) # Tumor type
-    ρ::Float64 = 8e-2    # Tumor growth rate
-    K::Float64 = 100.0   # Tumor carrying capacity
-    β_c::Float64 = 0.1  # Linear effect of chemotherapy
+    ρ::Float64 = abs(rand(Normal(8e-2,1e-3)))    # Tumor growth rate
+    K::Float64 = abs(rand(Normal(100.0,10)))   # Tumor carrying capacity
+    β_c::Float64 = abs(rand(Normal(0.1,0.05)))  # Linear effect of chemotherapy
     ω_c::Float64 = 1.0   # Chemotherapy sessions frequency (every X weeks)
-    α_r::Float64 = 0.1   # Linear effect of radiotherapy
-    β_r::Float64 = 0.1   # Quadratic effect of radiotherapy
+    α_r::Float64 = abs(rand(Normal(0.1,0.05)))   # Linear effect of radiotherapy
+    β_r::Float64 = abs(rand(Normal(0.1,0.05)))   # Quadratic effect of radiotherapy
     ω_r::Float64 = 3.0   # Radiotherapy sessions frequency (every X weeks)
-    δ::Float64 = 0.013   # Reduced immune growth rate
-    β_I::Float64 = 0.1  # Increased drug-induced immune suppression
-    α_I::Float64 = 0.1  # Increased radiotherapy-induced immune suppression
-    θ_I::Float64 = 0.08  # Immune stimulation by tumor
-    λ_I::Float64 = 0.005 # Immune suppression by large tumors
-    ω_I::Float64 = 0.1  # Immune decay rate
-    I_max::Float64 = 0.95 # Max immune response
-    γ_S::Float64 = 5e-3  # Immune effect on health
-    θ_S::Float64 = 100.0  # Health recovery rate
-    λ_S::Float64 = 200.0 # Health impact of tumor
+    δ::Float64 = abs(rand(Normal(0.013,0.005)))   # Reduced immune growth rate
+    β_I::Float64 = abs(rand(Normal(0.1,0.05)))  # Increased drug-induced immune suppression
+    α_I::Float64 = abs(rand(Normal(0.1,0.05)))  # Increased radiotherapy-induced immune suppression
+    θ_I::Float64 = abs(rand(Normal(0.08,0.04)))  # Immune stimulation by tumor
+    λ_I::Float64 = abs(rand(Normal(0.005,0.002))) # Immune suppression by large tumors
+    ω_I::Float64 = abs(rand(Normal(0.1,0.05)))  # Immune decay rate
+    I_max::Float64 = abs(rand(Normal(0.95,0.4))) # Max immune response
+    γ_S::Float64 = abs(rand(Normal(5e-3,1e-3)))  # Immune effect on health
+    θ_S::Float64 = abs(rand(Normal(100.0,10)))  # Health recovery rate
+    λ_S::Float64 = abs(rand(Normal(200.0,20))) # Health impact of tumor
 end
 # Base.@kwdef mutable struct ModelParameters
 #     gender::Int = rand(0:1)       # 0 for male, 1 for female
@@ -225,7 +225,7 @@ Diffusion term for the stochastic differential equation.
 - `t::Float64`: Time
 """
 function diffusion(dX::Vector{Float64}, X::Vector{Float64}, p::ModelParameters, t::Float64)
-    dX[1] = 2e-2 * sqrt(X[1]^2)
+    dX[1] = 1e-2 * sqrt(X[1]^2)
 end
 
 """
@@ -305,7 +305,7 @@ function generate_dataset(;
     function prob_func(prob, i, repeat)
         new_params = ModelParameters(ω_c = ω_cs[i], ω_r = ω_rs[i])
         #new_X₀ = X₀ .+ [rand(-10:10), 0, 0, 0, 0]
-         new_X₀ = X₀_mean .+ X₀_std .* randn(length(X₀_mean))
+         new_X₀= rand.(Normal.(X₀_mean, X₀_std))
          new_X₀ = max.(new_X₀, 0.0) # Ensure initial conditions are non-negative
          new_X₀[5] = min(new_X₀[5], 1.0) # Ensure max health is 1.0
          new_X₀[4] = min(new_X₀[4], 1.0) # Ensure max immune response is 1.0
@@ -322,7 +322,7 @@ function generate_dataset(;
     Y, T = generate_observations(ensemble_sol, sample_rate)
 
     # One-hot encode health status
-    #Y₁=[Array(onehotbatch(y[1,:], Array(0:5))) for y in Y]
+    Y₁=[Array(onehotbatch(y[1,:], Array(0:5))) for y in Y]
     Y₁=[reshape(y[1,:], 1,:) for y in Y]
     # Extract cancer cell count
     Y₂=[reshape(y[2,:], 1,:) for y in Y]

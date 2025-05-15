@@ -42,7 +42,7 @@ training:
   lr_decay:
     type: "exponential"
     gamma: 0.95  # Decay factor per epoch (0.95 means 95% of previous value)
-    step_every: 10  # Apply decay every epoch
+    step_every: 20  # Apply decay every epoch
   validation:
       latent_dim: *latentdim  
       solver: EM()
