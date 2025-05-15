@@ -34,9 +34,9 @@ Base.@kwdef struct ModelParameters
     α_I::Float64 = abs(rand(Normal(0.1,0.05)))  # Increased radiotherapy-induced immune suppression
     θ_I::Float64 = abs(rand(Normal(0.08,0.04)))  # Immune stimulation by tumor
     λ_I::Float64 = abs(rand(Normal(0.005,0.002))) # Immune suppression by large tumors
-    ω_I::Float64 = abs(rand(Normal(0.1,0.05)))  # Immune decay rate
+    ω_I::Float64 = abs(rand(Normal(0.15,0.05)))  # Immune decay rate
     I_max::Float64 = abs(rand(Normal(0.95,0.4))) # Max immune response
-    γ_S::Float64 = abs(rand(Normal(5e-3,1e-3)))  # Immune effect on health
+    γ_S::Float64 = abs(rand(Normal(8e-3,5e-3)))  # Immune effect on health
     θ_S::Float64 = abs(rand(Normal(100.0,10)))  # Health recovery rate
     λ_S::Float64 = abs(rand(Normal(200.0,20))) # Health impact of tumor
 end
@@ -225,7 +225,7 @@ Diffusion term for the stochastic differential equation.
 - `t::Float64`: Time
 """
 function diffusion(dX::Vector{Float64}, X::Vector{Float64}, p::ModelParameters, t::Float64)
-    dX[1] = 1e-2 * sqrt(X[1]^2)
+    dX[1] = 3e-2 * sqrt(X[1]^2)
 end
 
 """
@@ -323,7 +323,7 @@ function generate_dataset(;
 
     # One-hot encode health status
     Y₁=[Array(onehotbatch(y[1,:], Array(0:5))) for y in Y]
-    Y₁=[reshape(y[1,:], 1,:) for y in Y]
+    #Y₁=[reshape(y[1,:], 1,:) for y in Y]
     # Extract cancer cell count
     Y₂=[reshape(y[2,:], 1,:) for y in Y]
 

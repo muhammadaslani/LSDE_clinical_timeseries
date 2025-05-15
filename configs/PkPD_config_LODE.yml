@@ -26,10 +26,10 @@ model:
         dt: 0.1
 
   obs_decoder:
-    type: "MLP_Decoder"
+    type: "BranchDecoder"
     hidden_size: 32
-    depth: 1
-    dist: "Poisson"
+    depth: 2
+    dists: ["Classification", "Poisson"]
 
 
 training:
@@ -41,12 +41,12 @@ training:
   stop_patience: 20
   lr_decay:
     type: "exponential"
-    gamma: 0.95  # Decay factor per epoch (0.95 means 95% of previous value)
-    step_every: 10  # Apply decay every epoch
+    gamma: 0.9  # Decay factor per epoch (0.95 means 95% of previous value)
+    step_every: 50  # Apply decay every epoch
   validation:
       latent_dim: *latentdim  
       solver: EM()
-      mcmc_samples: 25
+      mcmc_samples: 50
       kwargs:
           dt: 0.1
 

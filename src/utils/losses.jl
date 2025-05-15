@@ -212,5 +212,5 @@ Compute the cross-entropy loss between ground truth labels `y` and predicted lab
 - The computed cross-entropy loss.
 
 """
-CrossEntropy_Loss( ŷ, y, mask; agg=mean, logits=true, label_smoothing=0.2, epsilon=1e-10) =
+CrossEntropy_Loss( ŷ, y, mask; agg=mean, logits=true, label_smoothing=0.1, epsilon=1e-10) =
     CrossEntropyLoss(; agg=agg, logits=logits, label_smoothing=label_smoothing, epsilon=epsilon)(mask .* ŷ, mask .* y)
