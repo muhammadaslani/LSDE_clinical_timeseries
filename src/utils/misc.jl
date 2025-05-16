@@ -1,3 +1,30 @@
+function z_normalize(z::AbstractArray)
+    μ = mean(z, dims=1)
+    σ = std(z, dims=1)
+
+    return (z .- μ) ./ σ
+end
+
+
+function z_normalize(z::AbstractArray, μ::AbstractArray, σ::AbstractArray)
+
+    return (z .- μ) ./ σ
+end                
+
+function min_max_normalize(z::AbstractArray, min_val::AbstractArray, max_val::AbstractArray)
+    return (z .- min_val) ./ (max_val - min_val)
+end
+
+function min_max_normalize(z::AbstractArray)
+    min_val = minimum(z)
+    max_val = maximum(z)
+
+    return (z .- min_val) ./ (max_val - min_val)
+end
+
+
+
+
 """
     prediction_entropy(predictions; dims=1)
 
