@@ -9,7 +9,7 @@ function generate_dataloader(; n_samples=512, batchsize=64, split=(0.5,0.3), obs
     Y₂_padded, Masks₂, _ = pad_matrices(Y₂, T)
     X_padded, _ = pad_matrices(X, T; return_timepoints=false)
     Y₁_irreg, Y₂_irreg, Masks₁, Masks₂ = irregularize(Y₁_padded,Y₂_padded, Masks₁, Masks₂)
-    timepoints = timepoints/9
+    timepoints = timepoints/7
 
     covars=repeat(reshape(covariates,5,1,size(covariates,2)),1,size(Y₁_padded)[2],1)
     U = cat(U..., dims=3)
@@ -200,11 +200,13 @@ end
 function vis_fn_forecast(obs_timepoints, for_timepoints, obs_data, future_true_data, forecasted_data; sample_n=1)
     u_o, covars_o, x_o, y₁_o, y₂_o, mask₁_o, mask₂_o = obs_data
     u_t, covars_t, x_t, y₁_t, y₂_t, mask₁_t, mask₂_t = future_true_data
+    # y₂_t=copy(y₂_t)
+    
     u_p= u_t
     Ex, Ey_p = forecasted_data
     Ey₁_p, Ey₂_p = softmax(Ey_p[1],dims=1), Ey_p[2]
     n_timepoints=length(vcat(obs_timepoints, for_timepoints))
-    t_o, t_p = obs_timepoints*9, for_timepoints*9
+    t_o, t_p = obs_timepoints*7, for_timepoints*7
 
     y₁_o_class=onecold(softmax(y₁_o, dims=1), Array(0:5))
     y₁_t_class= onecold(softmax(y₁_t,dims=1), Array(0:5))
@@ -220,11 +222,12 @@ function vis_fn_forecast(obs_timepoints, for_timepoints, obs_data, future_true_d
     ŷ₂_count = rand.(Poisson.((Ey₂_p)))
     ŷ₂_count_m = dropmean(ŷ₂_count, dims=4)
 
+
     ## max time for observed and predicted data
     t_o_valid₁= t_o[mask₁_o[1,:,sample_n] .== 1]
-    t_p_valid₁= t_p[mask₁_o[1,:,sample_n] .== 1]
+    t_p_valid₁= t_p[mask₁_t[1,:,sample_n] .== 1]
     max_t_o_valid₁= maximum(t_o[mask₁_o[1,:,sample_n] .== 1])
-    max_t_p_valid₁= maximum(t_p[mask₁_o[1,:,sample_n] .== 1])
+    max_t_p_valid₁= maximum(t_p[mask₁_t[1,:,sample_n] .== 1])
     t_o_valid₂= t_o[mask₂_o[1,:,sample_n] .== 1]
     t_p_valid₂= t_p[mask₂_t[1,:,sample_n] .== 1]
     max_t_o_valid₂= maximum(t_o[mask₂_o[1,:,sample_n] .== 1])
@@ -232,9 +235,9 @@ function vis_fn_forecast(obs_timepoints, for_timepoints, obs_data, future_true_d
     
 
     y₁_o_class_valid=y₁_o_class[findall(i-> t_o[i]<=max_t_o_valid₁ .&& mask₁_o[1,i,sample_n] == 1, 1:length(t_o)),sample_n]
-    y₁_t_class_valid=y₁_t_class[findall(i-> t_p[i]<=max_t_p_valid₁ .&& mask₁_o[1,i,sample_n] == 1, 1:length(t_p)),sample_n]
-    ŷ₁_class_valid=ŷ₁_class[findall(i-> t_p[i]<=max_t_p_valid₁ .&& mask₁_o[1,i,sample_n] == 1, 1:length(t_p)),sample_n]
-    ŷ₁_conf_valid=ŷ₁_conf[findall(i-> t_p[i]<=max_t_p_valid₁ .&& mask₁_o[1,i,sample_n] == 1, 1:length(t_p)),sample_n]
+    y₁_t_class_valid=y₁_t_class[findall(i-> t_p[i]<=max_t_p_valid₁ .&& mask₁_t[1,i,sample_n] == 1, 1:length(t_p)),sample_n]
+    ŷ₁_class_valid=ŷ₁_class[findall(i-> t_p[i]<=max_t_p_valid₁ .&& mask₁_t[1,i,sample_n] == 1, 1:length(t_p)),sample_n]
+    ŷ₁_conf_valid=ŷ₁_conf[findall(i-> t_p[i]<=max_t_p_valid₁ .&& mask₁_t[1,i,sample_n] == 1, 1:length(t_p)),sample_n]
 
     y₂_o_valid=y₂_o[1,findall(i-> t_o[i]<=max_t_o_valid₂ .&& mask₂_o[1,i,sample_n] == 1, 1:length(t_o)),sample_n]
     y₂_t_valid=y₂_t[1,findall(i-> t_p[i]<=max_t_p_valid₂ .&& mask₂_t[1,i,sample_n] == 1, 1:length(t_p)),sample_n]
@@ -246,7 +249,8 @@ function vis_fn_forecast(obs_timepoints, for_timepoints, obs_data, future_true_d
 
     ŷ₁_crossentropy_valid=CrossEntropy_Loss(ŷ₁_m, y₁_t, mask₁_forecast; agg=sum, logits=false)/length(mask₁_t.==1)
     ŷ₂_count_nll_valid=-poisson_loglikelihood(ŷ₂_m, y₂_t, mask₂_t)/length(mask₂_t.==1)
-
+    ŷ₂_count_CRPS= empirical_crps(y₂_t, ŷ₂_count, mask₂_t)
+    println("Cell count CRPS: ", ŷ₂_count_CRPS)
     println("Health status cross entropy: ", ŷ₁_crossentropy_valid)
     println("Cell count Negative log likelihood: ", ŷ₂_count_nll_valid)
     
@@ -331,11 +335,11 @@ u_forecast, covars_forecast, x_forecast, y₁_forecast, y₂_forecast, mask₁_f
 #lsde
 lsde_Ex, lsde_Ey = forecast(lsde_model, lsde_θ_trained, lsde_st, data_obs, u_forecast ,timepoints_forecast , config_lsde["training"]["validation"]);
 lsde_forecasted_data = (lsde_Ex, lsde_Ey);
-lsde_fig=vis_fn_forecast(timepoints_obs, timepoints_forecast, data_obs, data_forecast, lsde_forecasted_data; sample_n=7);
+lsde_fig=vis_fn_forecast(timepoints_obs, timepoints_forecast, data_obs, data_forecast, lsde_forecasted_data; sample_n=4);
 #save("examples/pkpd/lsde_forecast.eps", lsde_fig)
 #lode
 lode_Ex, lode_Ey = forecast(lode_model, lode_θ_trained, lode_st, data_obs, u_forecast ,timepoints_forecast , config_lode["training"]["validation"]);
 lode_forecasted_data = (lode_Ex, lode_Ey);
-lode_fig=vis_fn_forecast(timepoints_obs, timepoints_forecast, data_obs, data_forecast, lode_forecasted_data; sample_n=5);
+lode_fig=vis_fn_forecast(timepoints_obs, timepoints_forecast, data_obs, data_forecast, lode_forecasted_data; sample_n=4);
 #save("examples/pkpd/lode_forecast.eps", lode_fig)
 

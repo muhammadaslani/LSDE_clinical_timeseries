@@ -13,6 +13,98 @@ end
 
 using DifferentialEquations, Random, Distributions, CairoMakie, Lux
 
+# """
+#     ModelParameters
+# """
+# # ...existing code...
+# Base.@kwdef struct ModelParameters
+#     # Static covariates
+#     gender::Int = rand(0:1)       # 0 for male, 1 for female
+#     age::Float64 = rand(20:80)    # Age in years
+#     weight::Float64 = rand(50:120) # Weight in kg
+#     height::Float64 = rand(150:190) # Height in cm
+#     tumor_type::String = rand(["NSCLC", "SCLC"]) # Tumor type
+    
+#     # Derived values
+#     BSA::Float64 = sqrt((height * weight) / 3600) # Body surface area
+#     BMI::Float64 = weight / ((height / 100)^2)    # Body mass index
+    
+#     # Base parameters with covariate effects
+#     # Tumor growth rate: affected by age, gender, and tumor type
+#     ρ::Float64 = abs(rand(Normal(1e-2,2e-4))) * 
+#                  (1 + 0.002*(age - 50)/30) * 
+#                  (gender == 0 ? 1.03 : 0.97) * 
+#                  (tumor_type == "SCLC" ? 1.05 : 0.95)
+    
+#     # Tumor carrying capacity: affected by gender and tumor type
+#     K::Float64 = abs(rand(Normal(100.0,10))) * 
+#                  (gender == 0 ? 1.05 : 0.95) * 
+#                  (tumor_type == "SCLC" ? 0.92 : 1.08)
+    
+#     # Linear effect of chemotherapy: affected by age, BSA, and tumor type
+#     β_c::Float64 = abs(rand(Normal(0.035,0.005))) * 
+#                   (1 - 0.001*(age - 50)) * 
+#                   (1 / (BSA/1.7)) * 
+#                   (tumor_type == "SCLC" ? 1.08 : 0.92)
+    
+#     ω_c::Float64 = 1.0   # Chemotherapy sessions frequency (every X weeks)
+    
+#     # Linear effect of radiotherapy: affected by age and tumor type
+#     α_r::Float64 = abs(rand(Normal(0.045,0.005))) * 
+#                   (1 - 0.001*(age - 50)) * 
+#                   (tumor_type == "SCLC" ? 1.08 : 0.92)
+    
+#     # Quadratic effect of radiotherapy: affected by tumor type
+#     β_r::Float64 = abs(rand(Normal(0.012,0.001))) * 
+#                   (tumor_type == "SCLC" ? 1.04 : 0.96)
+    
+#     ω_r::Float64 = 3.0   # Radiotherapy sessions frequency (every X weeks)
+    
+#     # Reduced immune growth rate: affected by age and BMI
+#     δ::Float64 = abs(rand(Normal(0.01,0.005))) * 
+#                 (1 - 0.005*(age - 50)/30) * 
+#                 (BMI > 30 ? 0.95 : 1.05)
+    
+#     # Increased drug-induced immune suppression: affected by age and BMI
+#     β_I::Float64 = abs(rand(Normal(0.05,0.025))) * 
+#                   (1 + 0.001*(age - 50)) * 
+#                   (BMI > 30 ? 1.05 : 0.95)
+    
+#     # Increased radiotherapy-induced immune suppression: affected by BMI
+#     α_I::Float64 = abs(rand(Normal(0.05,0.025))) * 
+#                   (BMI > 30 ? 1.04 : 0.96)
+    
+#     # Immune stimulation by tumor: affected by tumor type
+#     θ_I::Float64 = abs(rand(Normal(0.08,0.04))) * 
+#                   (tumor_type == "SCLC" ? 0.94 : 1.06)
+    
+#     # Immune suppression by large tumors: affected by age
+#     λ_I::Float64 = abs(rand(Normal(0.01,0.002))) * 
+#                   (1 + 0.0005*(age - 50))
+    
+#     # Immune decay rate: affected by age
+#     ω_I::Float64 = abs(rand(Normal(0.15,0.05))) * 
+#                   (1 + 0.002*(age - 50)/30)
+    
+#     # Maximum immune response: affected by BMI and age
+#     I_max::Float64 = abs(rand(Normal(0.95,0.4))) * 
+#                     (BMI > 30 ? 0.96 : 1.04) * 
+#                     (1 - 0.001*(age - 50)/30)
+    
+#     # Immune effect on health: affected by age
+#     γ_S::Float64 = abs(rand(Normal(1e-2,5e-3))) * 
+#                   (1 - 0.002*(age - 50)/30)
+    
+#     # Health recovery rate: affected by age and BMI
+#     θ_S::Float64 = abs(rand(Normal(50.0,10))) * 
+#                   (1 - 0.003*(age - 50)/30) * 
+#                   (BMI > 30 ? 0.96 : 1.04)
+    
+#     # Health impact of tumor: affected by gender
+#     λ_S::Float64 = abs(rand(Normal(100.0,20))) * 
+#                   (gender == 0 ? 1.04 : 0.96)
+# end
+
 """
     ModelParameters
 """
@@ -251,7 +343,7 @@ function model!(dX::Vector{Float64}, X::Vector{Float64}, p::ModelParameters, t::
     x, c, d, I, S = X
     dX[1] = (p.ρ * log(p.K / (max(x, 1e-5))) - p.β_c * c - (p.α_r * d + p.β_r * d^2)) * x
     dX[2] = -c_p * c + u_c(t, p.ω_c)
-    dX[3] = -c_p * d + u_r(t, p.ω_r)
+    dX[3] = -c_r * d + u_r(t, p.ω_r)
     dX[4] = p.δ * (1 - I / p.I_max) * I - p.β_I * c - p.α_I * d + p.θ_I * (p.I_max - I) / (1 + p.λ_I * x) - p.ω_I * I
     health_tumor_effect = p.θ_S * (1 - S) / (1 + p.λ_S * x)
     health_immune_effect = -p.γ_S * ((I / p.I_max) - 1)^2

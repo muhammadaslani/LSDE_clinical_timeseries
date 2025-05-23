@@ -1,3 +1,55 @@
+"""
+    empirical_crps(y_true::AbstractArray{Int,3}, 
+                  y_pred_samples::AbstractArray{Int,4}, 
+                  mask::AbstractArray{Bool,3})
+
+Compute the empirical Continuous Ranked Probability Score (CRPS) for probabilistic forecasts.
+
+# Arguments
+- `y_true::AbstractArray{Int,3}`: Ground truth values, shape (n_features, n_timepoints, n_samples).
+- `y_pred_samples::AbstractArray{Int,4}`: Predicted samples, shape (n_features, n_timepoints, n_samples, n_draws).
+- `mask::AbstractArray{Bool,3}`: Boolean mask indicating valid entries, shape (n_features, n_timepoints, n_samples).
+
+# Returns
+- Mean empirical CRPS over all valid points.
+
+# Description
+The CRPS is a proper scoring rule for evaluating the quality of probabilistic predictions. This function computes the empirical CRPS by averaging the absolute differences between predictions and observations, and subtracting half the average pairwise absolute differences between prediction samples.
+
+# References
+- Gneiting, T., & Raftery, A. E. (2007). Strictly Proper Scoring Rules, Prediction, and Estimation. Journal of the American Statistical Association, 102(477), 359–378.
+"""
+function empirical_crps(y_true::AbstractArray{Int,3}, 
+                               y_pred_samples::AbstractArray{Int,4}, 
+                               mask::AbstractArray{Bool,3})
+
+    n_features, n_timepoints, n_samples = size(y_true)
+    total_crps = 0.0
+    count = 0  # valid data points count
+
+    for f in 1:n_features
+        for i in 1:n_samples
+            for t in 1:n_timepoints
+                if mask[f, t, i]
+                    y_obs = y_true[f, t, i]
+                    preds = y_pred_samples[f, t, i, :]
+
+                    term1 = mean(abs.(preds .- y_obs))
+                    term2 = 0.5 * mean(abs.(preds .- preds'))
+
+                    total_crps += (term1 - term2)
+                    count += 1
+                end
+            end
+        end
+    end
+
+    return total_crps / count
+end
+
+
+
+
 function z_normalize(z::AbstractArray)
     μ = mean(z, dims=1)
     σ = std(z, dims=1)
@@ -131,7 +183,7 @@ function irregularize(y1,y2, mask1, mask2)
     mask2=copy(mask2)
     for i in 1:size(y1)[3]
         for j in 1:size(y1)[2]
-            samp=rand(0:0.1:1)<0.8
+            samp=rand(0:0.1:1)<0.9
             if samp==0
                 y1[:,j,i].=0
                 y2[:,j,i].=0

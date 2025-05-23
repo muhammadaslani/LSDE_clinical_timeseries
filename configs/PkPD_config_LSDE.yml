@@ -11,7 +11,7 @@ model:
     drift:
       type: "MLP"
       hidden_size: 32
-      depth: 2
+      depth: 1
       activation: swish
     drift_aug:
       type: "MLP"
