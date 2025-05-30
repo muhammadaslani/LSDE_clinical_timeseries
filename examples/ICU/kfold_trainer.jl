@@ -1,4 +1,3 @@
-
 """
     kfold_train(
         data, n_folds, rng, 
@@ -7,7 +6,11 @@
         loss_fn, eval_fn, viz_fn
     )
 
-Performs k-fold cross-validation training on a model.
+Performs k-fold cross-validation training on a model with warm start initialization.
+
+The warm start strategy works as follows:
+- Each fold independently trains for 10% of the total epochs first, then continues 
+  for the remaining 90% using the same fold's 10% trained parameters as initialization
 
 # Arguments
 - `data`: The dataset, typically from load_data function.
@@ -74,10 +77,11 @@ function kfold_train(data, n_folds, rng, config_path, model_type, timepoints, lo
     timepoints_obs = timepoints[1:size(obs_data_obs, 2)]
     timepoints_for = timepoints[size(obs_data_obs, 2)+1:end]
     
-    # Perform k-fold training
+    # Perform k-fold training with independent warm start for each fold
     for fold_idx in 1:n_folds
         @info "Training fold $fold_idx/$n_folds"
         train_indices, val_indices, test_indices = folds[fold_idx]
+        
         # Create data loaders for this fold
          train_data = (
             inputs_data_obs[:,:,train_indices], obs_data_obs[:,:,train_indices], output_data_obs[:,:,train_indices], masks_obs[:,:,train_indices],
@@ -94,27 +98,41 @@ function kfold_train(data, n_folds, rng, config_path, model_type, timepoints, lo
             inputs_data_for[:,:,test_indices], obs_data_for[:,:,test_indices], output_data_for[:,:,test_indices], masks_for[:,:,test_indices]
         )
         
-        # Create data loaders
         batch_size = 32
         train_loader = DataLoader(train_data, batchsize=batch_size, shuffle=true)
         val_loader = DataLoader(val_data, batchsize=batch_size, shuffle=false)
         test_loader = DataLoader(test_data, batchsize=batch_size, shuffle=false)
         
-        # Initialize model
+        # Initialize model for this fold
         if model_type == "lsde"
             model, θ, st = create_latentsde(config["model"], dims, rng)
         elseif model_type == "lode"
-            # We need to set the appropriate parameters for LODE
             lode_config = deepcopy(config["model"])
-            #lode_config["noise_type"] = "none"
             model, θ, st = create_latentsde(lode_config, dims, rng)
         else
             error("Unsupported model type: $model_type")
         end
         
-        # Train the model
-        θ_trained = train(model, θ, st, timepoints_for, loss_fn, eval_fn, viz_fn, 
-                          train_loader, val_loader, config["training"], exp_path)
+        # Prepare training configuration for warm start
+        training_config = deepcopy(config["training"])
+        
+        # Step 1: Train for 10% of epochs (warm start phase)
+        warm_start_epochs = round(Int, training_config["epochs"] * 0.1)
+        training_config["epochs"] = warm_start_epochs
+        @info "Fold $fold_idx: warm start training for $warm_start_epochs epochs (10% of total)"
+        
+        # Train the model for warm start
+        θ_warm_start = train(model, θ, st, timepoints_for, loss_fn, eval_fn, viz_fn, 
+                           train_loader, val_loader, training_config, exp_path)
+        
+        # Step 2: Continue training for remaining 90% of epochs using warm start parameters
+        remaining_epochs = round(Int, config["training"]["epochs"] * 0.9)
+        training_config["epochs"] = remaining_epochs
+        @info "Fold $fold_idx: continuing training for $remaining_epochs epochs (90% of total) using warm start parameters"
+        
+        # Train for the remaining epochs using warm start parameters as initialization
+        θ_trained = train(model, θ_warm_start, st, timepoints_for, loss_fn, eval_fn, viz_fn, 
+                         train_loader, val_loader, training_config, exp_path)
         
         # Evaluate on test data
         u_obs, x_obs, y_obs, masks_obs_test, u_for, x_for, y_for, masks_for_test = test_loader.data

@@ -10,8 +10,8 @@ include("kfold_trainer.jl")
 rng = Random.MersenneTwister(123);
 
 # Load data
-variables_of_interest = ["MAP", "HR", "Temp"]
-n_features = length(variables_of_interest)
+variables_of_interest = ["MAP", "HR", "Temp"];
+n_features = length(variables_of_interest);
 data, train_loader, val_loader, test_loader, time_series_dataset = load_data(
     split_at=24, 
     n_samples=256, 
@@ -20,8 +20,8 @@ data, train_loader, val_loader, test_loader, time_series_dataset = load_data(
 );
 
 # Setup timepoints
-n_timepoints = size(hcat(data[2], data[6]))[2]
-tspan = (1.0, n_timepoints)
+n_timepoints = size(hcat(data[2], data[6]))[2];
+tspan = (1.0, n_timepoints);
 timepoints = (range(tspan[1], tspan[2], length=n_timepoints)) / 10 |> Array{Float32};
 
 # Define loss function (same as in Prediction.jl)
@@ -162,7 +162,7 @@ lode_fig, lode_rmse, lode_crps = kfold_forecast(
     YAML.load_file("./configs/ICU_config_lode.yml"), 
     viz_fn_forecast, 
     fold_idx=lode_best_fold_idx, 
-    sample_n=1,
+    sample_n=3,
     plot=true
 );
 
