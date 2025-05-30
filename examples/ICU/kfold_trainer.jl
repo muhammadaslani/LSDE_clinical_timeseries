@@ -27,6 +27,9 @@ The warm start strategy works as follows:
 - A tuple containing (models, parameters, states, performances)
 """
 function kfold_train(data, n_folds, rng, config_path, model_type, timepoints, loss_fn, eval_fn, viz_fn)
+    # Start timing the entire k-fold training process
+    start_time = time()
+    
     # Load configuration
     config = YAML.load_file(config_path)
     exp_path = joinpath(config["experiment"]["path"], config["experiment"]["name"])
@@ -159,56 +162,14 @@ function kfold_train(data, n_folds, rng, config_path, model_type, timepoints, lo
     avg_rmse = mean([perf[1] for perf in performances])
     avg_crps = mean([perf[2] for perf in performances])
     
+    # Calculate total training time
+    end_time = time()
+    total_training_time = end_time - start_time
+    
     @info "K-Fold Cross-Validation Results:"
     @info "Average RMSE across $n_folds folds: $avg_rmse"
     @info "Average CRPS across $n_folds folds: $avg_crps"
+    @info "Total training time: $(round(total_training_time, digits=2)) seconds ($(round(total_training_time/60, digits=2)) minutes)"
     
     return models, trained_params, states, performances
-end
-
-"""
-    kfold_forecast(model, θ, st, data, timepoints, config, viz_fn; fold_idx=1, sample_n=1, plot=true)
-
-Generate forecasts using a trained model from k-fold cross-validation.
-
-# Arguments
-- `model`: The trained model.
-- `θ`: Trained parameters.
-- `st`: Model state.
-- `data`: Test data for forecasting.
-- `timepoints`: Array of timepoints.
-- `config`: Model configuration.
-- `viz_fn`: Visualization function.
-- `fold_idx`: Index of the fold (for logging purposes).
-- `sample_n`: Sample number to visualize.
-- `plot`: Whether to generate plots.
-
-# Returns
-- Performance metrics (and visualization if plot=true).
-"""
-function kfold_forecast(model, θ, st, data, timepoints, config, viz_fn; fold_idx=1, sample_n=1, plot=true)
-    # Prepare data for forecasting
-    inputs_data_obs, obs_data_obs, output_data_obs, masks_obs, 
-    inputs_data_for, obs_data_for, output_data_for, masks_for = data
-    
-    # Split timepoints
-    timepoints_obs = timepoints[1:size(obs_data_obs, 2)]
-    timepoints_for = timepoints[size(obs_data_obs, 2)+1:end]
-    
-    # Prepare data for forecast function
-    data_obs = (inputs_data_obs, obs_data_obs, output_data_obs, masks_obs)
-    future_true_data = (inputs_data_for, obs_data_for, output_data_for, masks_for)
-    
-    # Generate forecast
-    μ, σ = forecast(model, θ, st, data_obs, inputs_data_for, timepoints_for, config["training"]["validation"])
-    forecasted_data = (μ, σ)
-    
-    # Evaluate and optionally visualize
-    if plot
-        fig, rmse, crps = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, sample_n=sample_n, plot=true)
-        return fig, rmse, crps
-    else
-        rmse, crps = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, sample_n=sample_n, plot=false)
-        return rmse, crps
-    end
 end
