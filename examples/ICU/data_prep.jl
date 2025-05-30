@@ -4,8 +4,7 @@ function load_data(;split_at=24, n_samples=512, sampling_rate=1, batch_size=32, 
     #outcomes_file = "/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/Outcomes-a.txt"
     #time_series_dataset = load_multiple_files("/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a & set_b")
 
-    
-  
+
     time_series_variables = ["ALP", "HR", "DiasABP", "Na", "Lactate", "NIDiasABP", "PaO2", "WBC", "pH", "Albumin", "ALT", "Glucose", "SaO2",
         "Temp", "AST", "Bilirubin", "BUN", "RespRate", "Mg", "HCT", "SysABP", "FiO2", "K", "GCS",
         "Cholesterol", "NISysABP", "TroponinT", "MAP", "TroponinI", "PaCO2", "Platelets", "Urine", "NIMAP",
@@ -14,8 +13,8 @@ function load_data(;split_at=24, n_samples=512, sampling_rate=1, batch_size=32, 
     static_features_df,static_features_matrix =extract_static_features("/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/time_series") 
     timeseries, masks = create_tensor(time_series_dataset, variables_of_interest)
     timeseries_, masks_ = create_tensor(time_series_dataset, time_series_variables)
-    timeseries=z_normalize(timeseries)
-    timeseries_=z_normalize(timeseries_)
+    #timeseries=z_normalize(timeseries)
+    #timeseries_=z_normalize(timeseries_)
     #timeseries=min_max_normalize(timeseries, 0.0, 1.0)
     inputs_data, _ = create_tensor(time_series_dataset, ["MechVent"])
     obs_data=join_static_and_timeseries(static_features_matrix, timeseries_)
@@ -80,16 +79,16 @@ function load_physionet_file(filepath::String; combine_method::Function=mean)
         return h
     end
 
-    # # Aggregate data based on the hour of the day
-    # df_long.Hour = time_to_hour.(df_long.Time)
-    # df_agg = combine(groupby(df_long, [:Hour, :Parameter]), :Value => combine_method =>  :Value)
-    # df_wide = DataFrames.unstack(df_agg, :Hour, :Parameter, :Value)
-    # sort!(df_wide, :Hour)
-    # Aggregate data based on the original time points, ignoring hours
-    df_agg = combine(groupby(df_long, [:Time, :Parameter]), :Value => combine_method => :Value)
-    df_wide = DataFrames.unstack(df_agg, :Time, :Parameter, :Value)
+    # Aggregate data based on the hour of the day
+    df_long.Hour = time_to_hour.(df_long.Time)
+    df_agg = combine(groupby(df_long, [:Hour, :Parameter]), :Value => combine_method =>  :Value)
+    df_wide = DataFrames.unstack(df_agg, :Hour, :Parameter, :Value)
+    sort!(df_wide, :Hour)
 
-    sort!(df_wide, :Time)
+    # Aggregate data based on the original time points, ignoring hours
+    # df_agg = combine(groupby(df_long, [:Time, :Parameter]), :Value => combine_method => :Value)
+    # df_wide = DataFrames.unstack(df_agg, :Time, :Parameter, :Value)
+    # sort!(df_wide, :Time)
 
 
     return df_wide

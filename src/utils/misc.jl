@@ -6,26 +6,21 @@
 Compute the empirical Continuous Ranked Probability Score (CRPS) for probabilistic forecasts.
 
 # Arguments
-- `y_true::AbstractArray{Int,3}`: Ground truth values, shape (n_features, n_timepoints, n_samples).
-- `y_pred_samples::AbstractArray{Int,4}`: Predicted samples, shape (n_features, n_timepoints, n_samples, n_draws).
+- `y_true::AbstractArray{T,3}`: Ground truth values, shape (n_features, n_timepoints, n_samples).
+- `y_pred_samples::AbstractArray{T,4}`: Predicted samples, shape (n_features, n_timepoints, n_samples, n_draws).
 - `mask::AbstractArray{Bool,3}`: Boolean mask indicating valid entries, shape (n_features, n_timepoints, n_samples).
 
 # Returns
 - Mean empirical CRPS over all valid points.
-
-# Description
-The CRPS is a proper scoring rule for evaluating the quality of probabilistic predictions. This function computes the empirical CRPS by averaging the absolute differences between predictions and observations, and subtracting half the average pairwise absolute differences between prediction samples.
-
-# References
-- Gneiting, T., & Raftery, A. E. (2007). Strictly Proper Scoring Rules, Prediction, and Estimation. Journal of the American Statistical Association, 102(477), 359–378.
 """
-function empirical_crps(y_true::AbstractArray{Int,3}, 
-                               y_pred_samples::AbstractArray{Int,4}, 
-                               mask::AbstractArray{Bool,3})
+
+function empirical_crps(y_true::AbstractArray{T,3}, 
+                       y_pred_samples::AbstractArray{T,4}, 
+                       mask::AbstractArray{Bool,3}) where T <: AbstractFloat
 
     n_features, n_timepoints, n_samples = size(y_true)
-    total_crps = 0.0
-    count = 0  # valid data points count
+    total_crps = zero(T)  # Use zero of type T
+    count = 0
 
     for f in 1:n_features
         for i in 1:n_samples
@@ -35,7 +30,7 @@ function empirical_crps(y_true::AbstractArray{Int,3},
                     preds = y_pred_samples[f, t, i, :]
 
                     term1 = mean(abs.(preds .- y_obs))
-                    term2 = 0.5 * mean(abs.(preds .- preds'))
+                    term2 = T(0.5) * mean(abs.(preds .- preds'))
 
                     total_crps += (term1 - term2)
                     count += 1
@@ -46,7 +41,6 @@ function empirical_crps(y_true::AbstractArray{Int,3},
 
     return total_crps / count
 end
-
 
 
 

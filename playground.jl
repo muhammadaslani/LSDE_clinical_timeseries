@@ -1,83 +1,95 @@
-using Pkg, Revise, Rhythm, Lux, DifferentialEquations, Random, SciMLSensitivity, ComponentArrays, Optimisers, OptimizationOptimisers, Statistics
-using MLUtils, Printf, SciMLSensitivity
+function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_loader, config, exp_path)
+    # Create optimizer from config
+    opt = eval(Meta.parse(config["optimizer"]))
+    tstate = Training.TrainState(model, θ, st, opt)
+    
+    # Keep the lambda schedule for KL annealing
+    λ_schedule = frange_cycle_linear(config["epochs"]+1, 0.0f0, 1.0f0, 10, 0.3f0)
+    
+    # Initialize exponential learning rate schedule
+    initial_lr = config["learning_rate"]
+    gamma = config["lr_decay"]["gamma"] 
+    step_every = config["lr_decay"]["step_every"]  
+    
+    # Pre-compute learning rates for each epoch
+    lr_schedule = [initial_lr * (gamma ^ (floor(Int, (epoch-1) / step_every))) for epoch in 1:config["epochs"]]
 
-ts = 0:0.1:9.9 |> Array{Float32};
-x = rand32(2, 100, 1);
-u = rand32(1, 100, 1);
-
-drift = @compact(vf = Dense(3,2, tanh)) do xu 
-    x, u = xu 
-    @return vf(vcat(xu...))
-end;
-
-diffusion = @compact(vg = Scale(2, sigmoid)) do x 
-    @return vg(x)
-end;
-
-dynamics = SDE(drift, Dense(5, 2, tanh), diffusion, EulerHeun(), saveat=ts, dt=0.1f0);
-model = LatentSDE(dynamics=dynamics);
-
-rng = Random.default_rng();
-θ, st = Lux.setup(rng, model);
-θ = θ |> ComponentArray{Float32};
-ŷ, px₀, kl_path = model(x, u, ts, θ, st);
+    n_batches = length(train_loader)
+    θ_best = nothing
+    best_val_metric = Inf
+    counter = 0
+    @info "Training started"
+    stime = time()
+    
+    for epoch in 1:config["epochs"]
+        # Apply learning rate for this epoch
+        current_lr = lr_schedule[epoch]
+        Optimisers.adjust!(tstate.optimizer_state, current_lr)
+        
+        train_loss = 0.f0
+        kl_term = 0.f0
+        recon_loss = 0.f0
+        recon_loss1 = 0.f0
+        recon_loss2 = 0.f0
 
 
-X = rand32(2, 100, 10);
-U = rand32(1, 100, 10);
+        for batch in train_loader
+            _, loss, (kl_loss, r_loss, r_loss1, r_loss2), tstate = Training.single_train_step!(AutoZygote(), loss_fn, (batch, ts, λ_schedule[epoch]), tstate) 
+            train_loss += loss
+            kl_term += kl_loss
+            recon_loss += r_loss
+            recon_loss1 += r_loss1
+            recon_loss2 += r_loss2
 
+        end
 
-(x_train, u_train), (x_test, u_test) = splitobs((X, U), at=0.8);
-train_loader = DataLoader((x_train, u_train), batchsize=2);
-val_loader = DataLoader((x_test, u_test), batchsize=2);
+        θ = tstate.parameters
+        st = tstate.states
 
-function loss_fn(model, θ, st, data)
-    x, u, ts, λ = data
-    x̂, px₀, kl_pq = model(x, u, ts, θ, st)
-    batch_size = size(x)[end]
-    recon_loss = mse(x̂, x)/batch_size
-    kl_init = kl_normal(px₀...)/batch_size
-    kl_path = mean(kl_pq[end,:])
-    kl_loss =  kl_init + kl_path
-    loss = recon_loss + λ * kl_loss
-    return loss, st, kl_loss
+        if epoch % config["log_freq"] == 0
+            
+            @printf("Epoch %d/%d: \t Training loss: %.3f \t λ: %.3f \t LR: %.6f \t Kl_term:%.3f \t recon_loss:%.3f\t recon_loss1: %.3f\t recon_loss2:%.3f  \n", 
+                    epoch, config["epochs"], train_loss/n_batches, λ_schedule[epoch], current_lr, kl_term/n_batches, 
+                    recon_loss/n_batches, recon_loss1/n_batches, recon_loss2/n_batches)
+                    
+            (val_metric, val_metric1, val_metric2) = validate(model, θ, st, ts, val_loader, eval_fn, config["validation"])
+            @printf("Validation metric: %.3f\t val_metric1:%.3f\t val_metric2:%.3f\n", val_metric, val_metric1, val_metric2)
+
+            if epoch % config["viz_freq"] == 0
+                #viz_fn(model, θ, st, ts, first(train_loader), config["validation"]; sample_n=1)
+            end
+
+            if val_metric < best_val_metric
+                @info "Saving best model!"
+                best_val_metric = val_metric
+                θ_best = copy(θ)
+                save_state = (θ=θ_best, st=st, epoch=epoch)
+                #save_object(joinpath(exp_path, "bestmodel.jld2"), save_state)
+                counter = 0
+            else 
+                if counter > config["stop_patience"]
+                    @printf("No more hope training this one! Early stopping at epoch: %.f\n", epoch)
+                    return θ_best
+                end
+                counter += 1
+            end 
+        end 
+    end
+    ttime = time() - stime
+    @info "Training finished in $(ttime) seconds"
+    @info "Best validation metric: $(best_val_metric)"
+    return θ_best
 end
 
-
-function eval_fn(model, θ, st, ts, data, config)
-    y, u,= data
-    Ex, Ey = smooth(model, config.solver, y, u, ts, θ, st, config.n_samples, config.dev; config.kwargs...)
-    ŷₘ = dropmean(Ey, dims=4)
-    return mse(ŷₘ, y)
-end
-
-function viz_fn(kwargs...)
-    return
-end
-
-config = (lr =1e-3, epochs=100, optimizer=AdamW(1e-3) , solver=EM(), log_freq=10, viz_freq=10, save_path=".", stop_patience=50, lrdecay_patience=20, n_samples=10, dev=cpu_device(), kwargs=Dict(:saveat=>ts, :dt=>0.1f0))
-
-train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_loader, config);
-
-
-
-
-Base.@kwdef struct ModelParameters
-    ρ::Float64 = 8e-3    # Tumor growth rate
-    K::Float64 = 100.0   # Tumor carrying capacity
-    β_c::Float64 = 0.15  # Linear effect of chemotherapy
-    ω_c::Float64 = 1.0   # Chemotherapy sessions frequency (every X weeks)
-    α_r::Float64 = 0.4   # Linear effect of radiotherapy
-    β_r::Float64 = 0.1   # Quadratic effect of radiotherapy
-    ω_r::Float64 = 3.0   # Radiotherapy sessions frequency (every X weeks)
-    δ::Float64 = 0.023   # Reduced immune growth rate
-    β_I::Float64 = 0.15  # Increased drug-induced immune suppression
-    α_I::Float64 = 0.16  # Increased radiotherapy-induced immune suppression
-    θ_I::Float64 = 0.08  # Immune stimulation by tumor
-    λ_I::Float64 = 0.002 # Immune suppression by large tumors
-    ω_I::Float64 = 0.07  # Immune decay rate
-    I_max::Float64 = 0.95 # Max immune response
-    γ_S::Float64 = 5e-2  # Immune effect on health
-    θ_S::Float64 = 40.0  # Health recovery rate
-    λ_S::Float64 = 500.0 # Health impact of tumor
+function validate(model, θ, st, ts, val_loader, eval_fn, config)
+    val_metric = 0.0f0
+    val_metric1= 0.0f0
+    val_metric2= 0.0f0
+    for batch in val_loader
+        (val_m, val_m1, val_m2)= eval_fn(model, θ, st, ts, batch, config)
+        val_metric += val_m
+        val_metric1 += val_m1
+        val_metric2 += val_m2
+    end
+    return (val_metric/length(val_loader), val_metric1/length(val_loader), val_metric2/length(val_loader))
 end
