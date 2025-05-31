@@ -62,7 +62,7 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
             if val_metric < best_val_metric
                 @info "Saving best model!"
                 best_val_metric = val_metric
-                θ_best = copy(θ)
+                θ_best = θ
                 save_state = (θ=θ_best, st=st, epoch=epoch)
                 #save_object(joinpath(exp_path, "bestmodel.jld2"), save_state)
                 counter = 0

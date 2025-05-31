@@ -217,9 +217,9 @@ end
 
 ## model, training, and inference
 rng = Random.MersenneTwister(123);
-config_rnn = YAML.load_file("configs/RNN_config.yml");
-hidden_dim = config_lsde["model"]["obs_encoder"]["hidden_size"];
-latent_dim = config_lsde["model"]["latent_dim"];
+config_rnn = YAML.load_file("configs/ICU_RNN_config.yml");
+hidden_dim = config_rnn["model"]["obs_encoder"]["hidden_size"];
+latent_dim = config_rnn["model"]["latent_dim"];
 n_timepoints_for = size(output_data_for, 2)
 
 model = Chain(
@@ -237,7 +237,7 @@ model = Chain(
 )
 # Parameter and State Variables
 θ, st = Lux.setup(rng, model);
-θ_trained = train(model, θ, st, loss_fn, train_loader, val_loader, config_rnn["training"]);
+θ_trained = train(model, θ_trained, st, loss_fn, train_loader, val_loader, config_rnn["training"]);
 
 ## forecasting
 u_obs, x_obs, y_obs, masks_obs, u_forecast, x_forecast, y_forecast, masks_forecast = test_loader.data;
@@ -247,7 +247,7 @@ t_for = timepoints_for;
 t_obs = timepoints_obs;
 
 ## RNN forecast
-μ, σ = forecast(model, θ_trained, st, data_obs, u_forecast, config_lsde["training"]["validation"]);
+μ, σ = forecast(model, θ_trained, st, data_obs, u_forecast, config_rnn["training"]["validation"]);
 rnn_forecasted_data = (μ, σ);
-fig, rmse = viz_fn_forecast(t_obs, t_for, data_obs, future_true_data, rnn_forecasted_data; sample_n=3);
-#save("examples/ICU/ICU_lsde_forecast.eps", fig)
+fig, rmse = viz_fn_forecast(t_obs, t_for, data_obs, future_true_data, rnn_forecasted_data; sample_n=1);
+#save("examples/ICU/ICU_rnn_forecast.eps", fig)

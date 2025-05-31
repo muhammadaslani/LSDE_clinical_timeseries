@@ -21,12 +21,13 @@ The warm start strategy works as follows:
 - `timepoints`: Array of timepoints for the model.
 - `loss_fn`: Loss function for training.
 - `eval_fn`: Evaluation function.
+- `forecast_fn`: Forecast function.
 - `viz_fn`: Visualization function.
 
 # Returns
 - A tuple containing (models, parameters, states, performances)
 """
-function kfold_train(data, n_folds, rng, config_path, model_type, timepoints, loss_fn, eval_fn, viz_fn)
+function kfold_train(data, n_folds, rng, config_path, model_type, timepoints, loss_fn, eval_fn, forecast_fn, viz_fn)
     # Start timing the entire k-fold training process
     start_time = time()
     
@@ -112,6 +113,8 @@ function kfold_train(data, n_folds, rng, config_path, model_type, timepoints, lo
         elseif model_type == "lode"
             lode_config = deepcopy(config["model"])
             model, θ, st = create_latentsde(lode_config, dims, rng)
+        elseif model_type == "rnn"
+            model, θ, st = create_rnn_model(config["model"], dims, rng)
         else
             error("Unsupported model type: $model_type")
         end
@@ -143,11 +146,11 @@ function kfold_train(data, n_folds, rng, config_path, model_type, timepoints, lo
         future_true_data = (u_for, x_for, y_for, masks_for_test)
 
         # Make predictions
-        μ, σ = forecast(model, θ_trained, st, data_obs, u_for, timepoints_for, config["training"]["validation"])
+        μ, σ = forecast_fn(model, θ_trained, st, data_obs, u_for, timepoints_for, config["training"]["validation"])
         forecasted_data = (μ, σ)
         
         # Evaluate model performance without plotting
-        rmse, crps = viz_fn_forecast(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, plot=false)
+        rmse, crps = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, plot=false)
         
         # Store model, parameters, state, and performance
         push!(models, model)

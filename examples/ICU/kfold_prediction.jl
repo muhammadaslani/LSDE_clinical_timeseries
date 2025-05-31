@@ -4,7 +4,7 @@ using MLUtils, Printf, SciMLSensitivity, OneHotArrays, CairoMakie, Distributions
 using YAML
 using DataFrames, CSV
 include("data_prep.jl")
-include("kfold_trainer.jl")  # Only import kfold_train function
+include("kfold_trainer.jl") 
 
 # Set random seed for reproducibility
 rng = Random.MersenneTwister(123);
@@ -173,8 +173,8 @@ function viz_fn_forecast(t_obs, t_for, obs_data, future_true_data, forecasted_da
 end
 
 # Define the kfold_forecast function for performance analysis
-function assess_model_performance(performances, variables_of_interest; model_name="Model", 
-                       plot_sample=false, sample_n=3, models=nothing, params=nothing, states=nothing, 
+function assess_model_performance(performances, variables_of_interest; model_name="Model", model_type="lsde", forecast_fn=forecast,
+                       plot_sample=false, sample_n=3, viz_fn=viz_fn_forecast, models=nothing, params=nothing, states=nothing, 
                        data=nothing, timepoints=nothing, config=nothing, best_fold_idx=nothing)
     """
     Presents model performance across k-folds by calculating and printing
@@ -200,11 +200,17 @@ function assess_model_performance(performances, variables_of_interest; model_nam
     # Extract RMSE and CRPS values for each fold and feature
     rmse_values = zeros(n_folds, n_features)
     crps_values = zeros(n_folds, n_features)
-    
-    for (fold_idx, (rmse, crps)) in enumerate(performances)
+    if model_type == "lsde" || model_type== "lode"
+        for (fold_idx, (rmse, crps)) in enumerate(performances)
         rmse_values[fold_idx, :] = rmse
         crps_values[fold_idx, :] = crps
-    end
+        end
+    elseif model_type == "rnn" 
+        for (fold_idx, (rmse, crps)) in enumerate(performances)
+            rmse_values[fold_idx, :] = rmse[1:n_features]
+            crps_values[fold_idx, :] .= 0.0f0
+        end 
+    end 
     
     # Calculate statistics
     rmse_means = mean(rmse_values, dims=1)[1, :]
@@ -270,11 +276,12 @@ function assess_model_performance(performances, variables_of_interest; model_nam
             future_true_data = (inputs_data_for, obs_data_for, output_data_for, masks_for)
             
             # Generate forecast
-            μ, σ = forecast(best_model, best_params, best_state, data_obs, inputs_data_for, timepoints_for, config["training"]["validation"])
+
+            μ, σ = forecast_fn(best_model, best_params, best_state, data_obs, inputs_data_for, timepoints_for, config["training"]["validation"])
             forecasted_data = (μ, σ)
             
             # Create visualization
-            fig, sample_rmse, sample_crps = viz_fn_forecast(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, sample_n=sample_n, plot=true)
+            fig, sample_rmse, sample_crps = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, sample_n=sample_n, plot=true)
             
             println("\nSample number $sample_n forecast plotted for best model (fold $best_fold_idx)")
             println("Sample number $sample_n RMSE: [$(round.(sample_rmse, digits=4))]")
@@ -380,6 +387,163 @@ function compare_models(model_stats_dict; sort_by="rmse", ascending=true)
     return Dict(zip(sorted_names, sorted_stats))
 end
 
+# RNN-specific functions
+function loss_fn_rnn(model, θ, st, data)
+    (u_obs, x_obs, y_obs, masks_obs, u_for, x_for, y_for, masks_for), ts, λ = data
+    batch_size = size(y_for)[end]
+    ŷ, st = model(vcat(x_obs,u_obs), θ, st)
+    recon_loss = 0.0f0
+    for i in eachindex(ŷ)
+        μ, log_σ² = ŷ[i][1], ŷ[i][2]
+        valid_indx = findall(masks_for[i, :, :] .== 1)
+        recon_loss += normal_loglikelihood(μ[valid_indx], log_σ²[valid_indx], y_for[i, valid_indx]) / batch_size
+    end
+    kl = 0.0f0
+    return recon_loss, st, (kl, recon_loss, 0.0f0, 0.0f0)
+end
+
+function eval_fn_rnn(model, θ, st, ts, data, config)
+    # For RNN, evaluation is similar to loss calculation
+    u_obs, x_obs, y_obs, masks_obs, u_for, x_for, y_for, masks_for = data
+    batch_size = size(y_for)[end]
+    ŷ, st = model(vcat(x_obs, u_obs), θ, st)
+    loss = 0.0f0
+    for i in eachindex(ŷ)
+        μ, log_σ² = ŷ[i][1], ŷ[i][2]
+        valid_indx = findall(masks_for[i, :, :] .== 1)
+        loss += normal_loglikelihood(μ[valid_indx], log_σ²[valid_indx], y_for[i, valid_indx]) / batch_size
+    end
+    return (loss, 0.0f0, 0.0f0)
+end
+
+function forecast_rnn(model, θ, st, obs_data, u_forecast, time_forecast, config)
+    u_obs, x_obs, y_obs, masks_obs = obs_data
+    ŷ, st = model(vcat(x_obs,u_obs), θ, st)
+    μ = [ŷ[i][1] for i in eachindex(ŷ)]
+    σ = [sqrt.(exp.(ŷ[i][2])) for i in eachindex(ŷ)]
+    return μ, σ
+end
+
+# Define RNN-specific visualization function
+function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecasted_data; sample_n=1, plot=true)
+    u_obs, x_obs, y_obs, masks_obs = obs_data
+    u_for, x_for, y_for, masks_for = future_true_data
+    μ, σ = forecasted_data
+    t_obs = t_obs * 10 
+    t_for = t_for * 10 
+
+    y_labels = ["MAP", "HR", "BT"]
+    fig = Figure(size=(1200, 600), fontsize=15)
+    axes = CairoMakie.Axis[]
+    rmse = []
+    crps = []
+
+    n_features = length(y_labels)  # Assuming one label per feature
+
+    for i in 1:n_features
+        y_label = y_labels[i]
+        valid_indx_obs = findall(masks_obs[i, :, :] .== 1)
+        valid_indx_for = findall(masks_for[i, :, :] .== 1)
+
+        t_obs_val = t_obs[masks_obs[i, :, sample_n] .== 1]
+        t_for_val = t_for[masks_for[i, :, sample_n] .== 1]
+
+        y_obs_val = y_obs[i, valid_indx_obs]
+        y_for_val = y_for[i, valid_indx_for]
+
+        # Generate predicted distributions (RNN format)
+        dists = Normal.(μ[i], σ[i])
+        ŷ = rand.(dists)
+
+        ŷ_val = ŷ[valid_indx_for]
+        rmse_ = sqrt(MSELoss()(ŷ_val, y_for_val))
+
+        println("RMSE for $y_label: ", rmse_)
+        push!(rmse, rmse_)
+
+        if plot
+            if isempty(t_obs_val)
+                println("No observational data available for $y_label in sample $sample_n")
+                ax = CairoMakie.Axis(fig[i, 1], xlabel="Time (hours)", ylabel=y_labels[i], xgridvisible=false, ygridvisible=false)
+                continue
+            elseif isempty(t_for_val)
+                println("No future data available for $y_label in sample $sample_n")
+                ax = CairoMakie.Axis(fig[i, 1], xlabel="Time (hours)", ylabel=y_labels[i], xgridvisible=false, ygridvisible=false)
+                continue
+            else
+                ax = CairoMakie.Axis(fig[i, 1], xlabel="Time (hours)", ylabel=y_labels[i], xgridvisible=false, ygridvisible=false)
+                push!(axes, ax)
+                scatter!(ax, t_obs_val, y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n], color=:blue, label="Past Observations", markersize=10)
+                lines!(ax, t_obs_val, y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n], color=(:blue, 0.4), linewidth=2, linestyle=:dot)
+
+                scatter!(ax, t_for_val, y_for[i, masks_for[i, :, sample_n] .== 1, sample_n], color=:green, label="Future Ground Truth", markersize=10)
+                lines!(ax, t_for_val, y_for[i, masks_for[i, :, sample_n] .== 1, sample_n], color=(:green, 0.4), linestyle=:dot)
+
+                scatter!(ax, t_for_val, ŷ[ masks_for[i, :, sample_n] .== 1, sample_n], color=:red, label="Model Predictions", markersize=10)
+                lines!(ax, t_for_val, ŷ[ masks_for[i, :, sample_n] .== 1, sample_n], color=(:red, 0.4), linestyle=:dot)
+                if i == 1
+                    poly!(ax, [0, t_obs[end], t_obs[end], 0], [-10, -10, 500, 500], color=(:blue, 0.05), label="Observation Period (Past)")
+                    poly!(ax, [t_obs[end], t_for_val[end], t_for_val[end], t_obs[end]], [-10, -10, 500, 500], color=(:red, 0.05), label="Forecasting Period (Future)")
+                else
+                    poly!(ax, [0, t_obs[end], t_obs[end], 0], [-10, -10, 500, 500], color=(:blue, 0.05))
+                    poly!(ax, [t_obs[end], t_for_val[end], t_for_val[end], t_obs[end]], [-10, -10, 500, 500], color=(:red, 0.05))
+                end
+
+                all_y_values = vcat(
+                    y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n],
+                    y_for[i, masks_for[i, :, sample_n] .== 1, sample_n],
+                    ŷ[ masks_for[i, :, sample_n] .== 1, sample_n],
+                )
+
+                y_min = minimum(all_y_values) - 0.1 * (maximum(all_y_values) - minimum(all_y_values))
+                y_max = maximum(all_y_values) + 0.1 * (maximum(all_y_values) - minimum(all_y_values))
+                ylims!(ax, y_min, y_max)
+
+                if i == 1
+                    fig[i, 2] = Legend(fig, ax, framevisible=false, halign=:left)
+                end
+            end
+        end
+    end
+
+    if plot
+        linkxaxes!(axes...)
+        colgap!(fig.layout, 10)
+        display(fig)
+        return fig, rmse, crps
+    else
+        return rmse, crps
+    end
+end
+
+# Function to create RNN model
+
+function create_rnn_model(config, dims, rng)
+    hidden_dim = config["obs_encoder"]["hidden_size"]
+    latent_dim = config["latent_dim"]
+    n_features = dims["obs_dim"]+ dims["input_dim"]
+    n_timepoints_for = 25  # Adjust based on your forecasting horizon
+    
+    model = Chain(
+        encoder=Chain(
+            Recurrence(LSTMCell(n_features => hidden_dim); return_sequence=true),
+            Recurrence(LSTMCell(hidden_dim => latent_dim); return_sequence=false)
+        ),
+        decoder=Chain(
+            Dense(latent_dim, hidden_dim),
+            BranchLayer(
+                BranchLayer(Dense(hidden_dim, n_timepoints_for), Dense(hidden_dim, n_timepoints_for, softplus)),
+                BranchLayer(Dense(hidden_dim, n_timepoints_for), Dense(hidden_dim, n_timepoints_for, softplus)),
+                BranchLayer(Dense(hidden_dim, n_timepoints_for), Dense(hidden_dim, n_timepoints_for, softplus))
+            )
+        )
+    )
+    
+    θ, st = Lux.setup(rng, model)
+    return model, θ, st
+end
+
+
 # Perform k-fold training with Latent SDE model
 n_folds = 5
 config_path = "./configs/ICU_config_lsde.yml"
@@ -396,6 +560,7 @@ lsde_models, lsde_params, lsde_states, lsde_performances = kfold_train(
     timepoints, 
     loss_fn, 
     eval_fn, 
+    forecast,
     viz_fn_forecast
 );
 
@@ -417,18 +582,45 @@ lode_models, lode_params, lode_states, lode_performances = kfold_train(
     timepoints, 
     loss_fn, 
     eval_fn, 
+    forecast,
     viz_fn_forecast
 );
 
 # Present LODE model performance with sample plot
 lode_stats = assess_model_performance(lode_performances, variables_of_interest, model_name="Latent ODE",
-                           plot_sample=true, sample_n=3, models=lode_models, params=lode_params, 
+                           plot_sample=true, sample_n=4, models=lode_models, params=lode_params, 
                            states=lode_states, data=test_loader.data, timepoints=timepoints, 
                            config=YAML.load_file("./configs/ICU_config_lode.yml"));
 
-# Compare models using the comparison function
-model_comparison = compare_models(
-    Dict("Latent SDE" => lsde_stats, "Latent ODE" => lode_stats),
+
+# RNN model training and evaluation
+rnn_config_path = "./configs/ICU_RNN_config.yml"
+model_type = "rnn"
+
+# Perform k-fold cross-validation for RNN
+@info "Starting $n_folds-fold cross-validation for $model_type model"
+rnn_models, rnn_params, rnn_states, rnn_performances = kfold_train(
+    data, 
+    n_folds, 
+    rng, 
+    rnn_config_path, 
+    model_type, 
+    timepoints, 
+    loss_fn_rnn, 
+    eval_fn_rnn, 
+    forecast_rnn,
+    viz_fn_forecast_rnn
+);
+
+# Present RNN model performance with sample plot
+rnn_stats = assess_model_performance(rnn_performances, variables_of_interest, model_name="RNN", model_type="rnn", forecast_fn=forecast_rnn,
+                           plot_sample=true, sample_n=4, viz_fn=viz_fn_forecast_rnn, models=rnn_models, params=rnn_params, 
+                           states=rnn_states, data=test_loader.data, timepoints=timepoints, 
+                           config=YAML.load_file(rnn_config_path));
+
+# Compare RNN model with others
+model_comparison_rnn = compare_models(
+    Dict("Latent SDE" => lsde_stats, "Latent ODE" => lode_stats, "RNN" => rnn_stats),
     sort_by="rmse",  # Sort by RMSE (can also use "crps")
     ascending=true   # Best models first (lowest values)
 );
