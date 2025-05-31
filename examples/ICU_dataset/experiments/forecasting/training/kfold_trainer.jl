@@ -17,7 +17,7 @@ The warm start strategy works as follows:
 - `n_folds`: Number of folds for cross-validation.
 - `rng`: Random number generator for reproducibility.
 - `config_path`: Path to the YAML configuration file.
-- `model`: Type of model to train, e.g., "lsde", "lode".
+- `model`: Type of model to train, e.g., "lsde", "lode", or "rnn".
 - `timepoints`: Array of timepoints for the model.
 - `loss_fn`: Loss function for training.
 - `eval_fn`: Evaluation function.
