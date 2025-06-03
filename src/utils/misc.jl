@@ -16,7 +16,7 @@ Compute the empirical Continuous Ranked Probability Score (CRPS) for probabilist
 
 function empirical_crps(y_true::AbstractArray{T,3}, 
                        y_pred_samples::AbstractArray{T,4}, 
-                       mask::AbstractArray{Bool,3}) where T <: AbstractFloat
+                       mask::AbstractArray{Bool,3}) where T <: Number
 
     n_features, n_timepoints, n_samples = size(y_true)
     total_crps = zero(T)  # Use zero of type T
@@ -30,7 +30,7 @@ function empirical_crps(y_true::AbstractArray{T,3},
                     preds = y_pred_samples[f, t, i, :]
 
                     term1 = mean(abs.(preds .- y_obs))
-                    term2 = T(0.5) * mean(abs.(preds .- preds'))
+                    term2 = 0.5 * mean(abs.(preds .- preds'))
 
                     total_crps += (term1 - term2)
                     count += 1

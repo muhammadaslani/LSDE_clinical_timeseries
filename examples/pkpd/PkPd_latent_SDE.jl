@@ -200,7 +200,7 @@ end
 function vis_fn_forecast(obs_timepoints, for_timepoints, obs_data, future_true_data, forecasted_data; sample_n=1)
     u_o, covars_o, x_o, y₁_o, y₂_o, mask₁_o, mask₂_o = obs_data
     u_t, covars_t, x_t, y₁_t, y₂_t, mask₁_t, mask₂_t = future_true_data
-    # y₂_t=copy(y₂_t)
+    #y₂_t=copy(y₂_t)
     
     u_p= u_t
     Ex, Ey_p = forecasted_data
@@ -320,7 +320,7 @@ config_lsde = YAML.load_file("./configs/PkPD_config_LSDE.yml");
 exp_path = joinpath(config_lsde["experiment"]["path"], config_lsde["experiment"]["name"])
 isdir(exp_path) ? exp_path : mkpath(exp_path)
 lsde_model, lsde_θ, lsde_st = create_latentsde(config_lsde["model"], dims, rng);
-lsde_θ_trained = train(lsde_model, lsde_θ_trained, lsde_st, timepoints_forecast, loss_fn, eval_fn, vis_fn_forecast, train_loader, val_loader, config_lsde["training"], exp_path);
+lsde_θ_trained = train(lsde_model, lsde_θ, lsde_st, timepoints_forecast, loss_fn, eval_fn, vis_fn_forecast, train_loader, val_loader, config_lsde["training"], exp_path);
 
 #latent ODE
 config_lode = YAML.load_file("./configs/PkPD_config_LODE.yml");
