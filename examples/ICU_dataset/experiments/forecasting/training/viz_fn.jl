@@ -1,3 +1,14 @@
+
+# Professional color palette for medical time series visualization
+const MEDICAL_COLORS = (
+    observed = "#2E86AB",      # Deep blue for observations
+    truth = "#A23B72",         # Deep magenta for ground truth  
+    predicted = "#F18F01",     # Orange for predictions
+    confidence = "#C73E1D",    # Red for confidence intervals
+    obs_period = "#B8D4F0",    # More visible light blue for observation period
+    forecast_period = "#FFD4A3" # More visible light orange for forecast period
+)
+
 function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecasted_data; sample_n=1, plot=true)
     u_obs, x_obs, y_obs, masks_obs = obs_data
     u_for, x_for, y_for, masks_for = future_true_data
@@ -5,8 +16,10 @@ function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecaste
     t_obs = t_obs * 10 
     t_for = t_for * 10 
 
-    y_labels = ["MAP", "HR", "BT"]
-    fig = Figure(size=(1200, 600), fontsize=15)
+    y_labels = ["MAP (mmHg)", "HR (bpm)", "Temperature (°C)"]
+    fig = Figure(size=(1200, 800), fontsize=14, 
+                 backgroundcolor=:white,
+                 figure_padding=20)
     axes = CairoMakie.Axis[]
     rmse = []
     crps = []
@@ -43,57 +56,144 @@ function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecaste
         ŷ_ci_upper = ŷ_mean .+ ŷ_std
 
         if plot
-            if isempty(t_obs_val)
-                println("No observational data available for $y_label in sample $sample_n")
-                ax = CairoMakie.Axis(fig[i, 1], xlabel="Time (hours)", ylabel=y_labels[i], xgridvisible=false, ygridvisible=false)
+            if isempty(t_obs_val) || isempty(t_for_val)
+                @warn "Insufficient data for $y_label in sample $sample_n"
                 continue
-            elseif isempty(t_for_val)
-                println("No future data available for $y_label in sample $sample_n")
-                ax = CairoMakie.Axis(fig[i, 1], xlabel="Time (hours)", ylabel=y_labels[i], xgridvisible=false, ygridvisible=false)
-                continue
+            
             else
-                ax = CairoMakie.Axis(fig[i, 1], xlabel="Time (hours)", ylabel=y_labels[i], xgridvisible=false, ygridvisible=false)
+                ax = CairoMakie.Axis(fig[i, 1], 
+                    xlabel=i == n_features ? "Time (hours)" : "",
+                    ylabel=y_labels[i], 
+                    xgridvisible=true, 
+                    ygridvisible=true,
+                    xgridcolor=("#E5E5E5", 0.8),
+                    ygridcolor=("#E5E5E5", 0.8),
+                    topspinevisible=false,
+                    rightspinevisible=false,
+                    xticklabelsize=12,
+                    yticklabelsize=12,
+                    xlabelsize=13,
+                    ylabelsize=13)
                 push!(axes, ax)
-                scatter!(ax, t_obs_val, y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n], color=:blue, label="Past Observations", markersize=10)
-                lines!(ax, t_obs_val, y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n], color=(:blue, 0.4), linewidth=2, linestyle=:dot)
-
-                scatter!(ax, t_for_val, y_for[i, masks_for[i, :, sample_n] .== 1, sample_n], color=:green, label="Future Ground Truth", markersize=10)
-                lines!(ax, t_for_val, y_for[i, masks_for[i, :, sample_n] .== 1, sample_n], color=(:green, 0.4), linestyle=:dot)
-
-                scatter!(ax, t_for_val, ŷ_mean[1, masks_for[i, :, sample_n] .== 1, sample_n], color=:red, label="Model Predictions", markersize=10)
-                lines!(ax, t_for_val, ŷ_mean[1, masks_for[i, :, sample_n] .== 1, sample_n], color=(:red, 0.4), linestyle=:dot)
-
-                band!(ax, t_for_val, ŷ_ci_lower[1, masks_for[i, :, sample_n] .== 1, sample_n], ŷ_ci_upper[1, masks_for[i, :, sample_n] .== 1, sample_n], color=:red, alpha=0.2)
-
+                
+                # Calculate data range for background polygons
+                temp_pred_vals = ŷ_mean[1, masks_for[i, :, sample_n] .== 1, sample_n]
+                temp_ci_lower = ŷ_ci_lower[1, masks_for[i, :, sample_n] .== 1, sample_n]
+                temp_ci_upper = ŷ_ci_upper[1, masks_for[i, :, sample_n] .== 1, sample_n]
+                
+                temp_all_y_values = vcat(
+                    y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n],
+                    y_for[i, masks_for[i, :, sample_n] .== 1, sample_n],
+                    temp_pred_vals,
+                    temp_ci_lower,
+                    temp_ci_upper
+                )
+                y_min_bg = minimum(temp_all_y_values) - 0.25 * (maximum(temp_all_y_values) - minimum(temp_all_y_values))
+                y_max_bg = maximum(temp_all_y_values) + 0.25 * (maximum(temp_all_y_values) - minimum(temp_all_y_values))
+                
+                # Plot observation period background
                 if i == 1
-                    poly!(ax, [0, t_obs[end], t_obs[end], 0], [-10, -10, 500, 500], color=(:blue, 0.05), label="Observation Period (Past)")
-                    poly!(ax, [t_obs[end], t_for_val[end], t_for_val[end], t_obs[end]], [-10, -10, 500, 500], color=(:red, 0.05), label="Forecasting Period (Future)")
+                    poly!(ax, [0, t_obs[end], t_obs[end], 0], 
+                         [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
+                         color=(MEDICAL_COLORS.obs_period, 0.7), 
+                         label="Observation Period")
+                    poly!(ax, [t_obs[end], t_for_val[end], t_for_val[end], t_obs[end]], 
+                         [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
+                         color=(MEDICAL_COLORS.forecast_period, 0.7), 
+                         label="Forecasting Period")
                 else
-                    poly!(ax, [0, t_obs[end], t_obs[end], 0], [-10, -10, 500, 500], color=(:blue, 0.05))
-                    poly!(ax, [t_obs[end], t_for_val[end], t_for_val[end], t_obs[end]], [-10, -10, 500, 500], color=(:red, 0.05))
+                    poly!(ax, [0, t_obs[end], t_obs[end], 0], 
+                         [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
+                         color=(MEDICAL_COLORS.obs_period, 0.7))
+                    poly!(ax, [t_obs[end], t_for_val[end], t_for_val[end], t_obs[end]], 
+                         [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
+                         color=(MEDICAL_COLORS.forecast_period, 0.7))
                 end
+                
+                # Plot historical observations
+                scatter!(ax, t_obs_val, y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n], 
+                        color=MEDICAL_COLORS.observed, 
+                        label=i == 1 ? "Historical Observations" : "", 
+                        markersize=8,
+                        strokewidth=1,
+                        strokecolor=:white)
+                lines!(ax, t_obs_val, y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n], 
+                      color=(MEDICAL_COLORS.observed, 0.7), 
+                      linewidth=2.5)
 
+                # Plot ground truth future data
+                scatter!(ax, t_for_val, y_for[i, masks_for[i, :, sample_n] .== 1, sample_n], 
+                        color=MEDICAL_COLORS.truth, 
+                        label=i == 1 ? "Ground Truth" : "", 
+                        markersize=8,
+                        strokewidth=1,
+                        strokecolor=:white)
+                lines!(ax, t_for_val, y_for[i, masks_for[i, :, sample_n] .== 1, sample_n], 
+                      color=(MEDICAL_COLORS.truth, 0.7), 
+                      linewidth=2.5)
+
+                # Plot model predictions with confidence intervals
+                pred_vals = ŷ_mean[1, masks_for[i, :, sample_n] .== 1, sample_n]
+                ci_lower = ŷ_ci_lower[1, masks_for[i, :, sample_n] .== 1, sample_n]
+                ci_upper = ŷ_ci_upper[1, masks_for[i, :, sample_n] .== 1, sample_n]
+                
+                # Plot confidence band first (so it's behind other elements)
+                band!(ax, t_for_val, ci_lower, ci_upper, 
+                     color=(MEDICAL_COLORS.confidence, 0.25),
+                     label=i == 1 ? "95% Confidence Interval" : "")
+                
+                # Plot prediction line and points
+                lines!(ax, t_for_val, pred_vals, 
+                      color=MEDICAL_COLORS.predicted, 
+                      linewidth=3,
+                      linestyle=:solid)
+                scatter!(ax, t_for_val, pred_vals, 
+                        color=MEDICAL_COLORS.predicted, 
+                        label=i == 1 ? "Model Predictions" : "", 
+                        markersize=8,
+                        strokewidth=1,
+                        strokecolor=:white)
+
+                # Set axis limits with proper padding
                 all_y_values = vcat(
                     y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n],
                     y_for[i, masks_for[i, :, sample_n] .== 1, sample_n],
-                    ŷ_mean[1, masks_for[i, :, sample_n] .== 1, sample_n],
-                    ŷ_ci_lower[1, masks_for[i, :, sample_n] .== 1, sample_n],
-                    ŷ_ci_upper[1, masks_for[i, :, sample_n] .== 1, sample_n]
+                    pred_vals,
+                    ci_lower,
+                    ci_upper
                 )
 
-                y_min = minimum(all_y_values) - 0.1 * (maximum(all_y_values) - minimum(all_y_values))
-                y_max = maximum(all_y_values) + 0.1 * (maximum(all_y_values) - minimum(all_y_values))
-                ylims!(ax, y_min, y_max)
-
-                if i == 1
-                    fig[i, 2] = Legend(fig, ax, framevisible=false, halign=:left)
-                end
+                y_range = maximum(all_y_values) - minimum(all_y_values)
+                y_padding = max(0.15 * y_range, 0.01 * maximum(all_y_values))
+                ylims!(ax, minimum(all_y_values) - y_padding, maximum(all_y_values) + y_padding)
+                
+                # Add vertical separator line
+                vlines!(ax, [t_obs[end]], color=("#666666", 0.6), linewidth=2, linestyle=:dash)
             end
         end
     end
 
     if plot
+        # # Add main title
+        # fig[0, :] = Label(fig, "Medical Time Series Forecasting - Latent Neural SDE", 
+        #                  fontsize=18, font="Arial Bold", color="#333333")
+        
+        # Create unified legend below the figures
+        if !isempty(axes)
+            legend = Legend(fig, axes[1], 
+                          orientation=:horizontal,
+                          tellheight=true,
+                          tellwidth=true,
+                          margin=(10, 10, 10, 10),
+                          framevisible=false,
+                          labelsize=12,
+                          halign=:center,
+                          nbanks=1)
+            fig[n_features + 1, 1] = legend
+        end
+        
         linkxaxes!(axes...)
+        rowgap!(fig.layout, 15)
         colgap!(fig.layout, 10)
         display(fig)
         return fig, rmse, crps
@@ -103,7 +203,6 @@ function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecaste
 end
 
 
-
 function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecasted_data; sample_n=1, plot=true)
     u_obs, x_obs, y_obs, masks_obs = obs_data
     u_for, x_for, y_for, masks_for = future_true_data
@@ -111,8 +210,10 @@ function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecaste
     t_obs = t_obs * 10 
     t_for = t_for * 10 
 
-    y_labels = ["MAP", "HR", "BT"]
-    fig = Figure(size=(1200, 600), fontsize=15)
+    y_labels = ["MAP (mmHg)", "HR (bpm)", "Temperature (°C)"]
+    fig = Figure(size=(1400, 800), fontsize=14, 
+                 backgroundcolor=:white,
+                 figure_padding=20)
     axes = CairoMakie.Axis[]
     rmse = []
 
@@ -126,65 +227,139 @@ function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecaste
         t_obs_val = t_obs[masks_obs[i, :, sample_n] .== 1]
         t_for_val = t_for[masks_for[i, :, sample_n] .== 1]
 
-        y_obs_val = y_obs[i, valid_indx_obs]
-        y_for_val = y_for[i, valid_indx_for]
-
         # Generate predicted distributions (RNN format)
         dists = Normal.(μ[i], σ[i])
         ŷ = rand.(dists)
 
-        ŷ_val = ŷ[valid_indx_for]
-        rmse_ = sqrt(MSELoss()(ŷ_val, y_for_val))
+        # Fix indexing issue - ensure proper dimensions
+        ŷ_for_sample = ŷ[masks_for[i, :, sample_n] .== 1, sample_n]
+        y_for_sample = y_for[i, masks_for[i, :, sample_n] .== 1, sample_n]
+        
+        rmse_ = sqrt(MSELoss()(ŷ_for_sample, y_for_sample))
 
         push!(rmse, rmse_)
 
         if plot
-            if isempty(t_obs_val)
-                println("No observational data available for $y_label in sample $sample_n")
-                ax = CairoMakie.Axis(fig[i, 1], xlabel="Time (hours)", ylabel=y_labels[i], xgridvisible=false, ygridvisible=false)
-                continue
-            elseif isempty(t_for_val)
-                println("No future data available for $y_label in sample $sample_n")
-                ax = CairoMakie.Axis(fig[i, 1], xlabel="Time (hours)", ylabel=y_labels[i], xgridvisible=false, ygridvisible=false)
+            if isempty(t_obs_val) || isempty(t_for_val)
+                @warn "Insufficient data for $y_label in sample $sample_n"
                 continue
             else
-                ax = CairoMakie.Axis(fig[i, 1], xlabel="Time (hours)", ylabel=y_labels[i], xgridvisible=false, ygridvisible=false)
+                ax = CairoMakie.Axis(fig[i, 1], 
+                    xlabel=i == n_features ? "Time (hours)" : "",
+                    ylabel=y_labels[i], 
+                    xgridvisible=true, 
+                    ygridvisible=true,
+                    xgridcolor=("#E5E5E5", 0.8),
+                    ygridcolor=("#E5E5E5", 0.8),
+                    topspinevisible=false,
+                    rightspinevisible=false,
+                    xticklabelsize=12,
+                    yticklabelsize=12,
+                    xlabelsize=13,
+                    ylabelsize=13)
                 push!(axes, ax)
-                scatter!(ax, t_obs_val, y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n], color=:blue, label="Past Observations", markersize=10)
-                lines!(ax, t_obs_val, y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n], color=(:blue, 0.4), linewidth=2, linestyle=:dot)
-
-                scatter!(ax, t_for_val, y_for[i, masks_for[i, :, sample_n] .== 1, sample_n], color=:green, label="Future Ground Truth", markersize=10)
-                lines!(ax, t_for_val, y_for[i, masks_for[i, :, sample_n] .== 1, sample_n], color=(:green, 0.4), linestyle=:dot)
-
-                scatter!(ax, t_for_val, ŷ[ masks_for[i, :, sample_n] .== 1, sample_n], color=:red, label="Model Predictions", markersize=10)
-                lines!(ax, t_for_val, ŷ[ masks_for[i, :, sample_n] .== 1, sample_n], color=(:red, 0.4), linestyle=:dot)
+                
+                # Calculate data range for background polygons  
+                temp_all_y_values = vcat(
+                    y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n],
+                    y_for[i, masks_for[i, :, sample_n] .== 1, sample_n],
+                    ŷ_for_sample
+                )
+                y_min_bg = minimum(temp_all_y_values) - 0.25 * (maximum(temp_all_y_values) - minimum(temp_all_y_values))
+                y_max_bg = maximum(temp_all_y_values) + 0.25 * (maximum(temp_all_y_values) - minimum(temp_all_y_values))
+                
+                # Plot observation period background
                 if i == 1
-                    poly!(ax, [0, t_obs[end], t_obs[end], 0], [-10, -10, 500, 500], color=(:blue, 0.05), label="Observation Period (Past)")
-                    poly!(ax, [t_obs[end], t_for_val[end], t_for_val[end], t_obs[end]], [-10, -10, 500, 500], color=(:red, 0.05), label="Forecasting Period (Future)")
+                    poly!(ax, [0, t_obs[end], t_obs[end], 0], 
+                         [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
+                         color=(MEDICAL_COLORS.obs_period, 0.7), 
+                         label="Observation Period")
+                    poly!(ax, [t_obs[end], t_for_val[end], t_for_val[end], t_obs[end]], 
+                         [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
+                         color=(MEDICAL_COLORS.forecast_period, 0.7), 
+                         label="Forecasting Period")
                 else
-                    poly!(ax, [0, t_obs[end], t_obs[end], 0], [-10, -10, 500, 500], color=(:blue, 0.05))
-                    poly!(ax, [t_obs[end], t_for_val[end], t_for_val[end], t_obs[end]], [-10, -10, 500, 500], color=(:red, 0.05))
+                    poly!(ax, [0, t_obs[end], t_obs[end], 0], 
+                         [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
+                         color=(MEDICAL_COLORS.obs_period, 0.7))
+                    poly!(ax, [t_obs[end], t_for_val[end], t_for_val[end], t_obs[end]], 
+                         [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
+                         color=(MEDICAL_COLORS.forecast_period, 0.7))
                 end
+                
+                # Plot historical observations
+                scatter!(ax, t_obs_val, y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n], 
+                        color=MEDICAL_COLORS.observed, 
+                        label=i == 1 ? "Historical Observations" : "", 
+                        markersize=8,
+                        strokewidth=1,
+                        strokecolor=:white)
+                lines!(ax, t_obs_val, y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n], 
+                      color=(MEDICAL_COLORS.observed, 0.7), 
+                      linewidth=2.5)
 
+                # Plot ground truth future data
+                scatter!(ax, t_for_val, y_for[i, masks_for[i, :, sample_n] .== 1, sample_n], 
+                        color=MEDICAL_COLORS.truth, 
+                        label=i == 1 ? "Ground Truth" : "", 
+                        markersize=8,
+                        strokewidth=1,
+                        strokecolor=:white)
+                lines!(ax, t_for_val, y_for[i, masks_for[i, :, sample_n] .== 1, sample_n], 
+                      color=(MEDICAL_COLORS.truth, 0.7), 
+                      linewidth=2.5)
+
+                # Plot RNN predictions (no confidence intervals)
+                pred_vals = ŷ_for_sample
+                lines!(ax, t_for_val, pred_vals, 
+                      color=MEDICAL_COLORS.predicted, 
+                      linewidth=3,
+                      linestyle=:solid)
+                scatter!(ax, t_for_val, pred_vals, 
+                        color=MEDICAL_COLORS.predicted, 
+                        label=i == 1 ? "RNN Predictions" : "", 
+                        markersize=8,
+                        strokewidth=1,
+                        strokecolor=:white)
+
+                # Set axis limits with proper padding
                 all_y_values = vcat(
                     y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n],
                     y_for[i, masks_for[i, :, sample_n] .== 1, sample_n],
-                    ŷ[ masks_for[i, :, sample_n] .== 1, sample_n],
+                    pred_vals
                 )
 
-                y_min = minimum(all_y_values) - 0.1 * (maximum(all_y_values) - minimum(all_y_values))
-                y_max = maximum(all_y_values) + 0.1 * (maximum(all_y_values) - minimum(all_y_values))
-                ylims!(ax, y_min, y_max)
-
-                if i == 1
-                    fig[i, 2] = Legend(fig, ax, framevisible=false, halign=:left)
-                end
+                y_range = maximum(all_y_values) - minimum(all_y_values)
+                y_padding = max(0.15 * y_range, 0.01 * maximum(all_y_values))
+                ylims!(ax, minimum(all_y_values) - y_padding, maximum(all_y_values) + y_padding)
+                
+                # Add vertical separator line
+                vlines!(ax, [t_obs[end]], color=("#666666", 0.6), linewidth=2, linestyle=:dash)
             end
         end
     end
 
     if plot
+        # Add main title
+        # fig[0, :] = Label(fig, "Medical Time Series Forecasting - Recurrent Neural Network", 
+        #                  fontsize=18, font="Arial Bold", color="#333333")
+        
+        # Create unified legend below the figures
+        if !isempty(axes)
+            legend = Legend(fig, axes[1], 
+                          orientation=:horizontal,
+                          tellheight=true,
+                          tellwidth=true,
+                          margin=(10, 10, 10, 10),
+                          framevisible=false,
+                          labelsize=12,
+                          halign=:center,
+                          nbanks=1)
+            fig[n_features + 1, 1] = legend
+        end
+        
         linkxaxes!(axes...)
+        rowgap!(fig.layout, 15)
         colgap!(fig.layout, 10)
         display(fig)
         # RNN models only return RMSE, no CRPS

@@ -12,6 +12,7 @@ include("training/loss_fn.jl")
 include("training/eval_fn.jl")
 include("training/viz_fn.jl")
 include("models/model_creator.jl")
+
 # Set random seed for reproducibility
 rng = Random.MersenneTwister(123);
 
@@ -32,7 +33,7 @@ timepoints = (range(tspan[1], tspan[2], length=n_timepoints)) / 10 |> Array{Floa
 
 # Perform k-fold training with Latent SDE model
 n_folds = 5
-config_path_lsde = "../../configs/ICU_config_lsde.yml";
+config_path_lsde = joinpath(@__DIR__, "..", "..", "configs", "ICU_config_lsde.yml")
 model_type_lsde = "lsde"
 
 # Perform k-fold cross-validation for LSDE
@@ -51,14 +52,20 @@ lsde_models, lsde_params, lsde_states, lsde_performances = kfold_train(
 );
 
 # Present LSDE model performance with sample plot
-# For performance summary only (no plot), use: plot_sample=false or omit plotting arguments
-lsde_stats = assess_model_performance(lsde_performances, variables_of_interest, model_name="Latent SDE", forecast_fn=forecast_nde,
+lsde_stats = assess_model_performance(lsde_performances, variables_of_interest, model_name="Latent SDE", model_type=model_type_lsde, forecast_fn=forecast_nde,
                            plot_sample=true, sample_n=4, viz_fn=viz_fn_forecast_nde, models=lsde_models, params=lsde_params, 
                            states=lsde_states, data=test_loader.data, timepoints=timepoints, 
                            config=YAML.load_file(config_path_lsde));
 
+# Save LSDE figure if generated
+if !isnothing(lsde_stats.figure)
+    lsde_figure_path = joinpath(results_dir, "lsde_forecasting_sample_k_fold.png")
+    save(lsde_figure_path, lsde_stats.figure)
+    @info "LSDE forecast figure saved to: $lsde_figure_path"
+end
+
 # Perform k-fold training with Latent ODE model
-config_path_lode = "../../configs/ICU_config_lode.yml";
+config_path_lode = joinpath(@__DIR__, "..", "..", "configs", "ICU_config_lode.yml")
 model_type_lode = "lode"
 @info "Starting $n_folds-fold cross-validation for LODE model"
 lode_models, lode_params, lode_states, lode_performances = kfold_train(
@@ -75,13 +82,22 @@ lode_models, lode_params, lode_states, lode_performances = kfold_train(
 );
 
 # Present LODE model performance with sample plot
-lode_stats = assess_model_performance(lode_performances, variables_of_interest, model_name="Latent ODE",
-                           plot_sample=true, sample_n=4, models=lode_models, params=lode_params, 
+lode_stats = assess_model_performance(lode_performances, variables_of_interest, model_name="Latent ODE", model_type=model_type_lode, forecast_fn=forecast_nde,
+                           plot_sample=true, sample_n=4,viz_fn=viz_fn_forecast_nde, models=lode_models, params=lode_params, 
                            states=lode_states, data=test_loader.data, timepoints=timepoints, 
                            config=YAML.load_file(config_path_lode));
 
+# Save LODE figure if generated
+if !isnothing(lode_stats.figure)
+    lode_figure_path = joinpath(results_dir, "lode_forecasting_sample_k_fold.png")
+    save(lode_figure_path, lode_stats.figure)
+    @info "LODE forecast figure saved to: $lode_figure_path"
+end
+
+
+
 # RNN model training and evaluation
-rnn_config_path = "../../configs/ICU_config_rnn.yml";
+rnn_config_path = joinpath(@__DIR__, "..", "..", "configs", "ICU_config_rnn.yml");
 model_type_rnn= "rnn"
 # Perform k-fold cross-validation for RNN
 @info "Starting $n_folds-fold cross-validation for RNN model"
@@ -103,6 +119,13 @@ rnn_stats = assess_model_performance(rnn_performances, variables_of_interest, mo
                            plot_sample=true, sample_n=4, viz_fn=viz_fn_forecast_rnn, models=rnn_models, params=rnn_params, 
                            states=rnn_states, data=test_loader.data, timepoints=timepoints, 
                            config=YAML.load_file(rnn_config_path));
+
+# Save RNN figure if generated
+if !isnothing(rnn_stats.figure)
+    rnn_figure_path = joinpath(results_dir, "rnn_forecasting_sample_k_fold.png")
+    save(rnn_figure_path, rnn_stats.figure)
+    @info "RNN forecast figure saved to: $rnn_figure_path"
+end
 
 # Compare RNN model with others
 model_comparison_rnn = compare_models(

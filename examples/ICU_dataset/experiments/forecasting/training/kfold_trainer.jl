@@ -150,7 +150,15 @@ function kfold_train(data, n_folds, rng, config_path, model_type, timepoints, lo
         forecasted_data = (μ, σ)
         
         # Evaluate model performance without plotting
-        rmse, crps = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, plot=false)
+        # Handle different return formats for different model types
+        if model_type == "rnn"
+            # RNN models only return RMSE
+            rmse = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, plot=false)
+            crps = [0.0] * length(rmse)  # Set CRPS to zero for RNN models
+        else
+            # LSDE/LODE models return both RMSE and CRPS
+            rmse, crps = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, plot=false)
+        end
         
         # Store model, parameters, state, and performance
         push!(models, model)
@@ -163,7 +171,11 @@ function kfold_train(data, n_folds, rng, config_path, model_type, timepoints, lo
     
     # Compute average performance across folds
     avg_rmse = mean([perf[1] for perf in performances])
-    avg_crps = mean([perf[2] for perf in performances])
+    if model_type == "rnn"
+        avg_crps = 0.0  # RNN models don't have CRPS
+    else
+        avg_crps = mean([perf[2] for perf in performances])
+    end
     
     # Calculate total training time
     end_time = time()
@@ -171,7 +183,11 @@ function kfold_train(data, n_folds, rng, config_path, model_type, timepoints, lo
     
     @info "K-Fold Cross-Validation Results:"
     @info "Average RMSE across $n_folds folds: $avg_rmse"
-    @info "Average CRPS across $n_folds folds: $avg_crps"
+    if model_type == "rnn"
+        @info "CRPS: Not available for RNN models"
+    else
+        @info "Average CRPS across $n_folds folds: $avg_crps"
+    end
     @info "Total training time: $(round(total_training_time, digits=2)) seconds ($(round(total_training_time/60, digits=2)) minutes)"
     
     return models, trained_params, states, performances

@@ -1,3 +1,5 @@
+# functions for forecasting with different models
+
 function forecast_nde(model, θ, st, obs_data, u_forecast, time_forecast, config)
     u_obs, x_obs, y_obs, masks_obs = obs_data    
     solver = eval(Meta.parse(config["solver"]))

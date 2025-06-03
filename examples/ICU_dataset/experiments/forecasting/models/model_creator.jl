@@ -1,5 +1,4 @@
 # Function to create RNN model
-
 function create_rnn_model(config, dims, rng, n_timepoints_for=25)
     hidden_dim = config["obs_encoder"]["hidden_size"]
     latent_dim = config["latent_dim"]
