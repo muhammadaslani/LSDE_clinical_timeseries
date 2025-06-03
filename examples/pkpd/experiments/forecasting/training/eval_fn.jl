@@ -136,10 +136,10 @@ function assess_model_performance(performances, variables_of_interest; model_nam
                                     u_forecast, timepoints_forecast, config)
         
         # Create visualization
-        fig = viz_fn(timepoints_obs, timepoints_forecast, data_obs, data_forecast, 
+        fig, crossentropy_health, rmse_tumor, nll_count = viz_fn(timepoints_obs, timepoints_forecast, data_obs, data_forecast, 
                     forecasted_data; sample_n=sample_n)
-        
-        return fig
+        display(fig)
+        return fig, crossentropy_health, rmse_tumor, nll_count
     end
     
     return nothing

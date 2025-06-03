@@ -54,13 +54,13 @@ lsde_avg_crossentropy_health = mean(lsde_crossentropy_health)
 lsde_avg_rmse_tumor = mean(lsde_rmse_tumor);
 lsde_avg_nll_count = mean(lsde_nll_count);
 
-lsde_fig = assess_model_performance(
+lsde_fig, crossentropy_health, rmse_tumor, nll_count = assess_model_performance(
     lsde_performances, variables_of_interest;
     model_name="Latent SDE",
     model_type="lsde",
     forecast_fn=forecast_nde,
     plot_sample=true,
-    sample_n=3,
+    sample_n=1,
     viz_fn=viz_fn_nde,
     models=lsde_models,
     params=lsde_params, 
@@ -69,7 +69,7 @@ lsde_fig = assess_model_performance(
     timepoints=(timepoints_obs, timepoints_forecast),
     config=YAML.load_file(config_lsde_path)["training"]["validation"],
     best_fold_idx=1
-)
+);
 # LODE K-Fold Training
 
 

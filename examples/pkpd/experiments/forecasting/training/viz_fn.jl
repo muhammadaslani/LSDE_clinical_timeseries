@@ -10,7 +10,7 @@ const PKPD_COLORS = (
     health = "#06D6A0"             # Green for health score
 )
 
-# Neural differential equation visualization function following PkPd_latent_SDE structure
+# Neural differential equation visualization function with professional styling
 function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, forecasted_data; sample_n=3, plot=true)
     # Unpack observation data
     u_o, covars_o, x_o, y₁_o, y₂_o, mask₁_o, mask₂_o = obs_data
@@ -24,7 +24,7 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
     Ey₁_p, Ey₂_p = softmax(Ey_p[1], dims=1), Ey_p[2]
     
     # Convert time to days for plotting
-    t_o, t_p = obs_timepoints * 7, for_timepoints * 7
+    t_o, t_p = obs_timepoints * 7*53, for_timepoints * 7*53
 
     # Convert health status to classes
     y₁_o_class = onecold(softmax(y₁_o, dims=1), Array(0:5))
@@ -108,98 +108,239 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
     valid_indices_chemo_p = findall(i -> u_p[1, i, sample_n] == 1 && t_p[i] <= max_t_p_valid₁, 1:length(t_p))
     valid_indices_radio_p = findall(i -> u_p[2, i, sample_n] == 1 && t_p[i] <= max_t_p_valid₁, 1:length(t_p))
 
-    # Set plot limits
-    x_min, x_max = -2.0, max_t_p_valid₁ + max_t_p_valid₁/50
-    y_max_fig₃ = maximum([maximum(ŷ₂_m_valid), maximum(x_o[1, :, sample_n]), maximum(x_t[1, :, sample_n])]) + 0.5
-    y_max_fig₄ = maximum([maximum(ŷ₂_count_m_valid), maximum(y₂_o_valid), maximum(y₂_t_valid)]) + 0.5
-    y_min = -0.5
+    # Calculate dynamic plot limits based on actual data (ICU style)
+    x_min = 0.0
+    x_max = max_t_p_valid₁ + 0.05 * max_t_p_valid₁  # Add 5% padding
+    
+    # Calculate y-limits for each panel based on actual data with padding
+    # Panel 1: Health status - based on class range with padding
+    all_health_values = vcat(y₁_o_class_valid, y₁_t_class_valid, ŷ₁_class_valid)
+    health_range = maximum(all_health_values) - minimum(all_health_values)
+    health_padding = max(0.25 * health_range, 0.5)  # At least 0.5 padding
+    y1_min = minimum(all_health_values) - health_padding
+    y1_max = maximum(all_health_values) + health_padding
+    
+    # Panel 2: Tumor size - based on all tumor data with padding
+    all_tumor_values = vcat(x_o[1, :, sample_n], x_t[1, :, sample_n], ŷ₂_m_valid, ŷ₂_CI_low, ŷ₂_CI_up)
+    tumor_range = maximum(all_tumor_values) - minimum(all_tumor_values)
+    tumor_padding = max(0.25 * tumor_range, 0.1 * maximum(all_tumor_values))
+    y2_min = minimum(all_tumor_values) - tumor_padding
+    y2_max = maximum(all_tumor_values) + tumor_padding
+    
+    # Panel 3: Cell count - based on all count data with padding  
+    all_count_values = vcat(y₂_o_valid, y₂_t_valid, ŷ₂_count_m_valid)
+    count_range = maximum(all_count_values) - minimum(all_count_values)
+    count_padding = max(0.25 * count_range, 0.1 * maximum(all_count_values))
+    y3_min = minimum(all_count_values) - count_padding
+    y3_max = maximum(all_count_values) + count_padding
 
-    # Create the 4-panel figure
-    fig = Figure(size=(1200, 900), fontsize=20)
+    # Create the 3-panel figure with professional styling (integrated timeline approach)
+    fig = Figure(size=(1200, 700), fontsize=14, 
+                 backgroundcolor=:white,
+                 figure_padding=20)
     
-    # Panel 1: Interventions
+    # Panel 1: Health status
     ax1 = CairoMakie.Axis(fig[1, 1], 
-                         xlabel="Time (days)", 
-                         ylabel="Interventions",
-                         limits=((x_min, x_max), (0.0, 1.5)), 
-                         yticks=[0, 1],
-                         xgridvisible=false, 
-                         ygridvisible=false)
+                         xlabel="", 
+                         ylabel="Health Status",
+                         limits=((x_min, x_max), (y1_min, y1_max)),
+                         xgridvisible=true, 
+                         ygridvisible=true,
+                         xgridcolor=("#E5E5E5", 0.8),
+                         ygridcolor=("#E5E5E5", 0.8),
+                         topspinevisible=false,
+                         rightspinevisible=false,
+                         xticklabelsize=12,
+                         yticklabelsize=12,
+                         xlabelsize=13,
+                         ylabelsize=13)
     
-    # Panel 2: Health status
+    # Panel 2: Tumor size
     ax2 = CairoMakie.Axis(fig[2, 1], 
-                         xlabel="Time (days)", 
-                         ylabel="Health status",
-                         limits=((x_min, x_max), (-2.0, 6)),
-                         xgridvisible=false, 
-                         ygridvisible=false)
+                         xlabel="", 
+                         ylabel="Tumor Size",
+                         limits=((x_min, x_max), (y2_min, y2_max)),
+                         xgridvisible=true, 
+                         ygridvisible=true,
+                         xgridcolor=("#E5E5E5", 0.8),
+                         ygridcolor=("#E5E5E5", 0.8),
+                         topspinevisible=false,
+                         rightspinevisible=false,
+                         xticklabelsize=12,
+                         yticklabelsize=12,
+                         xlabelsize=13,
+                         ylabelsize=13)
     
-    # Panel 3: Tumor size
+    # Panel 3: Cell count
     ax3 = CairoMakie.Axis(fig[3, 1], 
                          xlabel="Time (days)", 
-                         ylabel="Tumor size",
-                         limits=((x_min, x_max), (y_min, y_max_fig₃)),
-                         xgridvisible=false, 
-                         ygridvisible=false)
+                         ylabel="Cell Count",
+                         limits=((x_min, x_max), (y3_min, y3_max)),
+                         xgridvisible=true, 
+                         ygridvisible=true,
+                         xgridcolor=("#E5E5E5", 0.8),
+                         ygridcolor=("#E5E5E5", 0.8),
+                         topspinevisible=false,
+                         rightspinevisible=false,
+                         xticklabelsize=12,
+                         yticklabelsize=12,
+                         xlabelsize=13,
+                         ylabelsize=13)
+
+    # Add background periods and intervention lines for all panels with dynamic y-limits
+    y_limits = [(y1_min, y1_max), (y2_min, y2_max), (y3_min, y3_max)]
     
-    # Panel 4: Cell count
-    ax4 = CairoMakie.Axis(fig[4, 1], 
-                         xlabel="Time (days)", 
-                         ylabel="Cell count",
-                         limits=((x_min, x_max), (y_min, y_max_fig₄)),
-                         xgridvisible=false, 
-                         ygridvisible=false)
-
-    # Plot interventions
-    scatter!(ax1, t_o[valid_indices_chemo_o], ones(length(valid_indices_chemo_o)), 
-            marker=:utriangle, markersize=10, color=:blue, label="Chemotherapy regimen")
-    scatter!(ax1, t_o[valid_indices_radio_o], ones(length(valid_indices_radio_o)), 
-            marker=:star5, markersize=10, color=:red, label="Radiotherapy regimen")
-    scatter!(ax1, t_p[valid_indices_chemo_p], ones(length(valid_indices_chemo_p)), 
-            marker=:utriangle, markersize=10, color=:blue)
-    scatter!(ax1, t_p[valid_indices_radio_p], ones(length(valid_indices_radio_p)), 
-            marker=:star5, markersize=10, color=:red)
-
-    # Plot health status
-    scatter!(ax2, t_o_valid₁, y₁_o_class_valid, color=:blue, label="Observed")
-    scatter!(ax2, t_p_valid₁, y₁_t_class_valid, color=(:green, 0.5), markersize=15, label="True")
-    scatter!(ax2, t_p_valid₁, ŷ₁_class_valid, color=(:red, 0.9), label="Predicted")
-    errorbars!(ax2, t_p_valid₁, ŷ₁_class_valid, ŷ₁_conf_valid, 
-              color=(PKPD_COLORS.confidence, 0.5), whiskerwidth=8, label="Prediction uncertainty")
-
-    # Plot tumor size
-    lines!(ax3, Array(1:length(vcat(x_o[1, :, sample_n], x_t[1, :, sample_n]))), 
-          vcat(x_o[1, :, sample_n], x_t[1, :, sample_n]), 
-          color=:blue, label="Observed (underlying tumor size)")
-    lines!(ax3, t_p, ŷ₂_m[1, :, sample_n], color=:red, label="Predicted (continuous)")
-    scatter!(ax3, t_p_valid₂, ŷ₂_m_valid, color=:red, label="Predicted (weekly irregular)")
-    band!(ax3, t_p, ŷ₂_CI_low, ŷ₂_CI_up, 
-         color=(PKPD_COLORS.confidence, 0.5), label="Prediction uncertainty")
-
-    # Plot cell count
-    scatter!(ax4, t_o_valid₂, y₂_o_valid, color=:blue, label="Observed")
-    scatter!(ax4, t_p_valid₂, y₂_t_valid, color=(:green, 0.5), markersize=15, label="True")
-    scatter!(ax4, t_p_valid₂, ŷ₂_count_m_valid, color=(:red, 0.9), label="Predicted")
-    errorbars!(ax4, t_p_valid₂, ŷ₂_count_m_valid, ŷ₂_count_confidence_valid, 
-              color=(PKPD_COLORS.confidence, 0.5), whiskerwidth=8, label="Prediction uncertainty")
-
-    # Add background periods for all panels
-    for ax in [ax1, ax2, ax3, ax4]
-        poly!(ax, [-10, t_o[end], t_o[end], -10], [-10, -10, 500, 500], 
-             color=(:blue, 0.05), label="observation period (history)")
-        poly!(ax, [t_o[end], t_o[end] + max_t_p_valid₁, t_o[end] + max_t_p_valid₁, t_o[end]], 
-             [-10, -10, 500, 500], color=(:red, 0.05), label="prediction period (future)")
+    for (i, (ax, (y_bg_min, y_bg_max))) in enumerate(zip([ax1, ax2, ax3], y_limits))
+        # Observation period background
+        if i == 1
+            poly!(ax, [x_min, max_t_o_valid₁, max_t_o_valid₁, x_min], 
+                 [y_bg_min, y_bg_min, y_bg_max, y_bg_max], 
+                 color=(PKPD_COLORS.obs_period, 0.3), 
+                 label="Observation Period")
+            poly!(ax, [max_t_o_valid₁, x_max, x_max, max_t_o_valid₁], 
+                 [y_bg_min, y_bg_min, y_bg_max, y_bg_max], 
+                 color=(PKPD_COLORS.forecast_period, 0.3), 
+                 label="Forecasting Period")
+        else
+            poly!(ax, [x_min, max_t_o_valid₁, max_t_o_valid₁, x_min], 
+                 [y_bg_min, y_bg_min, y_bg_max, y_bg_max], 
+                 color=(PKPD_COLORS.obs_period, 0.3))
+            poly!(ax, [max_t_o_valid₁, x_max, x_max, max_t_o_valid₁], 
+                 [y_bg_min, y_bg_min, y_bg_max, y_bg_max], 
+                 color=(PKPD_COLORS.forecast_period, 0.3))
+        end
+        
+        # Add vertical separator line like in ICU version
+        vlines!(ax, [max_t_o_valid₁], color=("#666666", 0.6), linewidth=2, linestyle=:dash)
+        
+        # Add intervention lines across all panels for integrated timeline
+        if i == 1  # Only add to legend once
+            # Chemotherapy intervention lines
+            vlines!(ax, t_o[valid_indices_chemo_o], color=:navy, linewidth=2.5, alpha=0.8,
+                   label="Chemotherapy Sessions")
+            vlines!(ax, t_p[valid_indices_chemo_p], color=:navy, linewidth=2.5, alpha=0.8)
+            
+            # Radiotherapy intervention lines  
+            vlines!(ax, t_o[valid_indices_radio_o], color=:darkred, linewidth=2.5, alpha=0.8,
+                   label="Radiotherapy Sessions")
+            vlines!(ax, t_p[valid_indices_radio_p], color=:darkred, linewidth=2.5, alpha=0.8)
+        else
+            # No labels for subsequent panels
+            vlines!(ax, t_o[valid_indices_chemo_o], color=:navy, linewidth=2.5, alpha=0.8)
+            vlines!(ax, t_p[valid_indices_chemo_p], color=:navy, linewidth=2.5, alpha=0.8)
+            vlines!(ax, t_o[valid_indices_radio_o], color=:darkred, linewidth=2.5, alpha=0.8)
+            vlines!(ax, t_p[valid_indices_radio_p], color=:darkred, linewidth=2.5, alpha=0.8)
+        end
     end
 
-    # Link x-axes
-    linkxaxes!(ax1, ax2, ax3, ax4)
+    # Plot health status with professional styling
+    scatter!(ax1, t_o_valid₁, y₁_o_class_valid, 
+            color=PKPD_COLORS.observed, markersize=8,
+            strokewidth=1, strokecolor=:white,
+            label="Historical Observations")
+    lines!(ax1, t_o_valid₁, y₁_o_class_valid, 
+          color=(PKPD_COLORS.observed, 0.7), linewidth=2.5)
+          
+    scatter!(ax1, t_p_valid₁, y₁_t_class_valid, 
+            color=PKPD_COLORS.truth, markersize=8,
+            strokewidth=1, strokecolor=:white,
+            label="Ground Truth")
+    lines!(ax1, t_p_valid₁, y₁_t_class_valid, 
+          color=(PKPD_COLORS.truth, 0.7), linewidth=2.5)
+          
+    scatter!(ax1, t_p_valid₁, ŷ₁_class_valid, 
+            color=PKPD_COLORS.predicted, markersize=8,
+            strokewidth=1, strokecolor=:white,
+            label="Model Predictions")
+    lines!(ax1, t_p_valid₁, ŷ₁_class_valid, 
+          color=PKPD_COLORS.predicted, linewidth=3)
+          
+    errorbars!(ax1, t_p_valid₁, ŷ₁_class_valid, ŷ₁_conf_valid, 
+              color=(PKPD_COLORS.confidence, 0.6), whiskerwidth=8, 
+              label="Prediction Uncertainty")
+
+    # Plot tumor size with professional styling
+    # Plot observed tumor size (historical data) - use index-based plotting for underlying tumor size
+    lines!(ax2, Array(1:length(vcat(x_o[1, :, sample_n], x_t[1, :, sample_n]))), 
+          vcat(x_o[1, :, sample_n], x_t[1, :, sample_n]), 
+          color=(PKPD_COLORS.observed, 0.7), linewidth=2.5, 
+          label="Historical Observations")
+          
+    # Plot confidence band first (so it's behind other elements)
+    band!(ax2, t_p, ŷ₂_CI_low, ŷ₂_CI_up, 
+         color=(PKPD_COLORS.confidence, 0.25))
+         
+    lines!(ax2, t_p, ŷ₂_m[1, :, sample_n], 
+          color=PKPD_COLORS.predicted, linewidth=3,
+          label="Model Predictions")
+    scatter!(ax2, t_p_valid₂, ŷ₂_m_valid, 
+            color=PKPD_COLORS.predicted, markersize=8,
+            strokewidth=1, strokecolor=:white)
+
+    # Plot cell count with professional styling  
+    scatter!(ax3, t_o_valid₂, y₂_o_valid, 
+            color=PKPD_COLORS.observed, markersize=8,
+            strokewidth=1, strokecolor=:white)
+    lines!(ax3, t_o_valid₂, y₂_o_valid, 
+          color=(PKPD_COLORS.observed, 0.7), linewidth=2.5)
+          
+    scatter!(ax3, t_p_valid₂, y₂_t_valid, 
+            color=PKPD_COLORS.truth, markersize=8,
+            strokewidth=1, strokecolor=:white)
+    lines!(ax3, t_p_valid₂, y₂_t_valid, 
+          color=(PKPD_COLORS.truth, 0.7), linewidth=2.5)
+          
+    scatter!(ax3, t_p_valid₂, ŷ₂_count_m_valid, 
+            color=PKPD_COLORS.predicted, markersize=8,
+            strokewidth=1, strokecolor=:white)
+    lines!(ax3, t_p_valid₂, ŷ₂_count_m_valid, 
+          color=PKPD_COLORS.predicted, linewidth=3)
+          
+    errorbars!(ax3, t_p_valid₂, ŷ₂_count_m_valid, ŷ₂_count_confidence_valid, 
+              color=(PKPD_COLORS.confidence, 0.6), whiskerwidth=8)
+
+    # Link x-axes for synchronized zooming/panning
+    linkxaxes!(ax1, ax2, ax3)
     
-    # Add legends
-    fig[1, 2] = Legend(fig, ax1, framevisible=false, halign=:left)
-    fig[3, 2] = Legend(fig, ax3, framevisible=false, halign=:left)
-    fig[4, 2] = Legend(fig, ax4, framevisible=false, halign=:left)
+    # Create consolidated legend at the bottom (ICU style)
+    # Create a combined legend using manual legend entries with correct constructors
+    legend_elements = [
+        PolyElement(color = PKPD_COLORS.obs_period, strokecolor = :transparent),
+        PolyElement(color = PKPD_COLORS.forecast_period, strokecolor = :transparent),
+        LineElement(color = :navy, linewidth = 3),
+        LineElement(color = :darkred, linewidth = 3),
+        LineElement(color = PKPD_COLORS.observed, linewidth = 3),
+        LineElement(color = PKPD_COLORS.truth, linewidth = 3),
+        LineElement(color = PKPD_COLORS.predicted, linewidth = 3),
+        LineElement(color = PKPD_COLORS.confidence, linestyle = :solid, linewidth = 3)
+    ]
     
-    display(fig)
+    legend_labels = [
+        "Observation Period",
+        "Forecasting Period", 
+        "Chemotherapy Sessions",
+        "Radiotherapy Sessions",
+        "Historical Observations",
+        "Ground Truth",
+        "Model Predictions",
+        "Prediction Uncertainty"
+    ]
+    
+    legend = Legend(fig, legend_elements, legend_labels,
+                  orientation=:horizontal,
+                  tellheight=true,
+                  tellwidth=true,
+                  margin=(10, 10, 10, 10),
+                  framevisible=false,
+                  labelsize=12,
+                  halign=:center,
+                  nbanks=2)  # Use 2 rows to fit all legend items nicely
+    fig[4, 1] = legend  # Place legend below all 3 panels
+    
+    # Add spacing like ICU version
+    rowgap!(fig.layout, 15)
+    colgap!(fig.layout, 10)
+    
     return fig, crossentropy_health, rmse_tumor, nll_count
 end
 
