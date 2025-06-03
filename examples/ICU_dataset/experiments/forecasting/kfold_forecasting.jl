@@ -33,7 +33,7 @@ timepoints = (range(tspan[1], tspan[2], length=n_timepoints)) / 10 |> Array{Floa
 
 # Perform k-fold training with Latent SDE model
 n_folds = 5
-config_path_lsde = joinpath(@__DIR__, "..", "..", "configs", "ICU_config_lsde.yml")
+config_path_lsde = joinpath(@__DIR__, "..", "..", "configs", "ICU_config_lsde.yml");
 model_type_lsde = "lsde"
 
 # Perform k-fold cross-validation for LSDE
@@ -53,7 +53,7 @@ lsde_models, lsde_params, lsde_states, lsde_performances = kfold_train(
 
 # Present LSDE model performance with sample plot
 lsde_stats = assess_model_performance(lsde_performances, variables_of_interest, model_name="Latent SDE", model_type=model_type_lsde, forecast_fn=forecast_nde,
-                           plot_sample=true, sample_n=4, viz_fn=viz_fn_forecast_nde, models=lsde_models, params=lsde_params, 
+                           plot_sample=true, sample_n=6, viz_fn=viz_fn_forecast_nde, models=lsde_models, params=lsde_params, 
                            states=lsde_states, data=test_loader.data, timepoints=timepoints, 
                            config=YAML.load_file(config_path_lsde));
 

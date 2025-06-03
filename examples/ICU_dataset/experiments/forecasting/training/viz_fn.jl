@@ -211,7 +211,7 @@ function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecaste
     t_for = t_for * 10 
 
     y_labels = ["MAP (mmHg)", "HR (bpm)", "Temperature (°C)"]
-    fig = Figure(size=(1400, 800), fontsize=14, 
+    fig = Figure(size=(1200, 800), fontsize=14, 
                  backgroundcolor=:white,
                  figure_padding=20)
     axes = CairoMakie.Axis[]
