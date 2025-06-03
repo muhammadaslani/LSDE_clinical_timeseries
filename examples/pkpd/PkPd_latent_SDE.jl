@@ -1,7 +1,6 @@
 using  Revise, Rhythm, Lux, DifferentialEquations, Random, SciMLSensitivity, ComponentArrays, Optimisers, OptimizationOptimisers, Statistics
 using MLUtils, Printf, SciMLSensitivity, OneHotArrays
 using YAML
-include("pkpd_standalone.jl")
 
 function generate_dataloader(; n_samples=512, batchsize=64, split=(0.5,0.3), obs_fraction=0.5)
     U, X, Y₁, Y₂, T, covariates = generate_dataset(n_samples=n_samples);
