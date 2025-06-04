@@ -19,9 +19,6 @@ function loss_fn_rnn(model, θ, st, data)
      u_forecast, covars_forecast, x_forecast, y₁_forecast, y₂_forecast, mask₁_forecast, mask₂_forecast ), ts, λ = data
 
     batch_size = size(y₁_forecast)[end]
-    
-    # Combine inputs to match the model's expected format:
-    # covariates + health status + cell count + control inputs + observations
     input_combined = vcat(covars_obs, y₁_obs, y₂_obs, u_obs)
     
     # Forward pass

@@ -24,13 +24,13 @@ function create_rnn_model(config, dims, rng, n_timepoints_for=25)
             BranchLayer(
                 # Branch 1: Health status classification (6 classes for each time point)
                 Chain(
-                    Dense(hidden_dim, hidden_dim, relu),
+                    #Dense(hidden_dim, hidden_dim, relu),
                     Dense(hidden_dim, n_health_classes * n_timepoints_for),
                     x -> reshape(x, n_health_classes, n_timepoints_for, :)  # Reshape to (classes, time, batch)
                 ),
                 # Branch 2: Cell count prediction (Poisson rate parameter)
                 Chain(
-                    Dense(hidden_dim, hidden_dim, relu),
+                    #Dense(hidden_dim, hidden_dim, relu),
                     Dense(hidden_dim, n_timepoints_for, softplus),  # softplus ensures positive rates
                     x -> reshape(x, 1, n_timepoints_for, :)  # Reshape to (1, time, batch)
                 )

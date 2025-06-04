@@ -3,7 +3,6 @@ function create_rnn_model(config, dims, rng, n_timepoints_for=25)
     hidden_dim = config["obs_encoder"]["hidden_size"]
     latent_dim = config["latent_dim"]
     n_features = dims["obs_dim"]+ dims["input_dim"]
-    n_timepoints_for = n_timepoints_for  # Adjust based on your forecasting horizon
     
     model = Chain(
         encoder=Chain(

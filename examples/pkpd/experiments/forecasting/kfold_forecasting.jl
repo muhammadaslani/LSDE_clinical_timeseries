@@ -20,7 +20,7 @@ variables_of_interest = [ "Health Score", "Tumor Volume", "Cancer cell count" ];
 k_folds = 5
 
 # loading data
-data, train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast = generate_dataloader(; n_samples=256, batchsize=32, split=(0.6,0.2), obs_fraction=0.5);
+data, train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast = generate_dataloader(; n_samples=512, batchsize=32, split=(0.6,0.2), obs_fraction=0.5);
 
 # LSDE K-Fold Training
 model_type_lsde= "lsde"
@@ -51,7 +51,7 @@ lsde_stats= assess_model_performance(
     models=lsde_models,
     params=lsde_params, 
     states=lsde_states,
-    data=test_loader.data,
+    data=data,
     timepoints=(timepoints_obs, timepoints_forecast),
     config=YAML.load_file(config_lsde_path)["training"]["validation"],
 );
@@ -85,7 +85,7 @@ lode_stats = assess_model_performance(
     models=lode_models,
     params=lode_params, 
     states=lode_states,
-    data=test_loader.data,
+    data=data,
     timepoints=(timepoints_obs, timepoints_forecast),
     config=YAML.load_file(config_lode_path)["training"]["validation"],
 );
@@ -119,7 +119,7 @@ rnn_stats = assess_model_performance(
     models=rnn_models,
     params=rnn_params, 
     states=rnn_states,
-    data=test_loader.data,
+    data=data,
     timepoints=(timepoints_obs, timepoints_forecast),
     config=YAML.load_file(config_rnn_path)["training"],
 );

@@ -16,8 +16,6 @@ function generate_dataloader(; n_samples=512, batchsize=64, split=(0.5,0.3), obs
     Masks₁_obs, Masks₁_forecast=split_matrix(Masks₁, obs_fraction)
     Masks₂_obs, Masks₂_forecast=split_matrix(Masks₂, obs_fraction)
     timepoints_obs, timepoints_forecast= split_matrix(timepoints, obs_fraction)
-    data_obs= (U_obs, Covars_obs, X_obs, Y₁_obs, Y₂_obs, Masks₁_obs, Masks₂_obs)
-    data_forecast= (U_forecast, Covars_forcast, X_forecast, Y₁_forecast, Y₂_forecast, Masks₁_forecast, Masks₂_forecast)
     data= (U_obs, Covars_obs, X_obs, Y₁_obs, Y₂_obs, Masks₁_obs, Masks₂_obs, 
            U_forecast, Covars_forcast, X_forecast, Y₁_forecast, Y₂_forecast, Masks₁_forecast, Masks₂_forecast)
 
