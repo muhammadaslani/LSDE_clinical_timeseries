@@ -49,13 +49,33 @@ function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecaste
         crps_ = empirical_crps(y_for[i:i, :, :], ŷ, masks_for[i:i, :, :])
         rmse_ = sqrt(MSELoss()(ŷ_mean_val, y_for_val))
 
+
+
         push!(crps, crps_)
         push!(rmse, rmse_)
-
+        
         ŷ_ci_lower = ŷ_mean .- ŷ_std
         ŷ_ci_upper = ŷ_mean .+ ŷ_std
 
         if plot
+                    # Calculate sample-specific RMSE and CRPS for the intended sample
+        sample_ŷ_mean = ŷ_mean[1, masks_for[i, :, sample_n] .== 1, sample_n]
+        sample_y_for = y_for[i, masks_for[i, :, sample_n] .== 1, sample_n]
+        
+        # Check if the sample has any data points
+        if !isempty(sample_ŷ_mean) && !isempty(sample_y_for)
+            sample_rmse_ = sqrt(MSELoss()(sample_ŷ_mean, sample_y_for))
+            
+            # For sample CRPS, extract predictions for this specific sample
+            sample_ŷ = ŷ[:, :,  sample_n:sample_n,:]  # Keep 4D structure for empirical_crps
+            sample_crps_ = empirical_crps(y_for[i:i, :, sample_n:sample_n], sample_ŷ, masks_for[i:i, :, sample_n:sample_n])
+            println("Sample $sample_n - $(y_labels[i]) RMSE: $(round(sample_rmse_, digits=4))")
+            println("Sample $sample_n - $(y_labels[i]) CRPS: $(round(sample_crps_, digits=4))")
+        else
+            sample_rmse_ = NaN
+            sample_crps_ = NaN
+            println("Sample $sample_n - $(y_labels[i]): No data available")
+        end
             if isempty(t_obs_val) || isempty(t_for_val)
                 @warn "Insufficient data for $y_label in sample $sample_n"
                 continue
@@ -165,7 +185,7 @@ function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecaste
 
                 y_range = maximum(all_y_values) - minimum(all_y_values)
                 y_padding = max(0.15 * y_range, 0.01 * maximum(all_y_values))
-                ylims!(ax, minimum(all_y_values) - y_padding, maximum(all_y_values) + y_padding)
+                ylims!(ax, minimum(all_y_values), maximum(all_y_values))
                 
                 # Add vertical separator line
                 vlines!(ax, [t_obs[end]], color=("#666666", 0.6), linewidth=2, linestyle=:dash)
@@ -174,9 +194,6 @@ function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecaste
     end
 
     if plot
-        # # Add main title
-        # fig[0, :] = Label(fig, "Medical Time Series Forecasting - Latent Neural SDE", 
-        #                  fontsize=18, font="Arial Bold", color="#333333")
         
         # Create unified legend below the figures
         if !isempty(axes)
@@ -231,19 +248,39 @@ function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecaste
         dists = Normal.(μ[i], σ[i])
         ŷ = rand.(dists)
 
-        # Fix indexing issue - ensure proper dimensions
-        ŷ_for_sample = ŷ[masks_for[i, :, sample_n] .== 1, sample_n]
-        y_for_sample = y_for[i, masks_for[i, :, sample_n] .== 1, sample_n]
+        # Calculate RMSE over all samples, not just one sample
+        # Need to collect all valid predictions and ground truth across all samples
+        ŷ_for_all = Float32[]
+        y_for_all = Float32[]
         
-        rmse_ = sqrt(MSELoss()(ŷ_for_sample, y_for_sample))
+        for s in 1:size(masks_for, 3)  # Loop over all samples
+            valid_mask = masks_for[i, :, s] .== 1
+            if any(valid_mask)
+                append!(ŷ_for_all, ŷ[valid_mask, s])
+                append!(y_for_all, y_for[i, valid_mask, s])
+            end
+        end
+        
+        rmse_ = sqrt(MSELoss()(ŷ_for_all, y_for_all))
+        
+
 
         push!(rmse, rmse_)
 
         if plot
+
             if isempty(t_obs_val) || isempty(t_for_val)
                 @warn "Insufficient data for $y_label in sample $sample_n"
                 continue
             else
+                ŷ_for_sample = ŷ[masks_for[i, :, sample_n] .== 1, sample_n]
+                y_for_sample = y_for[i, masks_for[i, :, sample_n] .== 1, sample_n]
+            
+                # Calculate RMSE for the intended sample (for printing when plot=true)
+                sample_rmse_ = sqrt(MSELoss()(ŷ_for_sample, y_for_sample))
+                # Print RMSE for this feature and intended sample
+                println("Sample $sample_n - $(y_labels[i]) RMSE: $(round(sample_rmse_, digits=4))")
+
                 ax = CairoMakie.Axis(fig[i, 1], 
                     xlabel=i == n_features ? "Time (hours)" : "",
                     ylabel=y_labels[i], 
@@ -331,7 +368,7 @@ function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecaste
 
                 y_range = maximum(all_y_values) - minimum(all_y_values)
                 y_padding = max(0.15 * y_range, 0.01 * maximum(all_y_values))
-                ylims!(ax, minimum(all_y_values) - y_padding, maximum(all_y_values) + y_padding)
+                ylims!(ax, minimum(all_y_values) , maximum(all_y_values))
                 
                 # Add vertical separator line
                 vlines!(ax, [t_obs[end]], color=("#666666", 0.6), linewidth=2, linestyle=:dash)
@@ -340,9 +377,6 @@ function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecaste
     end
 
     if plot
-        # Add main title
-        # fig[0, :] = Label(fig, "Medical Time Series Forecasting - Recurrent Neural Network", 
-        #                  fontsize=18, font="Arial Bold", color="#333333")
         
         # Create unified legend below the figures
         if !isempty(axes)

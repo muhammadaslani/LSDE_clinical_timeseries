@@ -149,18 +149,18 @@ function assess_model_performance(performances, variables_of_interest; model_nam
             # Create visualization
             if model_type == "rnn"
                 # For RNN models, viz function only returns rmse (no crps)
-                fig, sample_rmse = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, sample_n=sample_n, plot=true)
-                sample_crps = [0.0] * length(sample_rmse)  # Set CRPS to zero for RNN
+                fig, rmse = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, sample_n=sample_n, plot=true)
+                crps = [0.0] * length(rmse)  # Set CRPS to zero for RNN
             else
                 # For LSDE/LODE models, viz function returns both rmse and crps
-                fig, sample_rmse, sample_crps = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, sample_n=sample_n, plot=true)
+                fig, rmse, crps = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, sample_n=sample_n, plot=true)
             end
             
             println("\nSample number $sample_n forecast plotted for best model (fold $best_fold_idx)")
-            println("Sample number $sample_n RMSE: [$(round.(sample_rmse, digits=4))]")
-            if model_type == "lsde" || model_type == "lode"
-                println("Sample number $sample_n CRPS: [$(round.(sample_crps, digits=4))]")
-            end
+            #println("Sample number $sample_n RMSE: [$(round.(rmse, digits=4))]")
+            # if model_type == "lsde" || model_type == "lode"
+            #     println("Sample number $sample_n CRPS: [$(round.(crps, digits=4))]")
+            # end
         end
     end
     
