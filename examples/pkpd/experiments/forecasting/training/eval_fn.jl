@@ -14,33 +14,18 @@ function eval_fn_nde(model, θ, st, ts, data, config)
 end
 
 function eval_fn_rnn(model, θ, st, ts, data, config)
-    u_obs, covars_obs, x_obs, y₁_obs, y₂_obs, masks₁_obs, masks₂_obs,
-    u_for, covars_for, x_for, y₁_for, y₂_for, masks₁_for, masks₂_for = data
-    
-    batch_size = size(y₁_for)[end]
-    
+    u_obs, covars_obs, x_obs, y₁_obs, y₂_obs, mask₁_obs, mask₂_obs, 
+        u_forecast, covars_forecast, x_forecast, y₁_forecast, y₂_forecast, mask₁_forecast, mask₂_forecast = data
+
+    batch_size = size(y₁_forecast)[end]
     # Combine inputs for RNN
-    input_combined = vcat(x_obs, u_obs, covars_obs)
-    
+    input_combined = vcat(covars_obs, y₁_obs, y₂_obs, u_obs)
     # Forward pass
     ŷ, st = model(input_combined, θ, st)
     
     # Calculate evaluation losses
-    eval_loss1 = 0.0f0
-    eval_loss2 = 0.0f0
-    
-    if length(ŷ) >= 1
-        μ₁, log_σ²₁ = ŷ[1][1], ŷ[1][2]
-        valid_indx₁ = findall(masks₁_for .== 1)
-        eval_loss1 = normal_loglikelihood(μ₁[valid_indx₁], log_σ²₁[valid_indx₁], y₁_for[valid_indx₁]) / batch_size
-    end
-    
-    if length(ŷ) >= 2
-        μ₂, log_σ²₂ = ŷ[2][1], ŷ[2][2]
-        valid_indx₂ = findall(masks₂_for .== 1)
-        eval_loss2 = normal_loglikelihood(μ₂[valid_indx₂], log_σ²₂[valid_indx₂], y₂_for[valid_indx₂]) / batch_size
-    end
-    
+    eval_loss1 = CrossEntropy_Loss(ŷ[1], y₁_forecast, mask₁_forecast; agg=sum) / batch_size
+    eval_loss2 = -poisson_loglikelihood(ŷ[2], y₂_forecast, mask₂_forecast) / batch_size
     total_eval_loss = eval_loss1 + eval_loss2
     
     return (total_eval_loss, eval_loss1, eval_loss2)

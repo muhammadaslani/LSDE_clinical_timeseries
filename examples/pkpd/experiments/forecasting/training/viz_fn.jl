@@ -364,3 +364,359 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
     return fig, crossentropy_health, rmse_tumor, nll_count
 end
 
+# RNN model visualization function - handles direct predictions without latent states
+function viz_fn_rnn(obs_timepoints, for_timepoints, obs_data, future_true_data, forecasted_data; sample_n=3, plot=true)
+    # Unpack observation data
+    u_o, covars_o, x_o, y₁_o, y₂_o, mask₁_o, mask₂_o = obs_data
+    
+    # Unpack future data  
+    u_t, covars_t, x_t, y₁_t, y₂_t, mask₁_t, mask₂_t = future_true_data
+    
+    # Unpack forecasted data - RNN returns direct predictions, no MCMC sampling
+    u_p = u_t
+    Ex, Ey_p = forecasted_data  # Ex is nothing for RNN, Ey_p contains (health_logits, count_rates)
+    Ey₁_p, Ey₂_p = softmax(Ey_p[1], dims=1), Ey_p[2]  # Convert logits to probabilities
+    
+    # Convert time to days for plotting
+    t_o, t_p = obs_timepoints * 7.0f0, for_timepoints * 7.0f0
+
+    # Convert health status to classes
+    y₁_o_class = onecold(softmax(y₁_o, dims=1), Array(0:5))
+    y₁_t_class = onecold(softmax(y₁_t, dims=1), Array(0:5))
+
+    # Calculate prediction results - RNN outputs are deterministic, no sampling dimension
+    ŷ₁_m = Ey₁_p  # Already processed probabilities
+    ŷ₁_class = onecold(ŷ₁_m, Array(0:5))
+    ŷ₁_conf = maximum(ŷ₁_m, dims=1)[1, :, :]  # Confidence as max probability
+
+    ŷ₂_m = Ey₂_p  # Poisson rate parameters
+    # For uncertainty estimation with RNN, use bootstrap-like approach or assume Poisson variance
+    ŷ₂_s = sqrt.(ŷ₂_m)  # Poisson standard deviation approximation
+    ŷ₂_count = rand.(Poisson.(Ey₂_p))  # Sample from Poisson for count estimates
+    ŷ₂_count_m = ŷ₂_count  # No additional sampling dimension to average over
+
+    # Find valid time points for each output
+    t_o_valid₁ = t_o[mask₁_o[1, :, sample_n] .== 1]
+    t_p_valid₁ = t_p[mask₁_t[1, :, sample_n] .== 1]
+    max_t_o_valid₁ = isempty(t_o_valid₁) ? 0.0 : maximum(t_o_valid₁)
+    max_t_p_valid₁ = isempty(t_p_valid₁) ? 0.0 : maximum(t_p_valid₁)
+    
+    t_o_valid₂ = t_o[mask₂_o[1, :, sample_n] .== 1]
+    t_p_valid₂ = t_p[mask₂_t[1, :, sample_n] .== 1]
+    max_t_o_valid₂ = isempty(t_o_valid₂) ? 0.0 : maximum(t_o_valid₂)
+    max_t_p_valid₂ = isempty(t_p_valid₂) ? 0.0 : maximum(t_p_valid₂)
+
+    # Extract valid data points
+    y₁_o_class_valid = y₁_o_class[findall(i -> t_o[i] <= max_t_o_valid₁ && mask₁_o[1, i, sample_n] == 1, 1:length(t_o)), sample_n]
+    y₁_t_class_valid = y₁_t_class[findall(i -> t_p[i] <= max_t_p_valid₁ && mask₁_t[1, i, sample_n] == 1, 1:length(t_p)), sample_n]
+    ŷ₁_class_valid = ŷ₁_class[findall(i -> t_p[i] <= max_t_p_valid₁ && mask₁_t[1, i, sample_n] == 1, 1:length(t_p)), sample_n]
+    ŷ₁_conf_valid = ŷ₁_conf[findall(i -> t_p[i] <= max_t_p_valid₁ && mask₁_t[1, i, sample_n] == 1, 1:length(t_p)), sample_n]
+
+    y₂_o_valid = y₂_o[1, findall(i -> t_o[i] <= max_t_o_valid₂ && mask₂_o[1, i, sample_n] == 1, 1:length(t_o)), sample_n]
+    y₂_t_valid = y₂_t[1, findall(i -> t_p[i] <= max_t_p_valid₂ && mask₂_t[1, i, sample_n] == 1, 1:length(t_p)), sample_n]
+    ŷ₂_m_valid = ŷ₂_m[1, findall(i -> t_p[i] <= max_t_p_valid₂ && mask₂_t[1, i, sample_n] == 1, 1:length(t_p)), sample_n]
+    ŷ₂_s_valid = ŷ₂_s[1, findall(i -> t_p[i] <= max_t_p_valid₂ && mask₂_t[1, i, sample_n] == 1, 1:length(t_p)), sample_n]
+    ŷ₂_count_m_valid = ŷ₂_count_m[1, findall(i -> t_p[i] <= max_t_p_valid₂ && mask₂_t[1, i, sample_n] == 1, 1:length(t_p)), sample_n]
+    
+    # Calculate confidence intervals for RNN predictions
+    ŷ₂_CI_low = ŷ₂_m[1, :, sample_n] .- 1.96 * ŷ₂_s[1, :, sample_n]
+    ŷ₂_CI_up = ŷ₂_m[1, :, sample_n] .+ 1.96 * ŷ₂_s[1, :, sample_n]
+    ŷ₂_count_confidence_valid = 1.96 * sqrt.(ŷ₂_m_valid)
+
+    # Calculate performance metrics only on valid time points
+    crossentropy_health = 0.0
+    rmse_tumor = 0.0
+    nll_count = 0.0
+    
+    try
+        # Health status (y₁): cross entropy - only on valid time points
+        crossentropy_health = CrossEntropy_Loss(ŷ₁_m, y₁_t, mask₁_t; agg=sum, logits=false)/length(findall(mask₁_t .== 1))
+        
+        # Tumor volume (y₂_m): RMSE - only on valid time points
+        if !isempty(ŷ₂_m_valid) && !isempty(y₂_t_valid)
+            rmse_tumor = sqrt(sum((ŷ₂_m_valid .- y₂_t_valid).^2) / length(y₂_t_valid))
+        end
+        
+        # Cell count (y₂_count): negative log likelihood - only on valid time points  
+        nll_count = -poisson_loglikelihood(ŷ₂_m, y₂_t, mask₂_t)/length(findall(mask₂_t .== 1))
+        
+        if plot
+            println("RNN Health status cross entropy: ", crossentropy_health)
+            println("RNN Tumor volume RMSE: ", rmse_tumor)
+            println("RNN Cell count negative log likelihood: ", nll_count)
+        end
+    catch e
+        if plot
+            println("Warning: Could not calculate RNN performance metrics: ", e)
+        end
+    end
+
+    # Early return if not plotting - return the three specific metrics
+    if !plot
+        return crossentropy_health, rmse_tumor, nll_count
+    end
+
+    # Find treatment indices
+    valid_indices_chemo_o = findall(i -> u_o[1, i, sample_n] == 1 && t_o[i] <= max_t_o_valid₁, 1:length(t_o))
+    valid_indices_radio_o = findall(i -> u_o[2, i, sample_n] == 1 && t_o[i] <= max_t_o_valid₁, 1:length(t_o))
+    valid_indices_chemo_p = findall(i -> u_p[1, i, sample_n] == 1 && t_p[i] <= max_t_p_valid₁, 1:length(t_p))
+    valid_indices_radio_p = findall(i -> u_p[2, i, sample_n] == 1 && t_p[i] <= max_t_p_valid₁, 1:length(t_p))
+
+    # Calculate dynamic plot limits based on actual data
+    x_min = 0.0
+    x_max = max_t_p_valid₁ > 0 ? max_t_p_valid₁ + 0.05 * max_t_p_valid₁ : 10.0  # Add 5% padding or default
+    
+    # Calculate y-limits for each panel based on actual data with padding
+    # Panel 1: Health status - based on class range with padding
+    all_health_values = vcat(y₁_o_class_valid, y₁_t_class_valid, ŷ₁_class_valid)
+    if !isempty(all_health_values)
+        health_range = maximum(all_health_values) - minimum(all_health_values)
+        health_padding = max(0.25 * health_range, 0.5)  # At least 0.5 padding
+        y1_min = minimum(all_health_values) - health_padding
+        y1_max = maximum(all_health_values) + health_padding
+    else
+        y1_min, y1_max = -0.5, 3.5  # Default range for health status
+    end
+    
+    # Panel 2: Tumor size - based on all tumor data with padding
+    all_tumor_values = vcat(x_o[1, :, sample_n], x_t[1, :, sample_n], ŷ₂_m_valid, ŷ₂_CI_low, ŷ₂_CI_up)
+    if !isempty(all_tumor_values)
+        tumor_range = maximum(all_tumor_values) - minimum(all_tumor_values)
+        tumor_padding = max(0.25 * tumor_range, 0.1 * maximum(all_tumor_values))
+        y2_min = minimum(all_tumor_values) - tumor_padding
+        y2_max = maximum(all_tumor_values) + tumor_padding
+    else
+        y2_min, y2_max = -0.5, 5.0  # Default range for tumor size
+    end
+    
+    # Panel 3: Cell count - based on all count data with padding  
+    all_count_values = vcat(y₂_o_valid, y₂_t_valid, ŷ₂_count_m_valid)
+    if !isempty(all_count_values)
+        count_range = maximum(all_count_values) - minimum(all_count_values)
+        count_padding = max(0.25 * count_range, 0.1 * maximum(all_count_values))
+        y3_min = minimum(all_count_values) - count_padding
+        y3_max = maximum(all_count_values) + count_padding
+    else
+        y3_min, y3_max = -5.0, 50.0  # Default range for cell count
+    end
+
+    # Create the 3-panel figure with professional styling (RNN version)
+    fig = Figure(size=(1200, 700), fontsize=14, 
+                 backgroundcolor=:white,
+                 figure_padding=20)
+    
+    # Panel 1: Health status
+    ax1 = CairoMakie.Axis(fig[1, 1], 
+                         xlabel="", 
+                         ylabel="Health Status",
+                         title="RNN Model Predictions",
+                         limits=((x_min, x_max), (y1_min, y1_max)),
+                         xgridvisible=true, 
+                         ygridvisible=true,
+                         xgridcolor=("#E5E5E5", 0.8),
+                         ygridcolor=("#E5E5E5", 0.8),
+                         topspinevisible=false,
+                         rightspinevisible=false,
+                         xticklabelsize=12,
+                         yticklabelsize=12,
+                         xlabelsize=13,
+                         ylabelsize=13,
+                         titlesize=15)
+    
+    # Panel 2: Tumor size
+    ax2 = CairoMakie.Axis(fig[2, 1], 
+                         xlabel="", 
+                         ylabel="Tumor Size",
+                         limits=((x_min, x_max), (y2_min, y2_max)),
+                         xgridvisible=true, 
+                         ygridvisible=true,
+                         xgridcolor=("#E5E5E5", 0.8),
+                         ygridcolor=("#E5E5E5", 0.8),
+                         topspinevisible=false,
+                         rightspinevisible=false,
+                         xticklabelsize=12,
+                         yticklabelsize=12,
+                         xlabelsize=13,
+                         ylabelsize=13)
+    
+    # Panel 3: Cell count
+    ax3 = CairoMakie.Axis(fig[3, 1], 
+                         xlabel="Time (days)", 
+                         ylabel="Cell Count",
+                         limits=((x_min, x_max), (y3_min, y3_max)),
+                         xgridvisible=true, 
+                         ygridvisible=true,
+                         xgridcolor=("#E5E5E5", 0.8),
+                         ygridcolor=("#E5E5E5", 0.8),
+                         topspinevisible=false,
+                         rightspinevisible=false,
+                         xticklabelsize=12,
+                         yticklabelsize=12,
+                         xlabelsize=13,
+                         ylabelsize=13)
+
+    # Add background periods and intervention lines for all panels with dynamic y-limits
+    y_limits = [(y1_min, y1_max), (y2_min, y2_max), (y3_min, y3_max)]
+    
+    for (i, (ax, (y_bg_min, y_bg_max))) in enumerate(zip([ax1, ax2, ax3], y_limits))
+        # Observation period background
+        if i == 1
+            poly!(ax, [x_min, max_t_o_valid₁, max_t_o_valid₁, x_min], 
+                 [y_bg_min, y_bg_min, y_bg_max, y_bg_max], 
+                 color=(PKPD_COLORS.obs_period, 0.3), 
+                 label="Observation Period")
+            poly!(ax, [max_t_o_valid₁, x_max, x_max, max_t_o_valid₁], 
+                 [y_bg_min, y_bg_min, y_bg_max, y_bg_max], 
+                 color=(PKPD_COLORS.forecast_period, 0.3), 
+                 label="Forecasting Period")
+        else
+            poly!(ax, [x_min, max_t_o_valid₁, max_t_o_valid₁, x_min], 
+                 [y_bg_min, y_bg_min, y_bg_max, y_bg_max], 
+                 color=(PKPD_COLORS.obs_period, 0.3))
+            poly!(ax, [max_t_o_valid₁, x_max, x_max, max_t_o_valid₁], 
+                 [y_bg_min, y_bg_min, y_bg_max, y_bg_max], 
+                 color=(PKPD_COLORS.forecast_period, 0.3))
+        end
+        
+        # Add vertical separator line
+        vlines!(ax, [max_t_o_valid₁], color=("#666666", 0.6), linewidth=2, linestyle=:dash)
+        
+        # Add intervention lines across all panels for integrated timeline
+        if i == 1  # Only add to legend once
+            # Chemotherapy intervention lines
+            vlines!(ax, t_o[valid_indices_chemo_o], color=:navy, linewidth=2.5, alpha=0.8,
+                   label="Chemotherapy Sessions")
+            vlines!(ax, t_p[valid_indices_chemo_p], color=:navy, linewidth=2.5, alpha=0.8)
+            
+            # Radiotherapy intervention lines  
+            vlines!(ax, t_o[valid_indices_radio_o], color=:darkred, linewidth=2.5, alpha=0.8,
+                   label="Radiotherapy Sessions")
+            vlines!(ax, t_p[valid_indices_radio_p], color=:darkred, linewidth=2.5, alpha=0.8)
+        else
+            # No labels for subsequent panels
+            vlines!(ax, t_o[valid_indices_chemo_o], color=:navy, linewidth=2.5, alpha=0.8)
+            vlines!(ax, t_p[valid_indices_chemo_p], color=:navy, linewidth=2.5, alpha=0.8)
+            vlines!(ax, t_o[valid_indices_radio_o], color=:darkred, linewidth=2.5, alpha=0.8)
+            vlines!(ax, t_p[valid_indices_radio_p], color=:darkred, linewidth=2.5, alpha=0.8)
+        end
+    end
+
+    # Plot health status with professional styling
+    if !isempty(t_o_valid₁) && !isempty(y₁_o_class_valid)
+        scatter!(ax1, t_o_valid₁, y₁_o_class_valid, 
+                color=PKPD_COLORS.observed, markersize=10,
+                strokewidth=1, strokecolor=:white,
+                label="Historical Observations")
+        lines!(ax1, t_o_valid₁, y₁_o_class_valid, 
+              color=(PKPD_COLORS.observed, 0.7), linewidth=2.5)
+    end
+          
+    if !isempty(t_p_valid₁) && !isempty(y₁_t_class_valid)
+        scatter!(ax1, t_p_valid₁, y₁_t_class_valid, 
+                color=PKPD_COLORS.truth, markersize=10,
+                strokewidth=1, strokecolor=:white,
+                label="Ground Truth")
+        lines!(ax1, t_p_valid₁, y₁_t_class_valid, 
+              color=(PKPD_COLORS.truth, 0.7), linewidth=2.5)
+    end
+          
+    if !isempty(t_p_valid₁) && !isempty(ŷ₁_class_valid)
+        scatter!(ax1, t_p_valid₁, ŷ₁_class_valid, 
+                color=PKPD_COLORS.predicted, markersize=10,
+                strokewidth=1, strokecolor=:white,
+                label="RNN Predictions")
+        lines!(ax1, t_p_valid₁, ŷ₁_class_valid, 
+              color=PKPD_COLORS.predicted, linewidth=3)
+    end
+          
+    if !isempty(t_p_valid₁) && !isempty(ŷ₁_class_valid) && !isempty(ŷ₁_conf_valid)
+        errorbars!(ax1, t_p_valid₁, ŷ₁_class_valid, ŷ₁_conf_valid, 
+                  color=(PKPD_COLORS.confidence, 0.6), whiskerwidth=8, 
+                  label="Prediction Uncertainty")
+    end
+
+    # Plot tumor size with professional styling
+    # Plot observed tumor size (historical data) - use index-based plotting for underlying tumor size
+    lines!(ax2, Array(1:length(vcat(x_o[1, :, sample_n], x_t[1, :, sample_n]))), 
+          vcat(x_o[1, :, sample_n], x_t[1, :, sample_n]), 
+          color=(PKPD_COLORS.observed, 0.7), linewidth=2.5, 
+          label="Historical Observations")
+          
+    # Plot confidence band first (so it's behind other elements)
+    #band!(ax2, t_p, ŷ₂_CI_low, ŷ₂_CI_up, 
+         #color=(PKPD_COLORS.confidence, 0.25))
+         
+    lines!(ax2, t_p, ŷ₂_m[1, :, sample_n], 
+          color=PKPD_COLORS.predicted, linewidth=3,
+          label="RNN Predictions")
+    scatter!(ax2, t_p_valid₂, ŷ₂_m_valid, 
+            color=PKPD_COLORS.predicted, markersize=10,
+            strokewidth=1, strokecolor=:white)
+
+    # Plot cell count with professional styling  
+    scatter!(ax3, t_o_valid₂, y₂_o_valid, 
+            color=PKPD_COLORS.observed, markersize=10,
+            strokewidth=1, strokecolor=:white)
+    lines!(ax3, t_o_valid₂, y₂_o_valid, 
+          color=(PKPD_COLORS.observed, 0.7), linewidth=2.5)
+          
+    scatter!(ax3, t_p_valid₂, y₂_t_valid, 
+            color=PKPD_COLORS.truth, markersize=10,
+            strokewidth=1, strokecolor=:white)
+    lines!(ax3, t_p_valid₂, y₂_t_valid, 
+          color=(PKPD_COLORS.truth, 0.7), linewidth=2.5)
+          
+    scatter!(ax3, t_p_valid₂, ŷ₂_count_m_valid, 
+            color=PKPD_COLORS.predicted, markersize=10,
+            strokewidth=1, strokecolor=:white)
+    lines!(ax3, t_p_valid₂, ŷ₂_count_m_valid, 
+          color=PKPD_COLORS.predicted, linewidth=3)
+          
+    errorbars!(ax3, t_p_valid₂, ŷ₂_count_m_valid, ŷ₂_count_confidence_valid, 
+              color=(PKPD_COLORS.confidence, 0.6), whiskerwidth=8)
+
+    # Link x-axes for synchronized zooming/panning
+    linkxaxes!(ax1, ax2, ax3)
+    
+    # Create consolidated legend at the bottom
+    # Create a combined legend using manual legend entries with correct constructors
+    legend_elements = [
+        PolyElement(color = PKPD_COLORS.obs_period, strokecolor = :transparent),
+        PolyElement(color = PKPD_COLORS.forecast_period, strokecolor = :transparent),
+        LineElement(color = :navy, linewidth = 3),
+        LineElement(color = :darkred, linewidth = 3),
+        LineElement(color = PKPD_COLORS.observed, linewidth = 3),
+        LineElement(color = PKPD_COLORS.truth, linewidth = 3),
+        LineElement(color = PKPD_COLORS.predicted, linewidth = 3),
+        LineElement(color = PKPD_COLORS.confidence, linestyle = :solid, linewidth = 3)
+    ]
+    
+    legend_labels = [
+        "Observation Period",
+        "Forecasting Period", 
+        "Chemotherapy Sessions",
+        "Radiotherapy Sessions",
+        "Historical Observations",
+        "Ground Truth",
+        "RNN Predictions",
+        "Prediction Uncertainty"
+    ]
+    
+    legend = Legend(fig, legend_elements, legend_labels,
+                  orientation=:horizontal,
+                  tellheight=true,
+                  tellwidth=true,
+                  margin=(10, 10, 10, 10),
+                  framevisible=false,
+                  labelsize=12,
+                  halign=:center,
+                  nbanks=2)  # Use 2 rows to fit all legend items nicely
+    fig[4, 1] = legend  # Place legend below all 3 panels
+    
+    # Add spacing 
+    rowgap!(fig.layout, 15)
+    colgap!(fig.layout, 10)
+    
+    return fig, crossentropy_health, rmse_tumor, nll_count
+end
+

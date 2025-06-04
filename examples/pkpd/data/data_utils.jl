@@ -21,7 +21,7 @@ function generate_dataloader(; n_samples=512, batchsize=64, split=(0.5,0.3), obs
     data= (U_obs, Covars_obs, X_obs, Y₁_obs, Y₂_obs, Masks₁_obs, Masks₂_obs, 
            U_forecast, Covars_forcast, X_forecast, Y₁_forecast, Y₂_forecast, Masks₁_forecast, Masks₂_forecast)
 
-    (train_data, val_data, test_data,) = splitobs((data_obs, data_forecast), at=split)
+    (train_data, val_data, test_data,) = splitobs((data), at=split)
     train_loader = DataLoader(train_data, batchsize=batchsize, shuffle=true)
     val_loader = DataLoader(val_data, batchsize=batchsize, shuffle=true)
     test_loader = DataLoader(test_data, batchsize=batchsize, shuffle=false)

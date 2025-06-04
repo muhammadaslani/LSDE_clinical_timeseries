@@ -104,7 +104,7 @@ function kfold_train_pkpd(data, dims, n_folds, rng, config_path, model_type, tim
             lode_config = deepcopy(config["model"])
             model, θ, st = create_latentsde(lode_config, dims, rng)
         elseif model_type == "rnn"
-            model, θ, st = create_rnn_model(config["model"], dims, rng)
+            model, θ, st = create_rnn_model(config["model"], dims, rng, length(timepoints_for))
         else
             error("Unsupported model type: $model_type")
         end
@@ -141,17 +141,8 @@ function kfold_train_pkpd(data, dims, n_folds, rng, config_path, model_type, tim
         forecasted_data = (Ex, Ey_pred)
 
         # Evaluate model performance without plotting
-        # Handle different return formats for different model types
-        if model_type == "rnn"
-            # RNN models only return RMSE (assuming similar structure to ICU dataset)
-            rmse = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, plot=false)
-            crossentropy_health = 0.0
-            rmse_tumor = rmse
-            nll_count = 0.0
-        else
-            # LSDE/LODE models return the three specific metrics
-            crossentropy_health, rmse_tumor, nll_count = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, plot=false)
-        end
+        # All model types (including RNN) return the three specific metrics
+        crossentropy_health, rmse_tumor, nll_count = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, plot=false)
         
         # Store model, parameters, state, and performance
         push!(models, model)
