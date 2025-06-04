@@ -10,7 +10,7 @@ const PKPD_COLORS = (
     health = "#06D6A0"             # Green for health score
 )
 
-# Neural differential equation visualization function with professional styling
+# Neural differential equation visualization function
 function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, forecasted_data; sample_n=3, plot=true)
     # Unpack observation data
     u_o, covars_o, x_o, y₁_o, y₂_o, mask₁_o, mask₂_o = obs_data
@@ -24,7 +24,7 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
     Ey₁_p, Ey₂_p = softmax(Ey_p[1], dims=1), Ey_p[2]
     
     # Convert time to days for plotting
-    t_o, t_p = obs_timepoints * 7*53, for_timepoints * 7*53
+    t_o, t_p = obs_timepoints * 7.0f0, for_timepoints * 7.0f0
 
     # Convert health status to classes
     y₁_o_class = onecold(softmax(y₁_o, dims=1), Array(0:5))
@@ -44,13 +44,13 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
     # Find valid time points for each output
     t_o_valid₁ = t_o[mask₁_o[1, :, sample_n] .== 1]
     t_p_valid₁ = t_p[mask₁_t[1, :, sample_n] .== 1]
-    max_t_o_valid₁ = maximum(t_o[mask₁_o[1, :, sample_n] .== 1])
-    max_t_p_valid₁ = maximum(t_p[mask₁_t[1, :, sample_n] .== 1])
+    max_t_o_valid₁ = isempty(t_o_valid₁) ? 0.0 : maximum(t_o_valid₁)
+    max_t_p_valid₁ = isempty(t_p_valid₁) ? 0.0 : maximum(t_p_valid₁)
     
     t_o_valid₂ = t_o[mask₂_o[1, :, sample_n] .== 1]
     t_p_valid₂ = t_p[mask₂_t[1, :, sample_n] .== 1]
-    max_t_o_valid₂ = maximum(t_o[mask₂_o[1, :, sample_n] .== 1])
-    max_t_p_valid₂ = maximum(t_p[mask₂_t[1, :, sample_n] .== 1])
+    max_t_o_valid₂ = isempty(t_o_valid₂) ? 0.0 : maximum(t_o_valid₂)
+    max_t_p_valid₂ = isempty(t_p_valid₂) ? 0.0 : maximum(t_p_valid₂)
 
     # Extract valid data points
     y₁_o_class_valid = y₁_o_class[findall(i -> t_o[i] <= max_t_o_valid₁ && mask₁_o[1, i, sample_n] == 1, 1:length(t_o)), sample_n]
@@ -110,29 +110,41 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
 
     # Calculate dynamic plot limits based on actual data (ICU style)
     x_min = 0.0
-    x_max = max_t_p_valid₁ + 0.05 * max_t_p_valid₁  # Add 5% padding
+    x_max = max_t_p_valid₁ > 0 ? max_t_p_valid₁ + 0.05 * max_t_p_valid₁ : 10.0  # Add 5% padding or default
     
     # Calculate y-limits for each panel based on actual data with padding
     # Panel 1: Health status - based on class range with padding
     all_health_values = vcat(y₁_o_class_valid, y₁_t_class_valid, ŷ₁_class_valid)
-    health_range = maximum(all_health_values) - minimum(all_health_values)
-    health_padding = max(0.25 * health_range, 0.5)  # At least 0.5 padding
-    y1_min = minimum(all_health_values) - health_padding
-    y1_max = maximum(all_health_values) + health_padding
+    if !isempty(all_health_values)
+        health_range = maximum(all_health_values) - minimum(all_health_values)
+        health_padding = max(0.25 * health_range, 0.5)  # At least 0.5 padding
+        y1_min = minimum(all_health_values) - health_padding
+        y1_max = maximum(all_health_values) + health_padding
+    else
+        y1_min, y1_max = -0.5, 3.5  # Default range for health status
+    end
     
     # Panel 2: Tumor size - based on all tumor data with padding
     all_tumor_values = vcat(x_o[1, :, sample_n], x_t[1, :, sample_n], ŷ₂_m_valid, ŷ₂_CI_low, ŷ₂_CI_up)
-    tumor_range = maximum(all_tumor_values) - minimum(all_tumor_values)
-    tumor_padding = max(0.25 * tumor_range, 0.1 * maximum(all_tumor_values))
-    y2_min = minimum(all_tumor_values) - tumor_padding
-    y2_max = maximum(all_tumor_values) + tumor_padding
+    if !isempty(all_tumor_values)
+        tumor_range = maximum(all_tumor_values) - minimum(all_tumor_values)
+        tumor_padding = max(0.25 * tumor_range, 0.1 * maximum(all_tumor_values))
+        y2_min = minimum(all_tumor_values) - tumor_padding
+        y2_max = maximum(all_tumor_values) + tumor_padding
+    else
+        y2_min, y2_max = -0.5, 5.0  # Default range for tumor size
+    end
     
     # Panel 3: Cell count - based on all count data with padding  
     all_count_values = vcat(y₂_o_valid, y₂_t_valid, ŷ₂_count_m_valid)
-    count_range = maximum(all_count_values) - minimum(all_count_values)
-    count_padding = max(0.25 * count_range, 0.1 * maximum(all_count_values))
-    y3_min = minimum(all_count_values) - count_padding
-    y3_max = maximum(all_count_values) + count_padding
+    if !isempty(all_count_values)
+        count_range = maximum(all_count_values) - minimum(all_count_values)
+        count_padding = max(0.25 * count_range, 0.1 * maximum(all_count_values))
+        y3_min = minimum(all_count_values) - count_padding
+        y3_max = maximum(all_count_values) + count_padding
+    else
+        y3_min, y3_max = -5.0, 50.0  # Default range for cell count
+    end
 
     # Create the 3-panel figure with professional styling (integrated timeline approach)
     fig = Figure(size=(1200, 700), fontsize=14, 
@@ -234,30 +246,38 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
     end
 
     # Plot health status with professional styling
-    scatter!(ax1, t_o_valid₁, y₁_o_class_valid, 
-            color=PKPD_COLORS.observed, markersize=8,
-            strokewidth=1, strokecolor=:white,
-            label="Historical Observations")
-    lines!(ax1, t_o_valid₁, y₁_o_class_valid, 
-          color=(PKPD_COLORS.observed, 0.7), linewidth=2.5)
+    if !isempty(t_o_valid₁) && !isempty(y₁_o_class_valid)
+        scatter!(ax1, t_o_valid₁, y₁_o_class_valid, 
+                color=PKPD_COLORS.observed, markersize=10,
+                strokewidth=1, strokecolor=:white,
+                label="Historical Observations")
+        lines!(ax1, t_o_valid₁, y₁_o_class_valid, 
+              color=(PKPD_COLORS.observed, 0.7), linewidth=2.5)
+    end
           
-    scatter!(ax1, t_p_valid₁, y₁_t_class_valid, 
-            color=PKPD_COLORS.truth, markersize=8,
-            strokewidth=1, strokecolor=:white,
-            label="Ground Truth")
-    lines!(ax1, t_p_valid₁, y₁_t_class_valid, 
-          color=(PKPD_COLORS.truth, 0.7), linewidth=2.5)
+    if !isempty(t_p_valid₁) && !isempty(y₁_t_class_valid)
+        scatter!(ax1, t_p_valid₁, y₁_t_class_valid, 
+                color=PKPD_COLORS.truth, markersize=10,
+                strokewidth=1, strokecolor=:white,
+                label="Ground Truth")
+        lines!(ax1, t_p_valid₁, y₁_t_class_valid, 
+              color=(PKPD_COLORS.truth, 0.7), linewidth=2.5)
+    end
           
-    scatter!(ax1, t_p_valid₁, ŷ₁_class_valid, 
-            color=PKPD_COLORS.predicted, markersize=8,
-            strokewidth=1, strokecolor=:white,
-            label="Model Predictions")
-    lines!(ax1, t_p_valid₁, ŷ₁_class_valid, 
-          color=PKPD_COLORS.predicted, linewidth=3)
+    if !isempty(t_p_valid₁) && !isempty(ŷ₁_class_valid)
+        scatter!(ax1, t_p_valid₁, ŷ₁_class_valid, 
+                color=PKPD_COLORS.predicted, markersize=10,
+                strokewidth=1, strokecolor=:white,
+                label="Model Predictions")
+        lines!(ax1, t_p_valid₁, ŷ₁_class_valid, 
+              color=PKPD_COLORS.predicted, linewidth=3)
+    end
           
-    errorbars!(ax1, t_p_valid₁, ŷ₁_class_valid, ŷ₁_conf_valid, 
-              color=(PKPD_COLORS.confidence, 0.6), whiskerwidth=8, 
-              label="Prediction Uncertainty")
+    if !isempty(t_p_valid₁) && !isempty(ŷ₁_class_valid) && !isempty(ŷ₁_conf_valid)
+        errorbars!(ax1, t_p_valid₁, ŷ₁_class_valid, ŷ₁_conf_valid, 
+                  color=(PKPD_COLORS.confidence, 0.6), whiskerwidth=8, 
+                  label="Prediction Uncertainty")
+    end
 
     # Plot tumor size with professional styling
     # Plot observed tumor size (historical data) - use index-based plotting for underlying tumor size
@@ -274,24 +294,24 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
           color=PKPD_COLORS.predicted, linewidth=3,
           label="Model Predictions")
     scatter!(ax2, t_p_valid₂, ŷ₂_m_valid, 
-            color=PKPD_COLORS.predicted, markersize=8,
+            color=PKPD_COLORS.predicted, markersize=10,
             strokewidth=1, strokecolor=:white)
 
     # Plot cell count with professional styling  
     scatter!(ax3, t_o_valid₂, y₂_o_valid, 
-            color=PKPD_COLORS.observed, markersize=8,
+            color=PKPD_COLORS.observed, markersize=10,
             strokewidth=1, strokecolor=:white)
     lines!(ax3, t_o_valid₂, y₂_o_valid, 
           color=(PKPD_COLORS.observed, 0.7), linewidth=2.5)
           
     scatter!(ax3, t_p_valid₂, y₂_t_valid, 
-            color=PKPD_COLORS.truth, markersize=8,
+            color=PKPD_COLORS.truth, markersize=10,
             strokewidth=1, strokecolor=:white)
     lines!(ax3, t_p_valid₂, y₂_t_valid, 
           color=(PKPD_COLORS.truth, 0.7), linewidth=2.5)
           
     scatter!(ax3, t_p_valid₂, ŷ₂_count_m_valid, 
-            color=PKPD_COLORS.predicted, markersize=8,
+            color=PKPD_COLORS.predicted, markersize=10,
             strokewidth=1, strokecolor=:white)
     lines!(ax3, t_p_valid₂, ŷ₂_count_m_valid, 
           color=PKPD_COLORS.predicted, linewidth=3)

@@ -10,7 +10,7 @@ model:
     type: "BranchDecoder"
     hidden_size: 32
     depth: 2
-    dists: ["Gaussian", "Gaussian", "Gaussian", "Gaussian","Gaussian","Gaussian","Gaussian" ]
+    dists: ["Classification", "Poisson"]
 
 
 training:
@@ -28,6 +28,6 @@ training:
 
 
 experiment:
-  name: "RNN_ICU_Forecasting_V0"
-  description: "First experiment with a RNN model using Rhythm on the ICU dataset"
-  path: "experiments/" 
+  name: "RNN_PKPD_Forecasting_V0"
+  description: "First experiment with a RNN model using Rhythm on the PKPD dataset"
+  path: "experiments/"

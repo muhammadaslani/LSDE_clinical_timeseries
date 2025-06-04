@@ -76,8 +76,8 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
         end 
     end
     ttime = time() - stime
-    @info "Training finished in $(ttime) seconds"
-    @info "Best validation metric: $(best_val_metric)"
+    @info "Training finished in $(round(ttime, digits=2)) seconds"
+    @info "Best validation metric: $(round(best_val_metric, digits=2))"
     return θ_best
 end
 

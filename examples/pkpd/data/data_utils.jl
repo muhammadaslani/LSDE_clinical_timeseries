@@ -4,7 +4,7 @@ function generate_dataloader(; n_samples=512, batchsize=64, split=(0.5,0.3), obs
     Y₂_padded, Masks₂, _ = pad_matrices(Y₂, T)
     X_padded, _ = pad_matrices(X, T; return_timepoints=false)
     Y₁_irreg, Y₂_irreg, Masks₁, Masks₂ = irregularize(Y₁_padded,Y₂_padded, Masks₁, Masks₂)
-    timepoints = timepoints/7/53
+    timepoints = timepoints/7.0f0
 
     covars=repeat(reshape(covariates,5,1,size(covariates,2)),1,size(Y₁_padded)[2],1)
     U = cat(U..., dims=3)
