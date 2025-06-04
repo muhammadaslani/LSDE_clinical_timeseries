@@ -23,7 +23,7 @@ model:
       hidden_size: 32
       depth: 1
       activation: sigmoid
-    solver: EM()
+    solver: LambaEM()
     kwargs:
         dt: 0.05
 
@@ -47,7 +47,7 @@ training:
     step_every: 50  # Apply decay every epoch
   validation:
       latent_dim: *latentdim  
-      solver: EM()
+      solver: LambaEM()
       mcmc_samples: 50
       kwargs:
           dt: 0.05

@@ -13,13 +13,13 @@ function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecaste
     u_obs, x_obs, y_obs, masks_obs = obs_data
     u_for, x_for, y_for, masks_for = future_true_data
     μ, σ = forecasted_data
-    t_obs = t_obs * 10 
-    t_for = t_for * 10 
+    t_obs = t_obs * 20 
+    t_for = t_for * 20 
 
     y_labels = ["MAP (mmHg)", "HR (bpm)", "Temperature (°C)"]
     fig = Figure(size=(1200, 800), fontsize=14, 
                  backgroundcolor=:white,
-                 figure_padding=20)
+                 figure_padding=(0, 0, 0, 10))
     axes = CairoMakie.Axis[]
     rmse = []
     crps = []
@@ -115,19 +115,19 @@ function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecaste
                 if i == 1
                     poly!(ax, [0, t_obs[end], t_obs[end], 0], 
                          [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
-                         color=(MEDICAL_COLORS.obs_period, 0.7), 
+                         color=(MEDICAL_COLORS.obs_period, 0.5), 
                          label="Observation Period")
                     poly!(ax, [t_obs[end], t_for_val[end], t_for_val[end], t_obs[end]], 
                          [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
-                         color=(MEDICAL_COLORS.forecast_period, 0.7), 
+                         color=(MEDICAL_COLORS.forecast_period, 0.5), 
                          label="Forecasting Period")
                 else
                     poly!(ax, [0, t_obs[end], t_obs[end], 0], 
                          [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
-                         color=(MEDICAL_COLORS.obs_period, 0.7))
+                         color=(MEDICAL_COLORS.obs_period, 0.5))
                     poly!(ax, [t_obs[end], t_for_val[end], t_for_val[end], t_obs[end]], 
                          [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
-                         color=(MEDICAL_COLORS.forecast_period, 0.7))
+                         color=(MEDICAL_COLORS.forecast_period, 0.5))
                 end
                 
                 # Plot historical observations
@@ -185,7 +185,10 @@ function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecaste
 
                 y_range = maximum(all_y_values) - minimum(all_y_values)
                 y_padding = max(0.15 * y_range, 0.01 * maximum(all_y_values))
-                ylims!(ax, minimum(all_y_values), maximum(all_y_values))
+                ylims!(ax, minimum(all_y_values) - y_padding, maximum(all_y_values) + y_padding)
+                
+                # Set x-axis limits to start from 0 and end exactly where data ends
+                xlims!(ax, 0, t_for_val[end])
                 
                 # Add vertical separator line
                 vlines!(ax, [t_obs[end]], color=("#666666", 0.6), linewidth=2, linestyle=:dash)
@@ -224,13 +227,13 @@ function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecaste
     u_obs, x_obs, y_obs, masks_obs = obs_data
     u_for, x_for, y_for, masks_for = future_true_data
     μ, σ = forecasted_data
-    t_obs = t_obs * 10 
-    t_for = t_for * 10 
+    t_obs = t_obs * 20 
+    t_for = t_for * 20 
 
     y_labels = ["MAP (mmHg)", "HR (bpm)", "Temperature (°C)"]
     fig = Figure(size=(1200, 800), fontsize=14, 
                  backgroundcolor=:white,
-                 figure_padding=20)
+                 figure_padding=(0, 0, 0, 10))
     axes = CairoMakie.Axis[]
     rmse = []
 
@@ -309,19 +312,19 @@ function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecaste
                 if i == 1
                     poly!(ax, [0, t_obs[end], t_obs[end], 0], 
                          [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
-                         color=(MEDICAL_COLORS.obs_period, 0.7), 
+                         color=(MEDICAL_COLORS.obs_period, 0.5), 
                          label="Observation Period")
                     poly!(ax, [t_obs[end], t_for_val[end], t_for_val[end], t_obs[end]], 
                          [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
-                         color=(MEDICAL_COLORS.forecast_period, 0.7), 
+                         color=(MEDICAL_COLORS.forecast_period, 0.5), 
                          label="Forecasting Period")
                 else
                     poly!(ax, [0, t_obs[end], t_obs[end], 0], 
                          [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
-                         color=(MEDICAL_COLORS.obs_period, 0.7))
+                         color=(MEDICAL_COLORS.obs_period, 0.5))
                     poly!(ax, [t_obs[end], t_for_val[end], t_for_val[end], t_obs[end]], 
                          [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
-                         color=(MEDICAL_COLORS.forecast_period, 0.7))
+                         color=(MEDICAL_COLORS.forecast_period, 0.5))
                 end
                 
                 # Plot historical observations
@@ -368,7 +371,10 @@ function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecaste
 
                 y_range = maximum(all_y_values) - minimum(all_y_values)
                 y_padding = max(0.15 * y_range, 0.01 * maximum(all_y_values))
-                ylims!(ax, minimum(all_y_values) , maximum(all_y_values))
+                ylims!(ax, minimum(all_y_values) - y_padding, maximum(all_y_values) + y_padding)
+                
+                # Set x-axis limits to start from 0 and end exactly where data ends
+                xlims!(ax, 0, t_for_val[end])
                 
                 # Add vertical separator line
                 vlines!(ax, [t_obs[end]], color=("#666666", 0.6), linewidth=2, linestyle=:dash)

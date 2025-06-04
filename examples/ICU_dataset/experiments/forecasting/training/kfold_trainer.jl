@@ -114,7 +114,7 @@ function kfold_train(data, n_folds, rng, config_path, model_type, timepoints, lo
             lode_config = deepcopy(config["model"])
             model, θ, st = create_latentsde(lode_config, dims, rng)
         elseif model_type == "rnn"
-            model, θ, st = create_rnn_model(config["model"], dims, rng)
+            model, θ, st = create_rnn_model(config["model"], dims, rng, length(timepoints_for))
         else
             error("Unsupported model type: $model_type")
         end

@@ -29,10 +29,10 @@ data, train_loader, val_loader, test_loader, time_series_dataset = load_data(
 # Setup timepoints
 n_timepoints = size(hcat(data[2], data[6]))[2];
 tspan = (1.0, n_timepoints);
-timepoints = (range(tspan[1], tspan[2], length=n_timepoints)) / 10 |> Array{Float32};
+timepoints = (range(tspan[1], tspan[2], length=n_timepoints)) / 20 |> Array{Float32};
 
 # Perform k-fold training with Latent SDE model
-n_folds = 5
+n_folds = 3
 config_path_lsde = joinpath(@__DIR__, "..", "..", "configs", "ICU_config_lsde.yml");
 model_type_lsde = "lsde"
 
