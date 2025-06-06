@@ -24,6 +24,7 @@ function loss_fn_rnn(model, θ, st, data)
     # Forward pass
     ŷ, st = model(input_combined, θ, st)
     # Calculate reconstruction loss
+
     recon_loss1 = CrossEntropy_Loss(ŷ[1], y₁_forecast, mask₁_forecast; agg=sum) / batch_size
     recon_loss2 = -poisson_loglikelihood(ŷ[2], y₂_forecast, mask₂_forecast) / batch_size
 

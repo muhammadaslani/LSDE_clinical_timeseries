@@ -17,10 +17,10 @@ include("models/model_creator.jl");
 rng = Random.MersenneTwister(123);
 ## Configuration
 variables_of_interest = [ "Health Score", "Tumor Volume", "Cancer cell count" ];
-k_folds = 5
+k_folds = 2
 
 # loading data
-data, train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast = generate_dataloader(; n_samples=512, batchsize=32, split=(0.6,0.2), obs_fraction=0.5);
+data, train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast = generate_dataloader(; n_samples=512, batchsize=32, split=(0.6,0.2), obs_fraction=0.7);
 
 # LSDE K-Fold Training
 model_type_lsde= "lsde"
@@ -114,7 +114,7 @@ rnn_stats = assess_model_performance(
     model_type="rnn",
     forecast_fn=forecast_rnn,
     plot_sample=true,
-    sample_n=1,
+    sample_n=6,
     viz_fn=viz_fn_rnn,
     models=rnn_models,
     params=rnn_params, 
