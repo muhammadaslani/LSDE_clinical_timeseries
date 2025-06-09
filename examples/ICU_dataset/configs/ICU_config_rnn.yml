@@ -1,23 +1,17 @@
 model:
-  type: "RNN"
-  latent_dim: &latentdim 32
-
-  obs_encoder:
-    type: "Recurrent_Encoder"
+  encoder: 
     hidden_size: 32
-
-  obs_decoder:
-    type: "BranchDecoder"
+    num_layers: 2
+  output_head:
     hidden_size: 32
-    depth: 2
-    dists: ["Gaussian", "Gaussian", "Gaussian", "Gaussian","Gaussian","Gaussian","Gaussian" ]
+    num_layers: 2
 
 
 training:
   learning_rate: 0.005
   optimizer: AdamW(0.005) 
   epochs: 200
-  log_freq: 10
+  log_freq: 20
   viz_freq: 10
   stop_patience: 20
   lr_decay:
@@ -28,6 +22,6 @@ training:
 
 
 experiment:
-  name: "RNN_ICU_Forecasting_V0"
-  description: "First experiment with a RNN model using Rhythm on the ICU dataset"
-  path: "experiments/" 
+  name: "RNN_PKPD_Forecasting_V0"
+  description: "First experiment with a RNN model using Rhythm on the PKPD dataset"
+  path: "experiments/"

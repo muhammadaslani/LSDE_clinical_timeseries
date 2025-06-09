@@ -12,7 +12,9 @@ end
 # Forecasting function for RNN models
 function forecast_rnn(model, θ, st, obs_data, u_forecast, time_forecast, config)
     u_obs, x_obs, y_obs, masks_obs = obs_data
-    ŷ, st = model(vcat(x_obs,u_obs), θ, st)
+    history_data = vcat(x_obs, u_obs)
+    forecast_length = size(u_forecast)[2]
+    ŷ, st = model(history_data, u_forecast, forecast_length, θ, st)
     μ = [ŷ[i][1] for i in eachindex(ŷ)]
     σ = [sqrt.(exp.(ŷ[i][2])) for i in eachindex(ŷ)]
     return μ, σ

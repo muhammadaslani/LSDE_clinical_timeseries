@@ -96,6 +96,7 @@ function MLP_Decoder(latent_dim, obs_dim; hidden_size, depth, dist)
 
     mlp = Chain(Dense(latent_dim => hidden_size), [Dense(hidden_size, hidden_size) for i in 1:depth]...)
     if dist == "Gaussian"
+        # BranchLayer is used to create two outputs: one for the mean and one for the log variance
         output_net = Chain(mlp, BranchLayer(Dense(hidden_size, obs_dim), Dense(hidden_size, obs_dim)))
     elseif dist == "Poisson"
         output_net = Chain(mlp, Dense(hidden_size, obs_dim), x -> exp.(x))

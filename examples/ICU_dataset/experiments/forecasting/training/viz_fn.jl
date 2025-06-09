@@ -227,6 +227,7 @@ function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecaste
     u_obs, x_obs, y_obs, masks_obs = obs_data
     u_for, x_for, y_for, masks_for = future_true_data
     μ, σ = forecasted_data
+
     t_obs = t_obs * 20 
     t_for = t_for * 20 
 
@@ -248,9 +249,10 @@ function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecaste
         t_for_val = t_for[masks_for[i, :, sample_n] .== 1]
 
         # Generate predicted distributions (RNN format)
+
         dists = Normal.(μ[i], σ[i])
         ŷ = rand.(dists)
-
+        ŷ = ŷ[1, :, :]
         # Calculate RMSE over all samples, not just one sample
         # Need to collect all valid predictions and ground truth across all samples
         ŷ_for_all = Float32[]

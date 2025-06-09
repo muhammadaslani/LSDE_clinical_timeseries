@@ -19,12 +19,15 @@ function eval_fn_rnn(model, θ, st, ts, data, config)
     # For RNN, evaluation is similar to loss calculation
     u_obs, x_obs, y_obs, masks_obs, u_for, x_for, y_for, masks_for = data
     batch_size = size(y_for)[end]
-    ŷ, st = model(vcat(x_obs, u_obs), θ, st)
+    history_data = vcat(x_obs, u_obs)
+    forecast_length = size(y_for)[2]
+    # Generate predictions
+    ŷ, st = model(history_data, u_for, forecast_length, θ, st)
     loss = 0.0f0
     for i in eachindex(ŷ)
         μ, log_σ² = ŷ[i][1], ŷ[i][2]
         valid_indx = findall(masks_for[i, :, :] .== 1)
-        loss += normal_loglikelihood(μ[valid_indx], log_σ²[valid_indx], y_for[i, valid_indx]) / batch_size
+        loss += normal_loglikelihood(μ[1,valid_indx], log_σ²[1,valid_indx], y_for[i, valid_indx]) / batch_size
     end
     return (loss, 0.0f0, 0.0f0)
 end
