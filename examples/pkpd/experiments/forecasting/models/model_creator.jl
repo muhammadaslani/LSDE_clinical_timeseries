@@ -1,126 +1,122 @@
-using Lux, Random
-
-input_dim = 2
-hidden_dim = 4
-sequence_length = 10
-output_dim = 2
-control_dim = 2
-batch_size = 8
-
-
-struct encoder_lstm
-    model
-    ps
-    st
+using Random
+using Lux
+struct EncoderLSTM<: AbstractLuxLayer
+    model::Chain
 end
-function encoder_lstm(history_dim::Int, hidden_dim::Int, output_dim::Int)
+function EncoderLSTM(history_dim::Int, hidden_dim::Int, output_dim::Int)
     # Encoder: LSTM that processes history data and returns final state
     model =Chain(
         Recurrence(LSTMCell(history_dim => hidden_dim); return_sequence=true),
         Recurrence(LSTMCell(hidden_dim => output_dim); return_sequence=false),
     )
-    ps, st = Lux.setup(MersenneTwister(123), model)
-    return encoder_lstm(model, ps, st)
+    return EncoderLSTM(model)
 end
 
-function (encoder::encoder_lstm)(history_data)
+function (encoder::EncoderLSTM)(history_data, ps, st)
     # Forward pass through encoder LSTM
-    output, st = encoder.model(history_data, encoder.ps, encoder.st)
+    output, st = encoder.model(history_data, ps, st)
     # Return final hidden and cell states
     return output, st
 end
+# Add required Lux interface methods
+Lux.initialparameters(rng::AbstractRNG, encoder::EncoderLSTM) = Lux.initialparameters(rng, encoder.model)
+Lux.initialstates(rng::AbstractRNG, encoder::EncoderLSTM) = Lux.initialstates(rng, encoder.model)
 
-# Implement parameterlength for encoder_lstm
-function Lux.parameterlength(encoder::encoder_lstm)
-    return Lux.parameterlength(encoder.model)
+struct DecoderLSTM<: AbstractLuxLayer
+    model::LSTMCell
 end
 
-encoder = encoder_lstm(input_dim, hidden_dim, output_dim);
-history_data = rand(Float32, input_dim, sequence_length, batch_size); # (history_dim, sequence_length, batch_size)
-# Forward pass through encoder
-encoder_output, st= encoder(history_data);
+function DecoderLSTM(control_dim::Int, hidden_dim::Int, output_dim::Int)
 
-
-struct decoder_lstm
-    model
-    ps
-    st
+    lstm_cell= LSTMCell(control_dim => output_dim)
+    return DecoderLSTM(lstm_cell)
 end
 
-function decoder_lstm(control_dim::Int, hidden_dim::Int, output_dim::Int, forecast_length::Int=1)
-    # Decoder: LSTM that processes control inputs and returns full sequence
-    layers = []
-    ps=[]
-    st=[]
-    for i in 1:forecast_length
-        # Each timestep processes control inputs and returns output
-        lstm_cell = LSTMCell(control_dim => output_dim)
-        push!(layers, lstm_cell)
-        lstm_ps, lstm_st = Lux.setup(MersenneTwister(123), lstm_cell)
-        push!(ps, lstm_ps)
-        push!(st, lstm_st)
+
+function (decoder::DecoderLSTM)(u_inputs, initial_hidden, initial_cell, forecast_length::Int, ps, st)
+    outputs = []
+    h, c = initial_hidden, initial_cell
+
+    for t in 1:forecast_length
+        u_t = u_inputs[:, t, :]  # Control input at timestep t
+        (output, (h, c)), _ = decoder.model((u_t, (h, c)), ps, st)
+        push!(outputs, output)
     end
-    return decoder_lstm(layers, ps, st)
+    
+    return stack(outputs, dims=2)  # Shape: (output_dim, forecast_length, batch_size)
 end
 
-function (decoder::decoder_lstm)(u_inputs, final_hidden, final_cell)
-    y=[]
-    for i in 1:length(decoder.model)
-        # Use final hidden and cell states from encoder as initial states
-        u_input = u_inputs[:, i, :]  #
-        # Extract control input for this timestep   
-        (output,(h_i,c_i)), decoder.st[i]= decoder.model[i]((u_input, (final_hidden, final_cell)), decoder.ps[i], decoder.st[i])
-        # Update final hidden and cell states for next timestep
-        final_hidden, final_cell = h_i, c_i
-        # Store output for this timestep
-        push!(y, output)
-    end
-    return stack(y, dims=2)  # Stack outputs along sequence dimension
+# Add required Lux interface methods
+Lux.initialparameters(rng::AbstractRNG, decoder::DecoderLSTM) = Lux.initialparameters(rng, decoder.model)
+Lux.initialstates(rng::AbstractRNG, decoder::DecoderLSTM) = Lux.initialstates(rng, decoder.model);
+
+struct output_head<: AbstractLuxLayer
+    model::Chain
 end
 
-# Implement parameterlength for decoder_lstm
-function Lux.parameterlength(decoder::decoder_lstm)
-    return sum(Lux.parameterlength(layer) for layer in decoder.model)
+function output_head(hidden_dim::Int, output_dim::Vector{Int})
+
+    model = Chain(
+        BranchLayer(
+            Lux.Dense(hidden_dim => output_dim[1]),
+            Lux.Dense(hidden_dim => output_dim[2], softplus)
+        )
+    )
+    return output_head(model)
 end
 
-
-decoder= decoder_lstm(control_dim, hidden_dim, output_dim, sequence_length);
-u_input= rand(Float32, control_dim, sequence_length, batch_size); # (control_dim, forecast_length, batch_size)
-final_hidden = rand(Float32, output_dim, batch_size); # (hidden_dim, batch_size)
-final_cell = rand(Float32, output_dim, batch_size); # (hidden_dim, batch_size)
-# Forward pass through decoder
-decoder_output=decoder(u_input, final_hidden, final_cell);
-
-
-struct EncoderDecoderLSTM <: AbstractLuxContainerLayer{(:encoder, :decoder)}
-    encoder
-    decoder
+function (head::output_head)(x, ps, st)
+    return head.model(x, ps, st)
 end
 
-function create_encoder_decoder_lstm(history_dim::Int, control_dim::Int, hidden_dim::Int, output_dim::Int, forecast_length::Int=1)
+# Add required Lux interface methods
+Lux.initialparameters(rng::AbstractRNG, head::output_head) = Lux.initialparameters(rng, head.model)
+Lux.initialstates(rng::AbstractRNG, head::output_head) = Lux.initialstates(rng, head.model)
+
+
+struct EncoderDecoderLSTM <: AbstractLuxContainerLayer{(:encoder, :decoder, :output_head)}
+    encoder:: EncoderLSTM
+    decoder:: DecoderLSTM
+    output_head:: output_head
+end
+
+function EncoderDecoderLSTM(history_dim::Int, control_dim::Int, hidden_dim::Int, output_dim::Vector{Int})
     
     # Encoder: LSTM that processes history data and returns final state (not sequence)
-    encoder = encoder_lstm(history_dim, hidden_dim, output_dim);
-    
+    encoder = EncoderLSTM(history_dim, hidden_dim, hidden_dim);
+
     # Decoder: LSTM that processes control inputs and returns full sequence
-    decoder = decoder_lstm(control_dim, hidden_dim, output_dim, forecast_length);
+    decoder = DecoderLSTM(control_dim, hidden_dim, hidden_dim);
+    head = output_head(hidden_dim, output_dim)  # Example output dimensions for health status and cell count
 
-    return EncoderDecoderLSTM(encoder, decoder)
+    return EncoderDecoderLSTM(encoder, decoder, head)
 end
-encoder_decoder = create_encoder_decoder_lstm(input_dim, control_dim, hidden_dim, output_dim, sequence_length);
 
-
-function (model::EncoderDecoderLSTM)(history_data, u_inputs)
+function (model::EncoderDecoderLSTM)(history_data, u_inputs, forecast_length::Int, ps, st)
     # Step 1: Encode history data to get final hidden and cell states
-    encoder_output, encoder_st = model.encoder(history_data)
-    final_hidden = encoder_output  # Final hidden and cell states from encoder
-    final_cell = encoder_output  # Assuming encoder returns both hidden and cell states as output
+    encoder_output, encoder_st = model.encoder(history_data, ps.encoder, st.encoder)
+    # Step 2: Use final hidden and cell states as initial states for decoder
+    final_hidden = encoder_output 
+    final_cell = encoder_output  
     
     # Step 3: Decode control inputs using encoder states as initial states
-    predictions = model.decoder(u_inputs, final_hidden, final_cell)
-    return predictions, encoder_st
+    decoder_output = model.decoder(u_inputs, final_hidden, final_cell, forecast_length, ps.decoder, st.decoder)
+    # Step 4: Apply output head to decoder output
+    predictions = model.output_head(decoder_output, ps.output_head, st.output_head)
+    return predictions, st
 end
 
+input_dim = 2
+hidden_dim = 4
+sequence_length = 10
+output_dim = [2,1] # Output dimensions for each output head
+control_dim = 2
+batch_size = 8
 
+model = EncoderDecoderLSTM(input_dim, control_dim, hidden_dim, output_dim);
+ps, st = Lux.setup(MersenneTwister(123), model);
 
-y, encoder_st = encoder_decoder(history_data, u_input);
+history_data = rand(Float32, input_dim, sequence_length, batch_size); # Historical data
+u_input = rand(Float32, control_dim, sequence_length, batch_size); # Control inputs
+# Forward pass through the model
+y, encoder_st = model(history_data, u_input, 5, ps, st);
