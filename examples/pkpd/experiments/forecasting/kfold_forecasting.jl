@@ -17,10 +17,10 @@ include("models/model_creator.jl");
 rng = Random.MersenneTwister(123);
 ## Configuration
 variables_of_interest = [ "Health Score", "Tumor Volume", "Cancer cell count" ];
-k_folds = 2
+k_folds = 2 # Number of folds for cross-validation
 
 # loading data
-data, train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast = generate_dataloader(; n_samples=512, batchsize=32, split=(0.6,0.2), obs_fraction=0.7);
+data, train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast = generate_dataloader(; n_samples=512, batchsize=32, split=(0.6,0.2), obs_fraction=0.2);
 
 # LSDE K-Fold Training
 model_type_lsde= "lsde"

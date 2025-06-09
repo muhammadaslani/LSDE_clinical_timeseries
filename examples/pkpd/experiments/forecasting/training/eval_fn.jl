@@ -17,12 +17,13 @@ function eval_fn_rnn(model, θ, st, ts, data, config)
     u_obs, covars_obs, x_obs, y₁_obs, y₂_obs, mask₁_obs, mask₂_obs, 
         u_forecast, covars_forecast, x_forecast, y₁_forecast, y₂_forecast, mask₁_forecast, mask₂_forecast = data
 
+    forecast_length = size(u_forecast, 2)
     batch_size = size(y₁_forecast)[end]
     # Combine inputs for RNN
-    input_combined = vcat(covars_obs, y₁_obs, y₂_obs, u_obs)
+    history = vcat(covars_obs, y₁_obs, y₂_obs, u_obs)
     # Forward pass
-    ŷ, st = model(input_combined, θ, st)
-    
+    ŷ, st = model(history, u_forecast, forecast_length, θ, st)
+
     # Calculate evaluation losses
     eval_loss1 = CrossEntropy_Loss(ŷ[1], y₁_forecast, mask₁_forecast; agg=sum) / batch_size
     eval_loss2 = -poisson_loglikelihood(ŷ[2], y₂_forecast, mask₂_forecast) / batch_size

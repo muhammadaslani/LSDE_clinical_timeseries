@@ -23,7 +23,7 @@ model:
       activation: sigmoid
     solver: EM()
     kwargs:
-        dt: 0.25
+        dt: 0.5
 
   obs_decoder:
     type: "BranchDecoder"
@@ -48,7 +48,7 @@ training:
       solver: EM()
       mcmc_samples: 50
       kwargs:
-          dt: 0.25
+          dt: 0.5
 experiment:
   name: "LatentSDE_PKPD_V0"
   description: "First experiment with a Latent SDE model using Rhythm on the PKPD model"

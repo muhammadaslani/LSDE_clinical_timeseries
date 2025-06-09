@@ -18,11 +18,12 @@ function loss_fn_rnn(model, θ, st, data)
     (u_obs, covars_obs, x_obs, y₁_obs, y₂_obs, mask₁_obs, mask₂_obs,
      u_forecast, covars_forecast, x_forecast, y₁_forecast, y₂_forecast, mask₁_forecast, mask₂_forecast ), ts, λ = data
 
+    forecast_length = size(u_forecast, 2)
     batch_size = size(y₁_forecast)[end]
-    input_combined = vcat(covars_obs, y₁_obs, y₂_obs, u_obs)
+    history = vcat(covars_obs, y₁_obs, y₂_obs, u_obs)
     
     # Forward pass
-    ŷ, st = model(input_combined, θ, st)
+    ŷ, st = model(history, u_forecast, forecast_length, θ, st)
     # Calculate reconstruction loss
 
     recon_loss1 = CrossEntropy_Loss(ŷ[1], y₁_forecast, mask₁_forecast; agg=sum) / batch_size

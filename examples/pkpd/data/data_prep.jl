@@ -147,7 +147,7 @@ Generate observations from a solution.
 - `Tuple{Vector{Int}, Vector{Int}, Vector{Float64}}`: Health observations, tumor observations, and time points
 """
 
-function generate_observations(sol::RODESolution, sample_rate::Int; noise_std::Float64 = 0.1)::Tuple{Vector{Int}, Vector{Int}, Vector{Float64}}
+function generate_observations(sol::RODESolution, sample_rate::Int; noise_std::Float64 = 0.4)::Tuple{Vector{Int}, Vector{Int}, Vector{Float64}}
     # Poisson sampling
     y_obs = rand.(Poisson.((sol[1, :])))[1:sample_rate:end]
     noise_std=noise_std.*y_obs

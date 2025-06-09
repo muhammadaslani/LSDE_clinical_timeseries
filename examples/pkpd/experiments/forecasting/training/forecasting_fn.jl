@@ -12,10 +12,11 @@ function forecast_rnn(model, θ, st, obs_data, u_forecast, time_forecast, config
     u_obs, covars_obs, x_obs, y₁_obs, y₂_obs, masks₁_obs, masks₂_obs = obs_data
     
     # Combine inputs: covariates + health status + cell count + control inputs + observations
-    input_combined = vcat(covars_obs, y₁_obs, y₂_obs, u_obs)
+    history = vcat(covars_obs, y₁_obs, y₂_obs, u_obs)
+    forecast_length = size(u_forecast, 2)
     
     # Forward pass through RNN
-    ŷ, st = model(input_combined, θ, st)
+    ŷ, st = model(history, u_forecast, forecast_length, θ, st)
     
     ŷ₁, ŷ₂ = ŷ[1], ŷ[2]  # Health status logits, Cell count rates
     Ex = nothing  # RNN doesn't have latent state trajectory like NDE models
