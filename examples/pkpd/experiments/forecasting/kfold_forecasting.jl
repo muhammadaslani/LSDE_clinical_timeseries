@@ -20,7 +20,7 @@ variables_of_interest = [ "Health Score", "Tumor Volume", "Cancer cell count" ];
 k_folds = 2 # Number of folds for cross-validation
 
 # loading data
-data, train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast = generate_dataloader(; n_samples=512, batchsize=32, split=(0.6,0.2), obs_fraction=0.2);
+data, train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast = generate_dataloader(; n_samples=512, batchsize=32, split=(0.6,0.2), obs_fraction=0.5);
 
 # LSDE K-Fold Training
 model_type_lsde= "lsde"
@@ -46,7 +46,7 @@ lsde_stats= assess_model_performance(
     model_type="lsde",
     forecast_fn=forecast_nde,
     plot_sample=true,
-    sample_n=1,
+    sample_n=7,
     viz_fn=viz_fn_nde,
     models=lsde_models,
     params=lsde_params, 
@@ -114,7 +114,7 @@ rnn_stats = assess_model_performance(
     model_type="rnn",
     forecast_fn=forecast_rnn,
     plot_sample=true,
-    sample_n=6,
+    sample_n=1,
     viz_fn=viz_fn_rnn,
     models=rnn_models,
     params=rnn_params, 

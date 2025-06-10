@@ -15,7 +15,8 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
     lr_schedule = [initial_lr * (gamma ^ (floor(Int, (epoch-1) / step_every))) for epoch in 1:config["epochs"]]
 
     n_batches = length(train_loader)
-    θ_best = nothing
+    #θ_best = nothing
+    θ_best= θ
     best_val_metric = Inf
     counter = 0
     @info "Training started"

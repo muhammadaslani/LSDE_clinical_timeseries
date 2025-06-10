@@ -624,7 +624,7 @@ function viz_fn_rnn(obs_timepoints, for_timepoints, obs_data, future_true_data, 
         scatter!(ax1, t_p_valid₁, ŷ₁_class_valid, 
                 color=PKPD_COLORS.predicted, markersize=10,
                 strokewidth=1, strokecolor=:white,
-                label="RNN Predictions")
+                label="Model Predictions")
         lines!(ax1, t_p_valid₁, ŷ₁_class_valid, 
               color=PKPD_COLORS.predicted, linewidth=3)
     end
@@ -698,7 +698,7 @@ function viz_fn_rnn(obs_timepoints, for_timepoints, obs_data, future_true_data, 
         "Radiotherapy Sessions",
         "Historical Observations",
         "Ground Truth",
-        "RNN Predictions",
+        "Model Predictions",
         "Prediction Uncertainty"
     ]
     
