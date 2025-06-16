@@ -1,15 +1,15 @@
 
 # Professional color palette for medical time series visualization
 const MEDICAL_COLORS = (
-    observed = "#2E86AB",      # Deep blue for observations
-    truth = "#A23B72",         # Deep magenta for ground truth  
-    predicted = "#F18F01",     # Orange for predictions
-    confidence = "#C73E1D",    # Red for confidence intervals
-    obs_period = "#B8D4F0",    # More visible light blue for observation period
-    forecast_period = "#FFD4A3" # More visible light orange for forecast period
+    observed="#2E86AB",      # Deep blue for observations
+    truth="#A23B72",         # Deep magenta for ground truth  
+    predicted="#F18F01",     # Orange for predictions
+    confidence="#C73E1D",    # Red for confidence intervals
+    obs_period="#B8D4F0",    # More visible light blue for observation period
+    forecast_period="#FFD4A3" # More visible light orange for forecast period
 )
 
-function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecasted_data; sample_n=1, plot=true)
+function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecasted_data; sample_n=1, plot=true, confidence_level=0.9)
     u_obs, x_obs, y_obs, masks_obs = obs_data
     u_for, x_for, y_for, masks_for = future_true_data
     μ, σ = forecasted_data
@@ -25,46 +25,37 @@ function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecaste
     crps = []
 
     n_features = length(y_labels)  # Assuming one label per feature
+    
+    # Calculate quantile levels for confidence interval
+    alpha = 1 - confidence_level
+    lower_quantile = alpha / 2
+    upper_quantile = 1 - alpha / 2
 
     for i in 1:n_features
         y_label = y_labels[i]
-        valid_indx_obs = findall(masks_obs[i, :, :] .== 1)
-        valid_indx_for = findall(masks_for[i, :, :] .== 1)
-
         t_obs_val = t_obs[masks_obs[i, :, sample_n] .== 1]
         t_for_val = t_for[masks_for[i, :, sample_n] .== 1]
-
-        y_obs_val = y_obs[i, valid_indx_obs]
-        y_for_val = y_for[i, valid_indx_for]
 
         dists = Normal.(μ[i], σ[i])
         ŷ = rand.(dists)
 
         ŷ_mean = dropdims(mean(ŷ, dims=4), dims=4)
-        ŷ_std = dropdims(std(ŷ, dims=4), dims=4)
-
-        ŷ_mean_val = ŷ_mean[1, valid_indx_for]
-        ŷ_std_val = ŷ_std[1, valid_indx_for]
+        
+        # Calculate quantile-based confidence intervals
+        ŷ_ci_lower = dropdims(mapslices(x -> quantile(x, lower_quantile), ŷ, dims=4), dims=4)
+        ŷ_ci_upper = dropdims(mapslices(x -> quantile(x, upper_quantile), ŷ, dims=4), dims=4)
 
         crps_ = empirical_crps(y_for[i:i, :, :], ŷ, masks_for[i:i, :, :])
-        rmse_ = sqrt(MSELoss()(ŷ_mean_val, y_for_val))
-
-
+        rmse_ = sqrt(mse(ŷ_mean[1,:,:], y_for[i,:,:], masks_for[i,:,:]))
 
         push!(crps, crps_)
         push!(rmse, rmse_)
-        
-        ŷ_ci_lower = ŷ_mean .- ŷ_std
-        ŷ_ci_upper = ŷ_mean .+ ŷ_std
 
         if plot
-                    # Calculate sample-specific RMSE and CRPS for the intended sample
-        sample_ŷ_mean = ŷ_mean[1, masks_for[i, :, sample_n] .== 1, sample_n]
-        sample_y_for = y_for[i, masks_for[i, :, sample_n] .== 1, sample_n]
-        
+       
         # Check if the sample has any data points
-        if !isempty(sample_ŷ_mean) && !isempty(sample_y_for)
-            sample_rmse_ = sqrt(MSELoss()(sample_ŷ_mean, sample_y_for))
+        if !isempty(masks_for[i, :, sample_n])
+            sample_rmse_ = sqrt(mse(ŷ_mean[1,:, sample_n], y_for[i, :, sample_n], masks_for[i, :, sample_n]))
             
             # For sample CRPS, extract predictions for this specific sample
             sample_ŷ = ŷ[:, :,  sample_n:sample_n,:]  # Keep 4D structure for empirical_crps
@@ -115,42 +106,44 @@ function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecaste
                 if i == 1
                     poly!(ax, [0, t_obs[end], t_obs[end], 0], 
                          [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
-                         color=(MEDICAL_COLORS.obs_period, 0.5), 
+                         color=(MEDICAL_COLORS.obs_period, 0.3), 
                          label="Observation Period")
                     poly!(ax, [t_obs[end], t_for_val[end], t_for_val[end], t_obs[end]], 
                          [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
-                         color=(MEDICAL_COLORS.forecast_period, 0.5), 
+                         color=(MEDICAL_COLORS.forecast_period, 0.3), 
                          label="Forecasting Period")
                 else
                     poly!(ax, [0, t_obs[end], t_obs[end], 0], 
                          [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
-                         color=(MEDICAL_COLORS.obs_period, 0.5))
+                         color=(MEDICAL_COLORS.obs_period, 0.3))
                     poly!(ax, [t_obs[end], t_for_val[end], t_for_val[end], t_obs[end]], 
                          [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
-                         color=(MEDICAL_COLORS.forecast_period, 0.5))
+                         color=(MEDICAL_COLORS.forecast_period, 0.3))
                 end
                 
                 # Plot historical observations
                 scatter!(ax, t_obs_val, y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n], 
                         color=MEDICAL_COLORS.observed, 
                         label=i == 1 ? "Historical Observations" : "", 
-                        markersize=8,
+                        markersize=12,
                         strokewidth=1,
                         strokecolor=:white)
                 lines!(ax, t_obs_val, y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n], 
                       color=(MEDICAL_COLORS.observed, 0.7), 
-                      linewidth=2.5)
+                      linewidth=1.5,
+                      linestyle=:dash)
 
                 # Plot ground truth future data
                 scatter!(ax, t_for_val, y_for[i, masks_for[i, :, sample_n] .== 1, sample_n], 
                         color=MEDICAL_COLORS.truth, 
                         label=i == 1 ? "Ground Truth" : "", 
-                        markersize=8,
+                        markersize=12,
                         strokewidth=1,
                         strokecolor=:white)
                 lines!(ax, t_for_val, y_for[i, masks_for[i, :, sample_n] .== 1, sample_n], 
                       color=(MEDICAL_COLORS.truth, 0.7), 
-                      linewidth=2.5)
+                      linewidth=1.5,
+                      linestyle=:dash)
 
                 # Plot model predictions with confidence intervals
                 pred_vals = ŷ_mean[1, masks_for[i, :, sample_n] .== 1, sample_n]
@@ -160,17 +153,17 @@ function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecaste
                 # Plot confidence band first (so it's behind other elements)
                 band!(ax, t_for_val, ci_lower, ci_upper, 
                      color=(MEDICAL_COLORS.confidence, 0.25),
-                     label=i == 1 ? "95% Confidence Interval" : "")
+                     label=i == 1 ? "$(Int(confidence_level*100))% Confidence Interval" : "")
                 
                 # Plot prediction line and points
                 lines!(ax, t_for_val, pred_vals, 
                       color=MEDICAL_COLORS.predicted, 
-                      linewidth=3,
-                      linestyle=:solid)
+                      linewidth=1.5,
+                      linestyle=:dash)
                 scatter!(ax, t_for_val, pred_vals, 
                         color=MEDICAL_COLORS.predicted, 
                         label=i == 1 ? "Model Predictions" : "", 
-                        markersize=8,
+                        markersize=12,
                         strokewidth=1,
                         strokecolor=:white)
 
@@ -242,8 +235,6 @@ function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecaste
 
     for i in 1:n_features
         y_label = y_labels[i]
-        valid_indx_obs = findall(masks_obs[i, :, :] .== 1)
-        valid_indx_for = findall(masks_for[i, :, :] .== 1)
 
         t_obs_val = t_obs[masks_obs[i, :, sample_n] .== 1]
         t_for_val = t_for[masks_for[i, :, sample_n] .== 1]
@@ -253,22 +244,8 @@ function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecaste
         dists = Normal.(μ[i], σ[i])
         ŷ = rand.(dists)
         ŷ = ŷ[1, :, :]
-        # Calculate RMSE over all samples, not just one sample
         # Need to collect all valid predictions and ground truth across all samples
-        ŷ_for_all = Float32[]
-        y_for_all = Float32[]
-        
-        for s in 1:size(masks_for, 3)  # Loop over all samples
-            valid_mask = masks_for[i, :, s] .== 1
-            if any(valid_mask)
-                append!(ŷ_for_all, ŷ[valid_mask, s])
-                append!(y_for_all, y_for[i, valid_mask, s])
-            end
-        end
-        
-        rmse_ = sqrt(MSELoss()(ŷ_for_all, y_for_all))
-        
-
+        rmse_ = sqrt(mse(ŷ, y_for[i, :, :], masks_for[i, :, :]))
 
         push!(rmse, rmse_)
 
@@ -277,12 +254,9 @@ function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecaste
             if isempty(t_obs_val) || isempty(t_for_val)
                 @warn "Insufficient data for $y_label in sample $sample_n"
                 continue
-            else
-                ŷ_for_sample = ŷ[masks_for[i, :, sample_n] .== 1, sample_n]
-                y_for_sample = y_for[i, masks_for[i, :, sample_n] .== 1, sample_n]
-            
+            else            
                 # Calculate RMSE for the intended sample (for printing when plot=true)
-                sample_rmse_ = sqrt(MSELoss()(ŷ_for_sample, y_for_sample))
+                sample_rmse_ = sqrt(mse(ŷ[:,sample_n], y_for[i, :, sample_n], masks_for[i, :, sample_n]))
                 # Print RMSE for this feature and intended sample
                 println("Sample $sample_n - $(y_labels[i]) RMSE: $(round(sample_rmse_, digits=4))")
 
@@ -305,7 +279,7 @@ function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecaste
                 temp_all_y_values = vcat(
                     y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n],
                     y_for[i, masks_for[i, :, sample_n] .== 1, sample_n],
-                    ŷ_for_sample
+                    ŷ[masks_for[i, :, sample_n] .== 1, sample_n]
                 )
                 y_min_bg = minimum(temp_all_y_values) - 0.25 * (maximum(temp_all_y_values) - minimum(temp_all_y_values))
                 y_max_bg = maximum(temp_all_y_values) + 0.25 * (maximum(temp_all_y_values) - minimum(temp_all_y_values))
@@ -314,53 +288,55 @@ function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecaste
                 if i == 1
                     poly!(ax, [0, t_obs[end], t_obs[end], 0], 
                          [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
-                         color=(MEDICAL_COLORS.obs_period, 0.5), 
+                         color=(MEDICAL_COLORS.obs_period, 0.3), 
                          label="Observation Period")
                     poly!(ax, [t_obs[end], t_for_val[end], t_for_val[end], t_obs[end]], 
                          [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
-                         color=(MEDICAL_COLORS.forecast_period, 0.5), 
+                         color=(MEDICAL_COLORS.forecast_period, 0.3), 
                          label="Forecasting Period")
                 else
                     poly!(ax, [0, t_obs[end], t_obs[end], 0], 
                          [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
-                         color=(MEDICAL_COLORS.obs_period, 0.5))
+                         color=(MEDICAL_COLORS.obs_period, 0.3))
                     poly!(ax, [t_obs[end], t_for_val[end], t_for_val[end], t_obs[end]], 
                          [y_min_bg, y_min_bg, y_max_bg, y_max_bg], 
-                         color=(MEDICAL_COLORS.forecast_period, 0.5))
+                         color=(MEDICAL_COLORS.forecast_period, 0.3))
                 end
                 
                 # Plot historical observations
                 scatter!(ax, t_obs_val, y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n], 
                         color=MEDICAL_COLORS.observed, 
                         label=i == 1 ? "Historical Observations" : "", 
-                        markersize=8,
+                        markersize=12,
                         strokewidth=1,
                         strokecolor=:white)
                 lines!(ax, t_obs_val, y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n], 
                       color=(MEDICAL_COLORS.observed, 0.7), 
-                      linewidth=2.5)
+                      linewidth=1.5,
+                      linestyle=:dash)
 
                 # Plot ground truth future data
                 scatter!(ax, t_for_val, y_for[i, masks_for[i, :, sample_n] .== 1, sample_n], 
                         color=MEDICAL_COLORS.truth, 
                         label=i == 1 ? "Ground Truth" : "", 
-                        markersize=8,
+                        markersize=12,
                         strokewidth=1,
                         strokecolor=:white)
                 lines!(ax, t_for_val, y_for[i, masks_for[i, :, sample_n] .== 1, sample_n], 
                       color=(MEDICAL_COLORS.truth, 0.7), 
-                      linewidth=2.5)
+                      linewidth=1.5,
+                      linestyle=:dash)
 
                 # Plot RNN predictions (no confidence intervals)
-                pred_vals = ŷ_for_sample
+                pred_vals = ŷ[masks_for[i, :, sample_n] .== 1, sample_n]
                 lines!(ax, t_for_val, pred_vals, 
                       color=MEDICAL_COLORS.predicted, 
-                      linewidth=3,
-                      linestyle=:solid)
+                      linewidth=1.5,
+                      linestyle=:dash)
                 scatter!(ax, t_for_val, pred_vals, 
                         color=MEDICAL_COLORS.predicted, 
                         label=i == 1 ? "RNN Predictions" : "", 
-                        markersize=8,
+                        markersize=12,
                         strokewidth=1,
                         strokecolor=:white)
 

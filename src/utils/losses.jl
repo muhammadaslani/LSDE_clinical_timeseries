@@ -131,7 +131,13 @@ returns:
 
 """
 function mse(ŷ, y)
-    return sum(abs, ŷ .- y)
+    return mean(abs, ŷ .- y)
+end
+
+function mse(ŷ, y, mask::AbstractArray{Bool})
+    @assert size(ŷ) == size(y) "MSE: Predictions and targets must have the same shape"
+    @assert size(ŷ) == size(mask) "MSE: Predictions and mask must have the same shape"
+    return sum(mask .* abs.(ŷ .- y))/length(findall(mask.== true))
 end
 
 """

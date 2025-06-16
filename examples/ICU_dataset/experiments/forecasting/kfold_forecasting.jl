@@ -21,7 +21,7 @@ variables_of_interest = ["MAP", "HR", "Temp"];
 n_features = length(variables_of_interest);
 data, train_loader, val_loader, test_loader, time_series_dataset = load_data(
     split_at=24, 
-    n_samples=256, 
+    n_samples=512, 
     batch_size=32, 
     variables_of_interest=variables_of_interest
 );
@@ -32,7 +32,7 @@ tspan = (1.0, n_timepoints);
 timepoints = (range(tspan[1], tspan[2], length=n_timepoints)) / 20 |> Array{Float32};
 
 # Perform k-fold training with Latent SDE model
-n_folds = 3
+n_folds = 2
 config_path_lsde = joinpath(@__DIR__, "..", "..", "configs", "ICU_config_lsde.yml");
 model_type_lsde = "lsde"
 
@@ -53,7 +53,7 @@ lsde_models, lsde_params, lsde_states, lsde_performances = kfold_train(
 
 # Present LSDE model performance with sample plot
 lsde_stats = assess_model_performance(lsde_performances, variables_of_interest, model_name="Latent SDE", model_type=model_type_lsde, forecast_fn=forecast_nde,
-                           plot_sample=true, sample_n=4, viz_fn=viz_fn_forecast_nde, models=lsde_models, params=lsde_params, 
+                           plot_sample=true, sample_n=3, viz_fn=viz_fn_forecast_nde, models=lsde_models, params=lsde_params, 
                            states=lsde_states, data=test_loader.data, timepoints=timepoints, 
                            config=YAML.load_file(config_path_lsde));
 
@@ -76,7 +76,7 @@ lode_models, lode_params, lode_states, lode_performances = kfold_train(
 
 # Present LODE model performance with sample plot
 lode_stats = assess_model_performance(lode_performances, variables_of_interest, model_name="Latent ODE", model_type=model_type_lode, forecast_fn=forecast_nde,
-                           plot_sample=true, sample_n=4,viz_fn=viz_fn_forecast_nde, models=lode_models, params=lode_params, 
+                           plot_sample=true, sample_n=3,viz_fn=viz_fn_forecast_nde, models=lode_models, params=lode_params, 
                            states=lode_states, data=test_loader.data, timepoints=timepoints, 
                            config=YAML.load_file(config_path_lode));
 
@@ -102,7 +102,7 @@ rnn_models, rnn_params, rnn_states, rnn_performances = kfold_train(
 
 # Present RNN model performance with sample plot
 rnn_stats = assess_model_performance(rnn_performances, variables_of_interest, model_name="RNN", model_type=model_type_rnn, forecast_fn=forecast_rnn,
-                           plot_sample=true, sample_n=4, viz_fn=viz_fn_forecast_rnn, models=rnn_models, params=rnn_params, 
+                           plot_sample=true, sample_n=3, viz_fn=viz_fn_forecast_rnn, models=rnn_models, params=rnn_params, 
                            states=rnn_states, data=test_loader.data, timepoints=timepoints, 
                            config=YAML.load_file(rnn_config_path));
 
