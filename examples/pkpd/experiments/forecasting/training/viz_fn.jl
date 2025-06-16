@@ -504,9 +504,9 @@ function viz_fn_rnn(obs_timepoints, for_timepoints, obs_data, future_true_data, 
     end
 
     # Create the 3-panel figure with professional styling (RNN version)
-    fig = Figure(size=(900, 700), fontsize=14, 
+    fig = Figure(size=(800, 800), fontsize=14, 
                  backgroundcolor=:white,
-                 figure_padding=(0, 0, 0, 10))
+                 figure_padding=(0, 0, 0, 20))
     
     # Panel 1: Health status
     ax1 = CairoMakie.Axis(fig[1, 1], 
