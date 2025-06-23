@@ -33,6 +33,8 @@ function generate_dataloader(; n_samples=512, batchsize=64, split=(0.5,0.3), obs
     return data, train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast
 end
 
+
+# Function to generate a data loader in chunks: helpful for large datasets
 function generate_dataloader_in_chunks(; n_samples=512, batchsize=64, split=(0.5,0.3), obs_fraction=0.5, chunk_size=500)
     # Calculate number of chunks needed
     n_chunks = ceil(Int, n_samples / chunk_size)
@@ -126,6 +128,9 @@ function generate_dataloader_in_chunks(; n_samples=512, batchsize=64, split=(0.5
     @info "Creating data loaders"
     
     # Package data
+    data= (U_obs, Covars_obs, X_obs, Y₁_obs, Y₂_obs, Masks₁_obs, Masks₂_obs, 
+           U_forecast, Covars_forcast, X_forecast, Y₁_forecast, Y₂_forecast, Masks₁_forecast, Masks₂_forecast)
+
     data_obs = (U_obs, X_obs, Covars_obs, Y₁_obs, Y₂_obs, Masks₁_obs, Masks₂_obs)
     data_forecast = (U_forcast, X_forcast, Covars_forcast, Y₁_forcast, Y₂_forcast, Masks₁_forcast, Masks₂_forcast)
     
@@ -138,8 +143,8 @@ function generate_dataloader_in_chunks(; n_samples=512, batchsize=64, split=(0.5
     test_loader = DataLoader(test_data, batchsize=batchsize, shuffle=false)
 
     # Store dimensions
-    dims = Dict(
-        "obs_dim" => [size(covars, 1), size(Y₁_irreg, 1), size(Y₂_irreg, 1)],
+        dims = Dict(
+        "obs_dim" => size(Covars_obs,1)+ size(Y₁_irreg, 1)+ size(Y₂_irreg, 1),
         "input_dim" => size(U, 1),
         "state_dim" => size(X_padded, 1),
         "output_dim" => [size(Y₁_irreg, 1), size(Y₂_irreg, 1)]
@@ -147,5 +152,5 @@ function generate_dataloader_in_chunks(; n_samples=512, batchsize=64, split=(0.5
     
     @info "Data generation complete"
     
-    return train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast
+    return data, train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast
 end

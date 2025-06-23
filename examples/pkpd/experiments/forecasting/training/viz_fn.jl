@@ -145,9 +145,9 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
     end
 
     # Create the 3-panel figure with professional styling (integrated timeline approach)
-    fig = Figure(size=(800, 800), fontsize=14, 
+    fig = Figure(size=(1200, 800), fontsize=20,
                  backgroundcolor=:white,
-                 figure_padding=(0, 0, 0, 20))
+                 figure_padding=10)
     
     # Panel 1: Health status
     ax1 = CairoMakie.Axis(fig[1, 1], 
@@ -159,11 +159,11 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
                          ygridcolor=("#E5E5E5", 0.8),
                          topspinevisible=false,
                          rightspinevisible=false,
-                         xticklabelsize=12,
-                         yticklabelsize=12,
-                         xlabelsize=13,
-                         ylabelsize=13)
-    
+                         xticklabelsize=16,
+                         yticklabelsize=16,
+                         xlabelsize=20,
+                         ylabelsize=20)
+
     # Panel 2: Tumor size
     ax2 = CairoMakie.Axis(fig[2, 1], 
                          xlabel="", 
@@ -174,11 +174,11 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
                          ygridcolor=("#E5E5E5", 0.8),
                          topspinevisible=false,
                          rightspinevisible=false,
-                         xticklabelsize=12,
-                         yticklabelsize=12,
-                         xlabelsize=13,
-                         ylabelsize=13)
-    
+                         xticklabelsize=16,
+                         yticklabelsize=16,
+                         xlabelsize=20,
+                         ylabelsize=20)
+
     # Panel 3: Cell count
     ax3 = CairoMakie.Axis(fig[3, 1], 
                          xlabel="Time (days)", 
@@ -189,10 +189,10 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
                          ygridcolor=("#E5E5E5", 0.8),
                          topspinevisible=false,
                          rightspinevisible=false,
-                         xticklabelsize=12,
-                         yticklabelsize=12,
-                         xlabelsize=13,
-                         ylabelsize=13)
+                         xticklabelsize=16,
+                         yticklabelsize=16,
+                         xlabelsize=20,
+                         ylabelsize=20)
 
     # Add background periods and intervention lines for all panels with dynamic y-limits
     y_limits = [(y1_min, y1_max), (y2_min, y2_max), (y3_min, y3_max)]
@@ -218,65 +218,62 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
         end
         
         # Add vertical separator line like in ICU version
-        vlines!(ax, [max_t_o_valid₁], color=("#666666", 0.6), linewidth=2, linestyle=:dash)
+        vlines!(ax, [max_t_o_valid₁], color=("#666666", 0.8), linewidth=5, linestyle=:dash)
         
         # Add intervention lines across all panels for integrated timeline
         if i == 1  # Only add to legend once
             # Chemotherapy intervention lines
-            vlines!(ax, t_o[valid_indices_chemo_o], color=:navy, linewidth=2.5, alpha=0.8,
+            vlines!(ax, t_o[valid_indices_chemo_o], color=:navy, linewidth=4.5, alpha=0.8,
                    label="Chemotherapy Sessions")
-            vlines!(ax, t_p[valid_indices_chemo_p], color=:navy, linewidth=2.5, alpha=0.8)
+            vlines!(ax, t_p[valid_indices_chemo_p], color=:navy, linewidth=4.5, alpha=0.8)
             
             # Radiotherapy intervention lines  
-            vlines!(ax, t_o[valid_indices_radio_o], color=:darkred, linewidth=2.5, alpha=0.8,
+            vlines!(ax, t_o[valid_indices_radio_o], color=:darkred, linewidth=4.5, alpha=0.8,
                    label="Radiotherapy Sessions")
-            vlines!(ax, t_p[valid_indices_radio_p], color=:darkred, linewidth=2.5, alpha=0.8)
+            vlines!(ax, t_p[valid_indices_radio_p], color=:darkred, linewidth=4.5, alpha=0.8)
         else
             # No labels for subsequent panels
-            vlines!(ax, t_o[valid_indices_chemo_o], color=:navy, linewidth=2.5, alpha=0.8)
-            vlines!(ax, t_p[valid_indices_chemo_p], color=:navy, linewidth=2.5, alpha=0.8)
-            vlines!(ax, t_o[valid_indices_radio_o], color=:darkred, linewidth=2.5, alpha=0.8)
-            vlines!(ax, t_p[valid_indices_radio_p], color=:darkred, linewidth=2.5, alpha=0.8)
+            vlines!(ax, t_o[valid_indices_chemo_o], color=:navy, linewidth=4.5, alpha=0.8)
+            vlines!(ax, t_p[valid_indices_chemo_p], color=:navy, linewidth=4.5, alpha=0.8)
+            vlines!(ax, t_o[valid_indices_radio_o], color=:darkred, linewidth=4.5, alpha=0.8)
+            vlines!(ax, t_p[valid_indices_radio_p], color=:darkred, linewidth=4.5, alpha=0.8)
         end
     end
 
     # Plot health status
     if !isempty(t_o_valid₁) && !isempty(y₁_o_class_valid)
         scatter!(ax1, t_o_valid₁, y₁_o_class_valid, 
-                color=PKPD_COLORS.observed, markersize=12,
-                strokewidth=1, strokecolor=:white,
+                color=PKPD_COLORS.observed, markersize=20,
                 label="Historical Observations")
         lines!(ax1, t_o_valid₁, y₁_o_class_valid, 
-              color=(PKPD_COLORS.observed, 0.7), linewidth=1.5, linestyle=:dash)
+              color=(PKPD_COLORS.observed, 0.7), linewidth=3.5, linestyle=:dash)
     end
           
     if !isempty(t_p_valid₁) && !isempty(y₁_t_class_valid)
         scatter!(ax1, t_p_valid₁, y₁_t_class_valid, 
-                color=PKPD_COLORS.truth, markersize=12,
-                strokewidth=1, strokecolor=:white,
+                color=PKPD_COLORS.truth, markersize=20,
                 label="Ground Truth")
         lines!(ax1, t_p_valid₁, y₁_t_class_valid, 
-              color=(PKPD_COLORS.truth, 0.7), linewidth=1.5, linestyle=:dash)
+              color=(PKPD_COLORS.truth, 0.7), linewidth=3.5, linestyle=:dash)
     end
           
     if !isempty(t_p_valid₁) && !isempty(ŷ₁_class_valid)
         scatter!(ax1, t_p_valid₁, ŷ₁_class_valid, 
-                color=PKPD_COLORS.predicted, markersize=12,
-                strokewidth=1, strokecolor=:white,
+                color=PKPD_COLORS.predicted, markersize=20,
                 label="Model Predictions")
         lines!(ax1, t_p_valid₁, ŷ₁_class_valid, 
-              color=PKPD_COLORS.predicted, linewidth=1.5, linestyle=:dash)
+              color=PKPD_COLORS.predicted, linewidth=3.5, linestyle=:dash)
     end
           
     if !isempty(t_p_valid₁) && !isempty(ŷ₁_class_valid) && !isempty(ŷ₁_conf_valid)
         errorbars!(ax1, t_p_valid₁, ŷ₁_class_valid, ŷ₁_conf_valid, 
-                  color=(PKPD_COLORS.confidence, 0.6), whiskerwidth=8)
+                  color=(PKPD_COLORS.confidence, 0.6), whiskerwidth=12)
     end
 
     # Plot observed tumor size (historical data) - use index-based plotting for underlying tumor size
     lines!(ax2, Array(1:length(vcat(x_o[1, :, sample_n], x_t[1, :, sample_n]))), 
           vcat(x_o[1, :, sample_n], x_t[1, :, sample_n]), 
-          color=(PKPD_COLORS.observed, 0.7), linewidth=1.5, linestyle=:dash,
+          color=(PKPD_COLORS.observed, 0.7), linewidth=3.5, linestyle=:dash,
           label="Historical Observations")
           
     # Plot confidence band first (so it's behind other elements)
@@ -284,33 +281,27 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
          color=(PKPD_COLORS.confidence, 0.25))
          
     lines!(ax2, t_p, ŷ₂_m[1, :, sample_n], 
-          color=PKPD_COLORS.predicted, linewidth=1.5, linestyle=:dash,
+          color=PKPD_COLORS.predicted, linewidth=3.5, linestyle=:dash,
           label="Model Predictions")
-    #scatter!(ax2, t_p_valid₂, ŷ₂_m_valid, 
-            #color=PKPD_COLORS.predicted, markersize=12,
-            #strokewidth=1, strokecolor=:white)
 
-    # Plot cell count with professional styling  
-    scatter!(ax3, t_o_valid₂, y₂_o_valid, 
-            color=PKPD_COLORS.observed, markersize=12,
-            strokewidth=1, strokecolor=:white)
+    # Plot cell count with professional styling
+    scatter!(ax3, t_o_valid₂, y₂_o_valid,
+            color=PKPD_COLORS.observed, markersize=20)
     lines!(ax3, t_o_valid₂, y₂_o_valid, 
-          color=(PKPD_COLORS.observed, 0.7), linewidth=1.5, linestyle=:dash)
+          color=(PKPD_COLORS.observed, 0.7), linewidth=3.5, linestyle=:dash)
 
     scatter!(ax3, t_p_valid₂, y₂_t_valid, 
-            color=PKPD_COLORS.truth, markersize=12,
-            strokewidth=1, strokecolor=:white)
+            color=PKPD_COLORS.truth, markersize=20)
     lines!(ax3, t_p_valid₂, y₂_t_valid, 
-          color=(PKPD_COLORS.truth, 0.7), linewidth=1.5, linestyle=:dash)
+          color=(PKPD_COLORS.truth, 0.7), linewidth=3.5, linestyle=:dash)
 
     scatter!(ax3, t_p_valid₂, ŷ₂_count_m_valid, 
-            color=PKPD_COLORS.predicted, markersize=12,
-            strokewidth=1, strokecolor=:white)
+            color=PKPD_COLORS.predicted, markersize=20)
     lines!(ax3, t_p_valid₂, ŷ₂_count_m_valid, 
-          color=PKPD_COLORS.predicted, linewidth=1.5, linestyle=:dash)
+          color=PKPD_COLORS.predicted, linewidth=3.5, linestyle=:dash)
 
     errorbars!(ax3, t_p_valid₂, ŷ₂_count_m_valid, ŷ₂_count_confidence_valid, 
-              color=(PKPD_COLORS.confidence, 0.6), whiskerwidth=8)
+              color=(PKPD_COLORS.confidence, 0.6), whiskerwidth=12)
 
     # Link x-axes for synchronized zooming/panning
     linkxaxes!(ax1, ax2, ax3)
@@ -329,9 +320,9 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
     custom_elements = [
         PolyElement(color=(PKPD_COLORS.obs_period, 0.3)),
         PolyElement(color=(PKPD_COLORS.forecast_period, 0.3)),
-        MarkerElement(color=PKPD_COLORS.observed, marker=:circle, markersize=16, strokecolor=:white, strokewidth=1),
-        MarkerElement(color=PKPD_COLORS.truth, marker=:circle, markersize=16, strokecolor=:white, strokewidth=1), 
-        MarkerElement(color=PKPD_COLORS.predicted, marker=:circle, markersize=16, strokecolor=:white, strokewidth=1),
+        MarkerElement(color=PKPD_COLORS.observed, marker=:circle, markersize=20),
+        MarkerElement(color=PKPD_COLORS.truth, marker=:circle, markersize=20), 
+        MarkerElement(color=PKPD_COLORS.predicted, marker=:circle, markersize=20),
         LineElement(color=(PKPD_COLORS.confidence, 0.4), linewidth=16, linestyle=:solid),  # Thicker line to represent error bars
         LineElement(color=:navy, linewidth=4.5),
         LineElement(color=:darkred, linewidth=4.5)
@@ -354,17 +345,18 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
                   tellwidth=true,
                   margin=(10, 10, 10, 10),
                   framevisible=false,
-                  labelsize=12,
+                  labelsize=24,
                   halign=:center,
                   nbanks=2)  # Use 2 rows to fit all legend items nicely
     fig[4, 1] = legend  # Place legend below all 3 panels
     
-    # Ensure plots take full width
-    colsize!(fig.layout, 1, Auto())
+   colsize!(fig.layout, 1, Relative(1.0))
+
     
-    # Add spacing like ICU version
+    # Add spacing 
     rowgap!(fig.layout, 15)
-    #colgap!(fig.layout, 10)
+    colgap!(fig.layout, 10)
+    
     
     return fig, crossentropy_health, rmse_tumor, nll_count
 end
@@ -504,9 +496,9 @@ function viz_fn_rnn(obs_timepoints, for_timepoints, obs_data, future_true_data, 
     end
 
     # Create the 3-panel figure with professional styling (RNN version)
-    fig = Figure(size=(800, 800), fontsize=14, 
+    fig = Figure(size=(1200, 800), fontsize=20, 
                  backgroundcolor=:white,
-                 figure_padding=(0, 0, 0, 20))
+                 figure_padding=10)
     
     # Panel 1: Health status
     ax1 = CairoMakie.Axis(fig[1, 1], 
@@ -519,11 +511,11 @@ function viz_fn_rnn(obs_timepoints, for_timepoints, obs_data, future_true_data, 
                          ygridcolor=("#E5E5E5", 0.8),
                          topspinevisible=false,
                          rightspinevisible=false,
-                         xticklabelsize=12,
-                         yticklabelsize=12,
-                         xlabelsize=13,
-                         ylabelsize=13,
-                         titlesize=15)
+                         xticklabelsize=16,
+                         yticklabelsize=16,
+                         xlabelsize=20,
+                         ylabelsize=20,
+                         titlesize=18)
     
     # Panel 2: Tumor size
     ax2 = CairoMakie.Axis(fig[2, 1], 
@@ -535,10 +527,10 @@ function viz_fn_rnn(obs_timepoints, for_timepoints, obs_data, future_true_data, 
                          ygridcolor=("#E5E5E5", 0.8),
                          topspinevisible=false,
                          rightspinevisible=false,
-                         xticklabelsize=12,
-                         yticklabelsize=12,
-                         xlabelsize=13,
-                         ylabelsize=13)
+                         xticklabelsize=16,
+                         yticklabelsize=16,
+                         xlabelsize=20,
+                         ylabelsize=20)
     
     # Panel 3: Cell count
     ax3 = CairoMakie.Axis(fig[3, 1], 
@@ -550,10 +542,10 @@ function viz_fn_rnn(obs_timepoints, for_timepoints, obs_data, future_true_data, 
                          ygridcolor=("#E5E5E5", 0.8),
                          topspinevisible=false,
                          rightspinevisible=false,
-                         xticklabelsize=12,
-                         yticklabelsize=12,
-                         xlabelsize=13,
-                         ylabelsize=13)
+                         xticklabelsize=16,
+                         yticklabelsize=16,
+                         xlabelsize=20,
+                         ylabelsize=20)
 
     # Add background periods and intervention lines for all panels with dynamic y-limits
     y_limits = [(y1_min, y1_max), (y2_min, y2_max), (y3_min, y3_max)]
@@ -579,100 +571,93 @@ function viz_fn_rnn(obs_timepoints, for_timepoints, obs_data, future_true_data, 
         end
         
         # Add vertical separator line
-        vlines!(ax, [max_t_o_valid₁], color=("#666666", 0.6), linewidth=2, linestyle=:dash)
+        vlines!(ax, [max_t_o_valid₁], color=("#666666", 0.8), linewidth=5, linestyle=:dash)
         
         # Add intervention lines across all panels for integrated timeline
         if i == 1  # Only add to legend once
             # Chemotherapy intervention lines
-            vlines!(ax, t_o[valid_indices_chemo_o], color=:navy, linewidth=2.5, alpha=0.8,
+            vlines!(ax, t_o[valid_indices_chemo_o], color=:navy, linewidth=4.5, alpha=0.8,
                    label="Chemotherapy Sessions")
-            vlines!(ax, t_p[valid_indices_chemo_p], color=:navy, linewidth=2.5, alpha=0.8)
+            vlines!(ax, t_p[valid_indices_chemo_p], color=:navy, linewidth=4.5, alpha=0.8)
             
             # Radiotherapy intervention lines  
-            vlines!(ax, t_o[valid_indices_radio_o], color=:darkred, linewidth=2.5, alpha=0.8,
+            vlines!(ax, t_o[valid_indices_radio_o], color=:darkred, linewidth=4.5, alpha=0.8,
                    label="Radiotherapy Sessions")
-            vlines!(ax, t_p[valid_indices_radio_p], color=:darkred, linewidth=2.5, alpha=0.8)
+            vlines!(ax, t_p[valid_indices_radio_p], color=:darkred, linewidth=4.5, alpha=0.8)
         else
             # No labels for subsequent panels
-            vlines!(ax, t_o[valid_indices_chemo_o], color=:navy, linewidth=2.5, alpha=0.8)
-            vlines!(ax, t_p[valid_indices_chemo_p], color=:navy, linewidth=2.5, alpha=0.8)
-            vlines!(ax, t_o[valid_indices_radio_o], color=:darkred, linewidth=2.5, alpha=0.8)
-            vlines!(ax, t_p[valid_indices_radio_p], color=:darkred, linewidth=2.5, alpha=0.8)
+            vlines!(ax, t_o[valid_indices_chemo_o], color=:navy, linewidth=4.5, alpha=0.8)
+            vlines!(ax, t_p[valid_indices_chemo_p], color=:navy, linewidth=4.5, alpha=0.8)
+            vlines!(ax, t_o[valid_indices_radio_o], color=:darkred, linewidth=4.5, alpha=0.8)
+            vlines!(ax, t_p[valid_indices_radio_p], color=:darkred, linewidth=4.5, alpha=0.8)
         end
     end
 
     # Plot health status with professional styling
     if !isempty(t_o_valid₁) && !isempty(y₁_o_class_valid)
         scatter!(ax1, t_o_valid₁, y₁_o_class_valid, 
-                color=PKPD_COLORS.observed, markersize=12,
+                color=PKPD_COLORS.observed, markersize=20,
                 strokewidth=1, strokecolor=:white,
                 label="Historical Observations")
         lines!(ax1, t_o_valid₁, y₁_o_class_valid, 
-              color=(PKPD_COLORS.observed, 0.7), linewidth=1.5, linestyle=:dash)
+              color=(PKPD_COLORS.observed, 0.7), linewidth=3.5, linestyle=:dash)
     end
           
     if !isempty(t_p_valid₁) && !isempty(y₁_t_class_valid)
         scatter!(ax1, t_p_valid₁, y₁_t_class_valid, 
-                color=PKPD_COLORS.truth, markersize=12,
+                color=PKPD_COLORS.truth, markersize=20,
                 strokewidth=1, strokecolor=:white,
                 label="Ground Truth")
         lines!(ax1, t_p_valid₁, y₁_t_class_valid, 
-              color=(PKPD_COLORS.truth, 0.7), linewidth=1.5, linestyle=:dash)
+              color=(PKPD_COLORS.truth, 0.7), linewidth=3.5, linestyle=:dash)
     end
           
     if !isempty(t_p_valid₁) && !isempty(ŷ₁_class_valid)
         scatter!(ax1, t_p_valid₁, ŷ₁_class_valid, 
-                color=PKPD_COLORS.predicted, markersize=12,
+                color=PKPD_COLORS.predicted, markersize=20,
                 strokewidth=1, strokecolor=:white,
                 label="Model Predictions")
         lines!(ax1, t_p_valid₁, ŷ₁_class_valid, 
-              color=PKPD_COLORS.predicted, linewidth=1.5, linestyle=:dash)
+              color=PKPD_COLORS.predicted, linewidth=3.5, linestyle=:dash)
     end
           
     if !isempty(t_p_valid₁) && !isempty(ŷ₁_class_valid) && !isempty(ŷ₁_conf_valid)
         errorbars!(ax1, t_p_valid₁, ŷ₁_class_valid, ŷ₁_conf_valid, 
-                  color=(PKPD_COLORS.confidence, 0.6), whiskerwidth=8)
+                  color=(PKPD_COLORS.confidence, 0.6), whiskerwidth=12)
     end
 
     # Plot tumor size with professional styling
     # Plot observed tumor size (historical data) - use index-based plotting for underlying tumor size
     lines!(ax2, Array(1:length(vcat(x_o[1, :, sample_n], x_t[1, :, sample_n]))), 
           vcat(x_o[1, :, sample_n], x_t[1, :, sample_n]), 
-          color=(PKPD_COLORS.observed, 0.7), linewidth=1.5, linestyle=:dash,
+          color=(PKPD_COLORS.observed, 0.7), linewidth=3.5, linestyle=:dash,
           label="Historical Observations")
-          
-    # Plot confidence band first (so it's behind other elements)
-    #band!(ax2, t_p, ŷ₂_CI_low, ŷ₂_CI_up, 
-         #color=(PKPD_COLORS.confidence, 0.25))
          
     lines!(ax2, t_p, ŷ₂_m[1, :, sample_n], 
-          color=PKPD_COLORS.predicted, linewidth=1.5, linestyle=:dash,
+          color=PKPD_COLORS.predicted, linewidth=3.5, linestyle=:dash,
           label="Model Predictions")
-    #scatter!(ax2, t_p_valid₂, ŷ₂_m_valid, 
-            #color=PKPD_COLORS.predicted, markersize=12,
-            #strokewidth=1, strokecolor=:white)
 
     # Plot cell count with professional styling  
     scatter!(ax3, t_o_valid₂, y₂_o_valid, 
-            color=PKPD_COLORS.observed, markersize=12,
+            color=PKPD_COLORS.observed, markersize=20,
             strokewidth=1, strokecolor=:white)
     lines!(ax3, t_o_valid₂, y₂_o_valid, 
-          color=(PKPD_COLORS.observed, 0.7), linewidth=1.5, linestyle=:dash)
+          color=(PKPD_COLORS.observed, 0.7), linewidth=3.5, linestyle=:dash)
           
     scatter!(ax3, t_p_valid₂, y₂_t_valid, 
-            color=PKPD_COLORS.truth, markersize=12,
+            color=PKPD_COLORS.truth, markersize=20,
             strokewidth=1, strokecolor=:white)
     lines!(ax3, t_p_valid₂, y₂_t_valid, 
-          color=(PKPD_COLORS.truth, 0.7), linewidth=1.5, linestyle=:dash)
+          color=(PKPD_COLORS.truth, 0.7), linewidth=3.5, linestyle=:dash)
           
     scatter!(ax3, t_p_valid₂, ŷ₂_count_m_valid, 
-            color=PKPD_COLORS.predicted, markersize=12,
+            color=PKPD_COLORS.predicted, markersize=20,
             strokewidth=1, strokecolor=:white)
     lines!(ax3, t_p_valid₂, ŷ₂_count_m_valid, 
-          color=PKPD_COLORS.predicted, linewidth=1.5, linestyle=:dash)
+          color=PKPD_COLORS.predicted, linewidth=3.5, linestyle=:dash)
           
     errorbars!(ax3, t_p_valid₂, ŷ₂_count_m_valid, ŷ₂_count_confidence_valid, 
-              color=(PKPD_COLORS.confidence, 0.6), whiskerwidth=8)
+              color=(PKPD_COLORS.confidence, 0.6), whiskerwidth=12)
 
     # Link x-axes for synchronized zooming/panning
     linkxaxes!(ax1, ax2, ax3)
@@ -687,16 +672,22 @@ function viz_fn_rnn(obs_timepoints, for_timepoints, obs_data, future_true_data, 
     ylims!(ax3, y3_min, y3_max)
     
     # Create consolidated legend at the bottom
-    # Create custom legend elements for better uncertainty representation
+ # Manually create a legend element that mimics a boxplot
+boxplot_legend_element = [
+    LineElement(color=:black, linewidth=2),                   # whiskers
+    PolyElement(color=:lightblue, strokecolor=:black)         # box
+]
+
     custom_elements = [
         PolyElement(color=(PKPD_COLORS.obs_period, 0.3)),
         PolyElement(color=(PKPD_COLORS.forecast_period, 0.3)),
-        MarkerElement(color=PKPD_COLORS.observed, marker=:circle, markersize=16, strokecolor=:white, strokewidth=1),
-        MarkerElement(color=PKPD_COLORS.truth, marker=:circle, markersize=16, strokecolor=:white, strokewidth=1), 
-        MarkerElement(color=PKPD_COLORS.predicted, marker=:circle, markersize=16, strokecolor=:white, strokewidth=1),
+        MarkerElement(color=PKPD_COLORS.observed, marker=:circle, markersize=20, strokecolor=:white, strokewidth=1),
+        MarkerElement(color=PKPD_COLORS.truth, marker=:circle, markersize=20, strokecolor=:white, strokewidth=1), 
+        MarkerElement(color=PKPD_COLORS.predicted, marker=:circle, markersize=20, strokecolor=:white, strokewidth=1),
         LineElement(color=(PKPD_COLORS.confidence, 0.4), linewidth=16, linestyle=:solid),  # Thicker line to represent error bars
         LineElement(color=:navy, linewidth=4.5),
-        LineElement(color=:darkred, linewidth=4.5)
+        LineElement(color=:darkred, linewidth=4.5),
+        boxplot_legend_element
     ]
     
     custom_labels = [
@@ -707,7 +698,8 @@ function viz_fn_rnn(obs_timepoints, for_timepoints, obs_data, future_true_data, 
         "Model Predictions",
         "Prediction Uncertainty",
         "Chemotherapy Sessions",
-        "Radiotherapy Sessions"
+        "Radiotherapy Sessions",
+        "Boxplot Representation"
     ]
     
     legend = Legend(fig, custom_elements, custom_labels,
@@ -716,13 +708,14 @@ function viz_fn_rnn(obs_timepoints, for_timepoints, obs_data, future_true_data, 
                   tellwidth=true,
                   margin=(10, 10, 10, 10),
                   framevisible=false,
-                  labelsize=12,
+                  labelsize=24,
                   halign=:center,
                   nbanks=2)  # Use 2 rows to fit all legend items nicely
     fig[4, 1] = legend  # Place legend below all 3 panels
     
     # Ensure plots take full width
-    colsize!(fig.layout, 1, Auto())
+   colsize!(fig.layout, 1, Relative(1.0))
+
     
     # Add spacing 
     rowgap!(fig.layout, 15)

@@ -1,11 +1,11 @@
 model:
   type: "LatentSDE"
   latent_dim: &latentdim 32
-  context_dim: 64
+  context_dim: 32
 
   obs_encoder:
     type: "Recurrent_Encoder"
-    hidden_size: 64
+    hidden_size: 32
 
   SDE:
     drift:
@@ -35,7 +35,7 @@ model:
 training:
   learning_rate: 0.005
   optimizer: AdamW(0.005) 
-  epochs: 100
+  epochs: 200
   log_freq: 20
   viz_freq: 1
   stop_patience: 20

@@ -23,7 +23,7 @@ function eval_fn_rnn(model, θ, st, ts, data, config)
     history = vcat(covars_obs, y₁_obs, y₂_obs, u_obs)
     # Forward pass
     ŷ, st = model(history, u_forecast, forecast_length, θ, st)
-
+    
     # Calculate evaluation losses
     eval_loss1 = CrossEntropy_Loss(ŷ[1], y₁_forecast, mask₁_forecast; agg=sum) / batch_size
     eval_loss2 = -poisson_loglikelihood(ŷ[2], y₂_forecast, mask₂_forecast) / batch_size

@@ -17,9 +17,10 @@ function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecaste
     t_for = t_for * 20 
 
     y_labels = ["MAP (mmHg)", "HR (bpm)", "Temperature (°C)"]
-    fig = Figure(size=(1200, 800), fontsize=14, 
+    # Optimized figure size and font settings for 800x600
+    fig = Figure(size=(1200, 800), fontsize=20, 
                  backgroundcolor=:white,
-                 figure_padding=(0, 0, 0, 10))
+                 figure_padding=20)
     axes = CairoMakie.Axis[]
     rmse = []
     crps = []
@@ -81,10 +82,12 @@ function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecaste
                     ygridcolor=("#E5E5E5", 0.8),
                     topspinevisible=false,
                     rightspinevisible=false,
-                    xticklabelsize=12,
-                    yticklabelsize=12,
-                    xlabelsize=13,
-                    ylabelsize=13)
+                    xticklabelsize=16,
+                    yticklabelsize=16,
+                    xlabelsize=16,
+                    ylabelsize=16,
+                    titlesize=16,
+                    spinewidth=1.0)
                 push!(axes, ax)
                 
                 # Calculate data range for background polygons
@@ -125,24 +128,20 @@ function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecaste
                 scatter!(ax, t_obs_val, y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n], 
                         color=MEDICAL_COLORS.observed, 
                         label=i == 1 ? "Historical Observations" : "", 
-                        markersize=12,
-                        strokewidth=1,
-                        strokecolor=:white)
+                        markersize=16)
                 lines!(ax, t_obs_val, y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n], 
                       color=(MEDICAL_COLORS.observed, 0.7), 
-                      linewidth=1.5,
+                      linewidth=2,
                       linestyle=:dash)
 
                 # Plot ground truth future data
                 scatter!(ax, t_for_val, y_for[i, masks_for[i, :, sample_n] .== 1, sample_n], 
                         color=MEDICAL_COLORS.truth, 
                         label=i == 1 ? "Ground Truth" : "", 
-                        markersize=12,
-                        strokewidth=1,
-                        strokecolor=:white)
+                        markersize=16)
                 lines!(ax, t_for_val, y_for[i, masks_for[i, :, sample_n] .== 1, sample_n], 
                       color=(MEDICAL_COLORS.truth, 0.7), 
-                      linewidth=1.5,
+                      linewidth=2,
                       linestyle=:dash)
 
                 # Plot model predictions with confidence intervals
@@ -158,13 +157,13 @@ function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecaste
                 # Plot prediction line and points
                 lines!(ax, t_for_val, pred_vals, 
                       color=MEDICAL_COLORS.predicted, 
-                      linewidth=1.5,
+                      linewidth=2,
                       linestyle=:dash)
                 scatter!(ax, t_for_val, pred_vals, 
                         color=MEDICAL_COLORS.predicted, 
                         label=i == 1 ? "Model Predictions" : "", 
-                        markersize=12,
-                        strokewidth=1,
+                        markersize=16,
+                        strokewidth=2,
                         strokecolor=:white)
 
                 # Set axis limits with proper padding
@@ -184,7 +183,7 @@ function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecaste
                 xlims!(ax, 0, t_for_val[end])
                 
                 # Add vertical separator line
-                vlines!(ax, [t_obs[end]], color=("#666666", 0.6), linewidth=2, linestyle=:dash)
+                vlines!(ax, [t_obs[end]], color=("#666666", 0.8), linewidth=3, linestyle=:dash)
             end
         end
     end
@@ -199,13 +198,14 @@ function viz_fn_forecast_nde(t_obs, t_for, obs_data, future_true_data, forecaste
                           tellwidth=true,
                           margin=(10, 10, 10, 10),
                           framevisible=false,
-                          labelsize=12,
+                          labelsize=16,
                           halign=:center,
                           nbanks=1)
             fig[n_features + 1, 1] = legend
         end
         
         linkxaxes!(axes...)
+        colsize!(fig.layout, 1, Relative(1.0))
         rowgap!(fig.layout, 15)
         colgap!(fig.layout, 10)
         display(fig)
@@ -225,9 +225,9 @@ function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecaste
     t_for = t_for * 20 
 
     y_labels = ["MAP (mmHg)", "HR (bpm)", "Temperature (°C)"]
-    fig = Figure(size=(1200, 800), fontsize=14, 
+    fig = Figure(size=(800, 600), fontsize=8, 
                  backgroundcolor=:white,
-                 figure_padding=(0, 0, 0, 10))
+                 figure_padding=8)
     axes = CairoMakie.Axis[]
     rmse = []
 
@@ -269,10 +269,10 @@ function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecaste
                     ygridcolor=("#E5E5E5", 0.8),
                     topspinevisible=false,
                     rightspinevisible=false,
-                    xticklabelsize=12,
-                    yticklabelsize=12,
-                    xlabelsize=13,
-                    ylabelsize=13)
+                    xticklabelsize=7,
+                    yticklabelsize=7,
+                    xlabelsize=8,
+                    ylabelsize=8)
                 push!(axes, ax)
                 
                 # Calculate data range for background polygons  
@@ -307,37 +307,37 @@ function viz_fn_forecast_rnn(t_obs, t_for, obs_data, future_true_data, forecaste
                 scatter!(ax, t_obs_val, y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n], 
                         color=MEDICAL_COLORS.observed, 
                         label=i == 1 ? "Historical Observations" : "", 
-                        markersize=12,
-                        strokewidth=1,
+                        markersize=8,
+                        strokewidth=0.8,
                         strokecolor=:white)
                 lines!(ax, t_obs_val, y_obs[i, masks_obs[i, :, sample_n] .== 1, sample_n], 
                       color=(MEDICAL_COLORS.observed, 0.7), 
-                      linewidth=1.5,
+                      linewidth=1.2,
                       linestyle=:dash)
 
                 # Plot ground truth future data
                 scatter!(ax, t_for_val, y_for[i, masks_for[i, :, sample_n] .== 1, sample_n], 
                         color=MEDICAL_COLORS.truth, 
                         label=i == 1 ? "Ground Truth" : "", 
-                        markersize=12,
-                        strokewidth=1,
+                        markersize=8,
+                        strokewidth=0.8,
                         strokecolor=:white)
                 lines!(ax, t_for_val, y_for[i, masks_for[i, :, sample_n] .== 1, sample_n], 
                       color=(MEDICAL_COLORS.truth, 0.7), 
-                      linewidth=1.5,
+                      linewidth=1.2,
                       linestyle=:dash)
 
                 # Plot RNN predictions (no confidence intervals)
                 pred_vals = ŷ[masks_for[i, :, sample_n] .== 1, sample_n]
                 lines!(ax, t_for_val, pred_vals, 
                       color=MEDICAL_COLORS.predicted, 
-                      linewidth=1.5,
+                      linewidth=1.2,
                       linestyle=:dash)
                 scatter!(ax, t_for_val, pred_vals, 
                         color=MEDICAL_COLORS.predicted, 
                         label=i == 1 ? "RNN Predictions" : "", 
-                        markersize=12,
-                        strokewidth=1,
+                        markersize=8,
+                        strokewidth=0.8,
                         strokecolor=:white)
 
                 # Set axis limits with proper padding

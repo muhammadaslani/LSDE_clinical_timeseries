@@ -53,9 +53,17 @@ lsde_models, lsde_params, lsde_states, lsde_performances = kfold_train(
 
 # Present LSDE model performance with sample plot
 lsde_stats = assess_model_performance(lsde_performances, variables_of_interest, model_name="Latent SDE", model_type=model_type_lsde, forecast_fn=forecast_nde,
-                           plot_sample=true, sample_n=3, viz_fn=viz_fn_forecast_nde, models=lsde_models, params=lsde_params, 
+                           plot_sample=true, sample_n=17, viz_fn=viz_fn_forecast_nde, models=lsde_models, params=lsde_params, 
                            states=lsde_states, data=test_loader.data, timepoints=timepoints, 
                            config=YAML.load_file(config_path_lsde));
+
+# Save the LSDE figure if it was generated
+if !isnothing(lsde_stats.figure)
+    # Save high-quality figures in multiple formats
+    save("lsde_forecasting_sample_17_hq.png", lsde_stats.figure, px_per_unit=5.0)  # High DPI PNG
+    println("LSDE forecasting figures saved as:")
+    println("  - lsde_forecasting_sample_17_hq.png (high DPI)")
+end
 
 # Perform k-fold training with Latent ODE model
 config_path_lode = joinpath(@__DIR__, "..", "..", "configs", "ICU_config_lode.yml");
@@ -79,6 +87,16 @@ lode_stats = assess_model_performance(lode_performances, variables_of_interest, 
                            plot_sample=true, sample_n=3,viz_fn=viz_fn_forecast_nde, models=lode_models, params=lode_params, 
                            states=lode_states, data=test_loader.data, timepoints=timepoints, 
                            config=YAML.load_file(config_path_lode));
+
+# Save the LODE figure if it was generated
+if !isnothing(lode_stats.figure)
+    # Save high-quality figures in multiple formats
+    save("lode_forecasting_sample_3_hq.png", lode_stats.figure, px_per_unit=3.0)  # High DPI PNG
+    println("LODE forecasting figures saved as:")
+    println("  - lode_forecasting_sample_3_hq.png (high DPI)")
+    println("  - lode_forecasting_sample_3.pdf (vector)")
+    println("  - lode_forecasting_sample_3.svg (vector)")
+end
 
 
 # RNN model training and evaluation
@@ -105,6 +123,12 @@ rnn_stats = assess_model_performance(rnn_performances, variables_of_interest, mo
                            plot_sample=true, sample_n=3, viz_fn=viz_fn_forecast_rnn, models=rnn_models, params=rnn_params, 
                            states=rnn_states, data=test_loader.data, timepoints=timepoints, 
                            config=YAML.load_file(rnn_config_path));
+
+# Save the RNN figure if it was generated
+if !isnothing(rnn_stats.figure)
+    save("rnn_forecasting_sample_3.png", rnn_stats.figure)
+    println("RNN forecasting figure saved as 'rnn_forecasting_sample_3.png'")
+end
 
 # Compare RNN model with others
 model_comparison_rnn = compare_models(

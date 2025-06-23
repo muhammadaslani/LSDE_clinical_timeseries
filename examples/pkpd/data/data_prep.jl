@@ -48,7 +48,9 @@ Base.@kwdef struct ModelParameters
                   (tumor_type == "SCLC" ? 1.08 : 0.92)
     
     ω_c::Float64 = 1.0   # Chemotherapy sessions frequency (every X weeks)
-    
+
+    t_half_c::Float64 = abs(rand(Normal(0.1,0.05))) # Half-life of chemotherapy
+
     # Linear effect of radiotherapy: affected by age and tumor type
     α_r::Float64 = abs(rand(Normal(0.1,0.05))) * 
                   (1 - 0.001*(age - 50)) * 
@@ -59,7 +61,10 @@ Base.@kwdef struct ModelParameters
                   (tumor_type == "SCLC" ? 1.04 : 0.96)
     
     ω_r::Float64 = 3.0   # Radiotherapy sessions frequency (every X weeks)
-    
+
+    t_half_r::Float64 = abs(rand(Normal(0.1,0.05))) # Half-life of radiotherapy
+
+
     # Reduced immune growth rate: affected by age and BMI
     δ::Float64 = abs(rand(Normal(0.013,0.005))) * 
                 (1 - 0.005*(age - 50)/30) * 
@@ -246,12 +251,10 @@ PKPD model differential equations.
 - `t::Float64`: Time
 """
 function model!(dX::Vector{Float64}, X::Vector{Float64}, p::ModelParameters, t::Float64)
-    c_p=abs(rand(Normal(0.1,0.05)))
-    c_r=abs(rand(Normal(0.1,0.05)))
     x, c, d, I, S = X
     dX[1] = (p.ρ * log(p.K / (max(x, 1e-5))) - p.β_c * c - (p.α_r * d + p.β_r * d^2)) * x
-    dX[2] = -c_p * c + u_c(t, p.ω_c)
-    dX[3] = -c_r * d + u_r(t, p.ω_r)
+    dX[2] = -p.t_half_c * c + u_c(t, p.ω_c)
+    dX[3] = -p.t_half_r * d + u_r(t, p.ω_r)
     dX[4] = p.δ * (1 - I / p.I_max) * I - p.β_I * c - p.α_I * d + p.θ_I * (p.I_max - I) / (1 + p.λ_I * x) - p.ω_I * I
     health_tumor_effect = p.θ_S * (1 - S) / (1 + p.λ_S * x)
     health_immune_effect = -p.γ_S * ((I / p.I_max) - 1)^2
@@ -270,7 +273,7 @@ Diffusion term for the stochastic differential equation.
 - `t::Float64`: Time
 """
 function diffusion(dX::Vector{Float64}, X::Vector{Float64}, p::ModelParameters, t::Float64)
-    dX[1] = 1e-2 * sqrt(X[1]^2)
+    dX[1] = 5e-2 * sqrt(X[1]^2)
 end
 
 """
@@ -326,7 +329,6 @@ Generate a dataset of PKPD model simulations.
 """
 function generate_dataset(;
     n_samples::Int,
-    X₀::Vector{Float64} = [30.0, 0.0, 0.0, 0.8, 0.9],
     X₀_mean::Vector{Float64} = [50.0, 0.0, 0.0, 0.8, 0.9],
     X₀_std::Vector{Float64} = [10.0, 0.0, 0.0, 0.3, 0.3],    
     tspan::Tuple{Float64,Float64} = (0.0, 180.0),
