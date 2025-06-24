@@ -14,13 +14,11 @@ function forecast_rnn(model, θ, st, obs_data, u_forecast, time_forecast, config
     # Combine inputs: covariates + health status + cell count + control inputs + observations
     history = vcat(covars_obs, y₁_obs, y₂_obs, u_obs)
     forecast_length = size(u_forecast, 2)
-    
-    # Forward pass through RNN
-    ŷ, st = model(history, u_forecast, forecast_length, θ, st)
-    
-    ŷ₁, ŷ₂ = ŷ[1], ŷ[2]  # Health status logits, Cell count rates
-    Ex = nothing  # RNN doesn't have latent state trajectory like NDE models
-    Ey_p = (ŷ₁, ŷ₂)  # Tuple of predictions for each output
+
+    ŷ, st, vae_params = model(history, u_forecast, forecast_length, θ, st)
+    ŷ₁, ŷ₂ = ŷ[1], ŷ[2] 
+    Ex = nothing 
+    Ey_p = (ŷ₁, ŷ₂)
     
     return Ex, Ey_p
 end

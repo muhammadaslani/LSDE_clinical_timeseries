@@ -23,14 +23,15 @@ function loss_fn_rnn(model, θ, st, data)
     history = vcat(covars_obs, y₁_obs, y₂_obs, u_obs)
     
     # Forward pass
-    ŷ, st = model(history, u_forecast, forecast_length, θ, st)
+    ŷ, st, vae_params = model(history, u_forecast, forecast_length, θ, st)
+    μ, logσ² = vae_params.μ, vae_params.logσ²
     # Calculate reconstruction loss
 
     recon_loss1 = CrossEntropy_Loss(ŷ[1], y₁_forecast, mask₁_forecast; agg=sum) / batch_size
     recon_loss2 = -poisson_loglikelihood(ŷ[2], y₂_forecast, mask₂_forecast) / batch_size
 
     total_recon_loss = recon_loss1 + recon_loss2
-    kl_loss = 0.0f0  # RNN doesn't have KL divergence
+    kl_loss = kl_normal(μ, exp.(logσ²)) / batch_size
     
     return total_recon_loss, st, (kl_loss, total_recon_loss, recon_loss1, recon_loss2)
 end

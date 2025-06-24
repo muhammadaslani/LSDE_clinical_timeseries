@@ -47,7 +47,7 @@ rnn_models, rnn_params, rnn_states, rnn_performances = kfold_train_pkpd(data, di
                                                                         loss_fn_rnn, eval_fn_rnn, forecast_rnn, viz_fn_rnn);
 
 rnn_stats = assess_model_performance(rnn_performances, variables_of_interest; model_name="RNN", model_type="rnn", forecast_fn=forecast_rnn, plot_sample=true,
-                                     sample_n=1, viz_fn=viz_fn_rnn, models=rnn_models, params=rnn_params, states=rnn_states, data=data, 
+                                     sample_n=3, viz_fn=viz_fn_rnn, models=rnn_models, params=rnn_params, states=rnn_states, data=data, 
                                      timepoints=(timepoints_obs, timepoints_forecast), config=YAML.load_file(config_rnn_path)["training"]);
 
 

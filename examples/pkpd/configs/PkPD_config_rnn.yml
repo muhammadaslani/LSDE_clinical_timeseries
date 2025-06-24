@@ -1,6 +1,7 @@
 model:
   encoder: 
     hidden_size: 32
+    latent_dim: 64
     num_layers: 4
   output_head:
     hidden_size: 32
