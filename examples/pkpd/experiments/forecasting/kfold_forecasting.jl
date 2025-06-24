@@ -29,7 +29,7 @@ lsde_models, lsde_params, lsde_states, lsde_performances = kfold_train_pkpd(data
 
 
 lsde_stats = assess_model_performance(lsde_performances, variables_of_interest; model_name="Latent SDE", model_type="lsde", forecast_fn=forecast_nde, plot_sample=true, 
-                                        sample_n=1, viz_fn=viz_fn_nde, models=lsde_models, params=lsde_params, states=lsde_states, data=data, 
+                                        sample_n=2, viz_fn=viz_fn_nde, models=lsde_models, params=lsde_params, states=lsde_states, data=data, 
                                         timepoints=(timepoints_obs, timepoints_forecast), config=YAML.load_file(config_lsde_path)["training"]["validation"]);
 
 # LODE K-Fold Training

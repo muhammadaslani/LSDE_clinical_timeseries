@@ -672,12 +672,6 @@ function viz_fn_rnn(obs_timepoints, for_timepoints, obs_data, future_true_data, 
     ylims!(ax3, y3_min, y3_max)
     
     # Create consolidated legend at the bottom
- # Manually create a legend element that mimics a boxplot
-boxplot_legend_element = [
-    LineElement(color=:black, linewidth=2),                   # whiskers
-    PolyElement(color=:lightblue, strokecolor=:black)         # box
-]
-
     custom_elements = [
         PolyElement(color=(PKPD_COLORS.obs_period, 0.3)),
         PolyElement(color=(PKPD_COLORS.forecast_period, 0.3)),
@@ -687,7 +681,6 @@ boxplot_legend_element = [
         LineElement(color=(PKPD_COLORS.confidence, 0.4), linewidth=16, linestyle=:solid),  # Thicker line to represent error bars
         LineElement(color=:navy, linewidth=4.5),
         LineElement(color=:darkred, linewidth=4.5),
-        boxplot_legend_element
     ]
     
     custom_labels = [
@@ -699,7 +692,6 @@ boxplot_legend_element = [
         "Prediction Uncertainty",
         "Chemotherapy Sessions",
         "Radiotherapy Sessions",
-        "Boxplot Representation"
     ]
     
     legend = Legend(fig, custom_elements, custom_labels,
