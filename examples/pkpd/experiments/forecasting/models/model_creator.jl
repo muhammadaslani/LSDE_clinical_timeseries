@@ -2,7 +2,7 @@ using Random
 using Lux
 
 # VarEncoderDecoderLSTM Encoder that outputs mean and log-variance of latent distributions
-struct VarEncoderLSTM<: AbstractLuxLayer
+struct VarEncoderLSTM <: AbstractLuxContainerLayer{(:lstm_layers, :mean_head, :logvar_head)}
     lstm_layers::Chain
     mean_head::Dense
     logvar_head::Dense
@@ -31,7 +31,6 @@ function VarEncoderLSTM(history_dim::Int, hidden_dim::Int, latent_dim::Int, n_la
     # Create LSTM chain
     lstm_chain = Chain(layers...)
     
-    # Create heads for mean and log-variance
     mean_head = Dense(hidden_dim => latent_dim)
     logvar_head = Dense(hidden_dim => latent_dim)
     
@@ -39,10 +38,8 @@ function VarEncoderLSTM(history_dim::Int, hidden_dim::Int, latent_dim::Int, n_la
 end
 
 function (encoder::VarEncoderLSTM)(history_data, ps, st)
-    # Forward pass through LSTM layers
     lstm_output, lstm_st = encoder.lstm_layers(history_data, ps.lstm_layers, st.lstm_layers)
     
-    # Compute mean and log-variance
     μ, mean_st = encoder.mean_head(lstm_output, ps.mean_head, st.mean_head)
     logσ², logvar_st = encoder.logvar_head(lstm_output, ps.logvar_head, st.logvar_head)
     
@@ -50,33 +47,26 @@ function (encoder::VarEncoderLSTM)(history_data, ps, st)
     return (μ, logσ²), new_st
 end
 
-# Reparameterization trick for VarEncoderDecoderLSTM
 function reparameterize(μ, logσ², rng::AbstractRNG)
     σ = exp.(0.5f0 .* logσ²)
     ε = randn(Float32, size(μ)...)
     return μ .+ σ .* ε
 end
 
-struct VarDecoderLSTM<: AbstractLuxLayer
+struct VarDecoderLSTM <: AbstractLuxContainerLayer{(:latent_projection, :model)}
     latent_projection::Dense
     model::LSTMCell
 end
 
 function VarDecoderLSTM(control_dim::Int, latent_dim::Int, hidden_dim::Int)
-    # Dense layer to project latent states to hidden dimension
     latent_projection = Dense(latent_dim => hidden_dim, tanh)
-    
-    # The decoder LSTM cell takes control input
     lstm_cell = LSTMCell(control_dim => hidden_dim)
     
     return VarDecoderLSTM(latent_projection, lstm_cell)
 end
 
 function (decoder::VarDecoderLSTM)(u_inputs, latent_states, forecast_length::Int, ps, st)
-    # Project latent states to hidden dimension
     projected_states, proj_st = decoder.latent_projection(latent_states, ps.latent_projection, st.latent_projection)
-    
-    # Use projected states as both initial hidden and cell states
     h, c = projected_states, projected_states
     lstm_st = st.model  # Initialize LSTM state
     
@@ -90,34 +80,25 @@ function (decoder::VarDecoderLSTM)(u_inputs, latent_states, forecast_length::Int
     return stack(outputs, dims=2), new_st  # Stack outputs along the second dimension
 end
 
-struct output_head<: AbstractLuxLayer
+struct output_head <: AbstractLuxContainerLayer{(:model,)}
     model::Chain
 end
 
 function output_head(hidden_dim::Int, output_dim::Vector{Int}, n_layers::Int=2)
-    # Create layers for the shared part
+
     shared_layers = []
-    
-    # First layer: hidden_dim -> hidden_dim
     push!(shared_layers, Dense(hidden_dim => hidden_dim, relu))
-    
-    # Middle layers: hidden_dim -> hidden_dim
     for i in 2:(n_layers-1)
         push!(shared_layers, Dense(hidden_dim => hidden_dim, relu))
     end
-    
-    # Create the final branching layer
-    final_layer = BranchLayer(
+    final_layer = Lux.BranchLayer(
         Dense(hidden_dim => output_dim[1]),
         Dense(hidden_dim => output_dim[2], softplus)
     )
-    
-    # Combine shared layers with final branching layer
     if n_layers > 1
         push!(shared_layers, final_layer)
         model = Chain(shared_layers...)
     else
-        # If only one layer, just use the branching layer
         model = final_layer
     end
     
@@ -125,7 +106,7 @@ function output_head(hidden_dim::Int, output_dim::Vector{Int}, n_layers::Int=2)
 end
 
 function (head::output_head)(x, ps, st)
-    return head.model(x, ps, st)
+    return head.model(x, ps.model, st.model)
 end
 
 struct VarEncoderDecoderLSTM <: AbstractLuxContainerLayer{(:encoder, :decoder, :output_head)}
@@ -135,30 +116,18 @@ struct VarEncoderDecoderLSTM <: AbstractLuxContainerLayer{(:encoder, :decoder, :
 end
 
 function VarEncoderDecoderLSTM(history_dim::Int, control_dim::Int, hidden_dim::Int, latent_dim::Int, output_dim::Vector{Int}, n_layers::Int=2, n_head_layers::Int=2)
-    
-    # VarEncoderDecoderLSTM Encoder: LSTM that processes history data and outputs mean/variance of latent distributions
     encoder = VarEncoderLSTM(history_dim, hidden_dim, latent_dim, n_layers)
-
-    # VarEncoderDecoderLSTM Decoder: LSTM that processes control inputs using sampled latent states
     decoder = VarDecoderLSTM(control_dim, latent_dim, hidden_dim)
-    
-    # Output head remains the same
     head = output_head(hidden_dim, output_dim, n_head_layers)
 
     return VarEncoderDecoderLSTM(encoder, decoder, head)
 end
 
 function (model::VarEncoderDecoderLSTM)(history_data, u_inputs, forecast_length::Int, ps, st; rng::AbstractRNG=Random.default_rng())
-    # Step 1: Encode history data to get mean and log-variance of latent distributions
-    (μ, logσ²), encoder_st = model.encoder(history_data, ps.encoder, st.encoder)
-    
-    # Step 2: Sample from latent distributions using reparameterization trick
-    latent_states = reparameterize(μ, logσ², rng)
-    
-    # Step 3: Decode control inputs using sampled latent states as initial states
-    decoder_output, decoder_st = model.decoder(u_inputs, latent_states, forecast_length, ps.decoder, st.decoder)
 
-    # Step 4: Apply output head to decoder output
+    (μ, logσ²), encoder_st = model.encoder(history_data, ps.encoder, st.encoder)
+    latent_states = reparameterize(μ, logσ², rng)
+    decoder_output, decoder_st = model.decoder(u_inputs, latent_states, forecast_length, ps.decoder, st.decoder)
     predictions, head_st = model.output_head(decoder_output, ps.output_head, st.output_head)
     
     new_st = (
@@ -166,25 +135,18 @@ function (model::VarEncoderDecoderLSTM)(history_data, u_inputs, forecast_length:
         decoder = decoder_st,
         output_head = head_st
     )
-    
-    # Return predictions, new states, and VarEncoderDecoderLSTM parameters for potential KL loss computation
     return predictions, new_st, (μ = μ, logσ² = logσ²)
 end
 
 
 function create_var_encoder_decoder_lstm(history_dim::Int, control_dim::Int, hidden_dim::Int, latent_dim::Int, output_dim::Vector{Int}, rng::AbstractRNG, n_layers::Int=2, n_head_layers::Int=2)
     model = VarEncoderDecoderLSTM(history_dim, control_dim, hidden_dim, latent_dim, output_dim, n_layers, n_head_layers)
-    
-    # Unified initialization using Lux.setup - handles all components automatically
     ps, st = Lux.setup(rng, model)
-    
     return model, ps, st
 end
 
 # KL divergence loss for VarEncoderDecoderLSTM regularization
 function kl_divergence_loss(μ, logσ²)
-    # KL divergence between N(μ, σ²) and N(0, 1)
-    # KL = 0.5 * sum(1 + log(σ²) - μ² - σ²)
     return 0.5f0 * sum(1.0f0 .+ logσ² .- μ.^2 .- exp.(logσ²))
 end
 
@@ -196,10 +158,11 @@ end
 # output_dim = [6,1] # Output dimensions for each output head
 # control_dim = 2
 # batch_size = 8
-# n_layers = 8
+# n_layers = 2  # Reduce from 8 to 2 for debugging
 
 # # Create VAE model
-# vae_model, vae_ps, vae_st = create_vae_encoder_decoder_lstm(history_dim, control_dim, hidden_dim, latent_dim, output_dim, MersenneTwister(123), n_layers);
+# vae_model, vae_ps, vae_st = create_var_encoder_decoder_lstm(history_dim, control_dim, hidden_dim, latent_dim, output_dim, MersenneTwister(123), n_layers);
+
 
 # history_data = rand(Float32, history_dim, sequence_length, batch_size); # Historical data
 # u_input = rand(Float32, control_dim, sequence_length, batch_size); # Control inputs
@@ -208,5 +171,5 @@ end
 # rng = MersenneTwister(456)
 # predictions, new_vae_st, vae_params = vae_model(history_data, u_input, 5, vae_ps, vae_st; rng=rng);
 
-# # Compute KL divergence for regularization
-# kl_loss = kl_divergence_loss(vae_params.μ, vae_params.logσ²)
+# # # Compute KL divergence for regularization
+# # kl_loss = kl_divergence_loss(vae_params.μ, vae_params.logσ²)

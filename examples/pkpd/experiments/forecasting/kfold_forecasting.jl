@@ -17,7 +17,7 @@ include("models/model_creator.jl");
 rng = Random.MersenneTwister(123);
 ## Configuration
 variables_of_interest = [ "Health Score", "Tumor Volume", "Cancer cell count" ];
-k_folds = 5 # Number of folds for cross-validation
+k_folds = 2 # Number of folds for cross-validation
 
 # loading data
 data, train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast = generate_dataloader(; n_samples=512, batchsize=32, split=(0.6,0.2), obs_fraction=0.5);
@@ -29,7 +29,7 @@ lsde_models, lsde_params, lsde_states, lsde_performances = kfold_train_pkpd(data
 
 
 lsde_stats = assess_model_performance(lsde_performances, variables_of_interest; model_name="Latent SDE", model_type="lsde", forecast_fn=forecast_nde, plot_sample=true, 
-                                        sample_n=2, viz_fn=viz_fn_nde, models=lsde_models, params=lsde_params, states=lsde_states, data=data, 
+                                        sample_n=1, viz_fn=viz_fn_nde, models=lsde_models, params=lsde_params, states=lsde_states, data=data, 
                                         timepoints=(timepoints_obs, timepoints_forecast), config=YAML.load_file(config_lsde_path)["training"]["validation"]);
 
 # LODE K-Fold Training
@@ -47,7 +47,7 @@ rnn_models, rnn_params, rnn_states, rnn_performances = kfold_train_pkpd(data, di
                                                                         loss_fn_rnn, eval_fn_rnn, forecast_rnn, viz_fn_rnn);
 
 rnn_stats = assess_model_performance(rnn_performances, variables_of_interest; model_name="RNN", model_type="rnn", forecast_fn=forecast_rnn, plot_sample=true,
-                                     sample_n=3, viz_fn=viz_fn_rnn, models=rnn_models, params=rnn_params, states=rnn_states, data=data, 
+                                     sample_n=1, viz_fn=viz_fn_rnn, models=rnn_models, params=rnn_params, states=rnn_states, data=data,
                                      timepoints=(timepoints_obs, timepoints_forecast), config=YAML.load_file(config_rnn_path)["training"]);
 
 

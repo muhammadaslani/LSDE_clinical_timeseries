@@ -232,12 +232,12 @@ returns:
 
 """
 
-function interp!(ts, x::AbstractMatrix, t)
+function interp!(ts, x::AbstractMatrix, t; interp_type=:linear)
    return CRC.@ignore_derivatives[linear_interpolation(ts, view(x, i, :), extrapolation_bc=Line())(t) for i in axes(x, 1)]
 end
 
 
-function interp!(ts, x::AbstractArray, t)
+function interp!(ts, x::AbstractArray, t; interp_type=:linear)
     CRC.@ignore_derivatives begin
         # Determine the actual observation times for x
         n_obs = min(length(ts), size(x, 2))
@@ -267,8 +267,34 @@ function interp!(ts, x::AbstractArray, t)
         ]
     end
 end
+function interp!(ts, x::AbstractVector, t; interp_type=:binary)
+    CRC.@ignore_derivatives  begin
+        tolerance=1e-6
+        y= zero(eltype(x[1]))  # Default return value if no match found
+        # Find if t matches any timepoint in obs_times within tolerance
+        for (i, time_point) in enumerate(ts)
+            if abs(t - time_point) <= tolerance
+                y= x[i]  # Return the value at the matching time point
+            end 
+        end
+    end 
+    return y
+end
 
-function interp!(ts, x::Nothing, t)
+function interp!(ts, x::AbstractArray; interp_type=:binary)
+    CRC.@ignore_derivatives begin
+
+        # Return a function that interpolates each slice of x
+        return function(t)
+            return [
+                interp!(ts, view(x, i, 1:length(ts), b), t; interp_type=interp_type)
+                for i in axes(x, 1), b in axes(x, 3)
+            ]
+        end
+    end 
+end
+
+function interp!(ts, x::Nothing, t; interp_type=:binary || :linear)
     return nothing
 end
 
