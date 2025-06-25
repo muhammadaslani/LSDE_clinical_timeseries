@@ -106,7 +106,8 @@ function output_head(hidden_dim::Int, output_dim::Vector{Int}, n_layers::Int=2)
 end
 
 function (head::output_head)(x, ps, st)
-    return head.model(x, ps.model, st.model)
+    y, st= head.model(x, ps.model, st.model)
+    return y, (model=st,)
 end
 
 struct VarEncoderDecoderLSTM <: AbstractLuxContainerLayer{(:encoder, :decoder, :output_head)}
@@ -171,5 +172,5 @@ end
 # rng = MersenneTwister(456)
 # predictions, new_vae_st, vae_params = vae_model(history_data, u_input, 5, vae_ps, vae_st; rng=rng);
 
-# # # Compute KL divergence for regularization
-# # kl_loss = kl_divergence_loss(vae_params.μ, vae_params.logσ²)
+# # Compute KL divergence for regularization
+# kl_loss = kl_divergence_loss(vae_params.μ, vae_params.logσ²)

@@ -117,6 +117,8 @@ function kfold_train_pkpd(data, dims, n_folds, rng, config_path, model_type, tim
         warm_start_epochs = round(Int, training_config["epochs"] * 0.1)
         training_config["epochs"] = warm_start_epochs
         @info "Fold $fold_idx: warm start training for $warm_start_epochs epochs (10% of total)"
+        # @show st.output_head
+        # @show st.output_head.model
         #Train the model for warm start
         θ_warm_start = train(model, θ, st, timepoints_for, loss_fn, eval_fn, viz_fn, 
                            train_loader, val_loader, training_config, exp_path)

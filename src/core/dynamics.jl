@@ -51,9 +51,9 @@ returns:
 function (de::SDE)(x::AbstractArray, u::Union{Nothing, AbstractArray}, c::AbstractArray, ts::AbstractArray, p::ComponentVector, st::NamedTuple)
     #TBD to fix the interpolation
 
-    u_cont1(t) =  interp!(ts, u, t; interp_type=:binary)
-    u_cont2(t) =  interp!(ts, u, t, interp_type=:binary)
-    c_cont(t) =  interp!(ts, c, t; interp_type=:linear)
+    u_cont1(t) =  interp!(ts, u, t, Val(:binary))
+    u_cont2(t) =  interp!(ts, u, t, Val(:binary))
+    c_cont(t) =  interp!(ts, c, t, Val(:linear))
 
     function μ_augmented(x, p, t)
         c_t = c_cont(t)
@@ -120,7 +120,7 @@ returns:
 """
 function sample_generative(de::SDE, init_map, solver, px₀, u, ts, p, st, n_samples, dev; kwargs...)
     tspan = (ts[1], ts[end])
-    u_cont(t) = interp!(ts, u, t; interp_type=:binary)
+    u_cont(t) = interp!(ts, u, t, Val(:binary))
     x₀ = init_map(sample_rp(px₀), p.init_map, st.init_map)[1]
     μ(x, p, t) = de.drift((x, u_cont(t)), p.drift, st.dynamics.drift)[1]
     σ(x, p, t) = de.diffusion(x, p.diffusion, st.dynamics.diffusion)[1]
@@ -164,8 +164,8 @@ Arguments :
 """
 function sample_augmented(de::SDE, init_map, solver, px₀, u, c, ts, p, st, n_samples, dev; kwargs...)
     tspan = (ts[1], ts[end])
-    u_cont(t) = interp!(ts, u, t, interp_type=:binary)
-    c_cont(t) = interp!(ts, c, t, interp_type=:linear)
+    u_cont(t) = interp!(ts, u, t, Val(:binary))
+    c_cont(t) = interp!(ts, c, t, Val(:linear))
 
     x₀ = init_map(sample_rp(px₀), p.init_map, st.init_map)[1]
 

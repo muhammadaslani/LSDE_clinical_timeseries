@@ -1,5 +1,7 @@
 # K-fold cross-validation forecasting experiment for PKPD models
-using Revise, Rhythm, Lux, DifferentialEquations, Random, SciMLSensitivity, ComponentArrays, Optimisers, OptimizationOptimisers, Statistics
+using Revise
+using Rhythm
+using Lux, DifferentialEquations, Random, SciMLSensitivity, ComponentArrays, Optimisers, OptimizationOptimisers, Statistics
 using MLUtils, Printf, SciMLSensitivity, OneHotArrays, CairoMakie, Distributions
 using YAML
 
