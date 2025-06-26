@@ -298,38 +298,7 @@ function interp!(ts, x::AbstractArray, t, ::Val{:binary})
     end 
 end
 
-# function interp!(ts, x::AbstractVector, t, ::Val{:binary})
-#     CRC.@ignore_derivatives  begin
-#         y= zero(eltype(x[1]))
-#         tolerance=1e-6
-#         # Find if t matches any timepoint in obs_times within tolerance
-#         for (i, time_point) in enumerate(ts)
-#             if abs(t - time_point) <= tolerance
-#                 y= x[i]  # Return the value at the matching time point
-#             end 
-#         end
-#         return y
-#     end 
 
-# end
-
-# function interp!(ts, x::AbstractArray, t, ::Val{:binary})
-#     CRC.@ignore_derivatives begin
-
-#         # Return a function that interpolates each slice of x
-#         return function(t)
-#             return [
-#                 interp!(ts, view(x, i, 1:length(ts), b), t, Val(:binary))
-#                 for i in axes(x, 1), b in axes(x, 3)
-#             ]
-#         end
-#     end 
-# end
-
-
-# function interp!(ts, x::AbstractMatrix, t, ::Val{:BSpline})
-#     return CRC.@ignore_derivatives[interpolate(view(x, i, :), BSpline(Cubic(Line(OnGrid()))))(t)  for i in axes(x, 1)]
-# end
 function interp!(ts, x::AbstractMatrix, t, ::Val{:BSpline})
     CRC.@ignore_derivatives begin
         n_obs      = min(length(ts), size(x,2))       # how many time samples
@@ -337,7 +306,8 @@ function interp!(ts, x::AbstractMatrix, t, ::Val{:BSpline})
 
         [ begin
               # build index-space spline
-              itp  = interpolate(view(x, i, 1:n_obs), BSpline(Cubic(Line(OnGrid()))))
+            #   itp  = interpolate(view(x, i, 1:n_obs), BSpline(Cubic(Line(OnGrid()))))
+            itp  = interpolate(view(x, i, 1:n_obs), BSpline(Constant()))
               # map it to real time
               sitp = Interpolations.scale(itp, range(obs_times[1],obs_times[end], length(obs_times)))
               # evaluate, falling back to *linear extrapolation* outside the range
@@ -364,8 +334,10 @@ function interp!(ts, x::AbstractArray, t, ::Val{:BSpline})
 
         # ───── interpolate each (feature, batch) slice ‐ safely ───────────────
         [ begin
-              itp  = interpolate(view(x, i, 1:length(obs_times), b),
-                                 BSpline(Cubic(Line(OnGrid()))))
+            #   itp  = interpolate(view(x, i, 1:length(obs_times), b),
+            #                      BSpline(Cubic(Line(OnGrid()))))
+            itp  = interpolate(view(x, i, 1:length(obs_times), b),
+                                 BSpline(Constant()))
               sitp = Interpolations.scale(itp, range(obs_times[1],obs_times[end], length(obs_times)))
               extrapolate(sitp, Line())(t)
           end
@@ -374,36 +346,6 @@ function interp!(ts, x::AbstractArray, t, ::Val{:BSpline})
     end
 end
 
-# function interp!(ts, x::AbstractArray, t, ::Val{:BSpline})
-#     CRC.@ignore_derivatives begin
-#         # Determine the actual observation times for x
-#         n_obs = min(length(ts), size(x, 2))
-#         obs_times = ts[1:n_obs]
-        
-#         # If x has more time points than ts, we'll extend the time points
-#         if size(x, 2) > length(ts)
-#             if length(ts) > 1
-#                 # Calculate the time step based on the last two points in ts
-#                 time_step = ts[end] - ts[end-1]
-#             else
-#                 # If ts has only one point, assume a unit time step
-#                 time_step = 1
-#             end
-            
-#             # Extend obs_times with consistent time scaling
-#             extra_times = [ts[end] + i * time_step for i in 1:(size(x, 2) - length(ts))]
-#             obs_times = vcat(obs_times, extra_times)
-#         end
-        
-#         # Create interpolation for each feature and batch
-#         return [
-#             let interp_obj = interpolate(view(x, i, 1:length(obs_times), b), BSpline(Cubic(Line(OnGrid()))))
-#                 interp_obj(t)
-#             end
-#             for i in axes(x, 1), b in axes(x, 3)
-#         ]
-#     end 
-# end
 
 function interp!(ts, x::Nothing, t, ::Val)
     return nothing
