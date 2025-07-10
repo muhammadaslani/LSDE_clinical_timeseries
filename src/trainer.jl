@@ -1,10 +1,7 @@
 function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_loader, config, exp_path)
-    # Create optimizer from config
     opt = eval(Meta.parse(config["optimizer"]))
     tstate = Training.TrainState(model, θ, st, opt)
-    
-    # Keep the lambda schedule for KL annealing
-    λ_schedule = frange_cycle_linear(config["epochs"]+1, 0.0f0, 1.0f0, 10, 0.3f0)
+    λ_schedule = frange_cycle_linear(config["epochs"]+1, 0.0f0, 5.0f0, 10, 0.3f0)
     
     # Initialize exponential learning rate schedule
     initial_lr = config["learning_rate"]
@@ -15,7 +12,6 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
     lr_schedule = [initial_lr * (gamma ^ (floor(Int, (epoch-1) / step_every))) for epoch in 1:config["epochs"]]
 
     n_batches = length(train_loader)
-    #θ_best = nothing
     θ_best= θ
     best_val_metric = Inf
     counter = 0

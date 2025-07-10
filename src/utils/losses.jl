@@ -44,6 +44,14 @@ function poisson_loglikelihood(λ::AbstractArray, y::AbstractArray)
     return ll
 end
 
+
+function poisson_loglikelihood_multiple_samples(λ::AbstractArray, y::AbstractArray)
+    ll=0.0f0
+        for i in 1:size(λ, 4)
+            ll += poisson_loglikelihood(λ[:, :, :, i], y[:, :, :])
+        end
+    return ll/size(λ, 4)
+end
 """
     poisson_loglikelihood(λ::AbstractArray, y::AbstractArray, mask::AbstractArray{Bool})
 

@@ -24,7 +24,7 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
     Ey₁_p, Ey₂_p = softmax(Ey_p[1], dims=1), Ey_p[2]
     
     # Convert time to days for plotting
-    t_o, t_p = obs_timepoints * 7.0f0, for_timepoints * 7.0f0
+    t_o, t_p = obs_timepoints * 52.0f0 * 7.0f0, for_timepoints * 52.0f0 * 7.0f0
 
     # Convert health status to classes
     y₁_o_class = onecold(softmax(y₁_o, dims=1), Array(0:5))
@@ -63,7 +63,7 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
     ŷ₂_m_valid = ŷ₂_m[1, findall(i -> t_p[i] <= max_t_p_valid₂ && mask₂_t[1, i, sample_n] == 1, 1:length(t_p)), sample_n]
     ŷ₂_s_valid = ŷ₂_s[1, findall(i -> t_p[i] <= max_t_p_valid₂ && mask₂_t[1, i, sample_n] == 1, 1:length(t_p)), sample_n]
     ŷ₂_count_m_valid = ŷ₂_count_m[1, findall(i -> t_p[i] <= max_t_p_valid₂ && mask₂_t[1, i, sample_n] == 1, 1:length(t_p)), sample_n]
-    
+    ŷ₂_count_valid = ŷ₂_count[1, findall(i -> t_p[i] <= max_t_p_valid₂ && mask₂_t[1, i, sample_n] == 1, 1:length(t_p)), sample_n, :]
     # Calculate confidence intervals
     ŷ₂_CI_low = ŷ₂_m[1, :, sample_n] .- 1.96 * ŷ₂_s[1, :, sample_n]
     ŷ₂_CI_up = ŷ₂_m[1, :, sample_n] .+ 1.96 * ŷ₂_s[1, :, sample_n]
@@ -82,7 +82,8 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
         rmse_tumor = sqrt(mse(ŷ₂_m, y₂_t, mask₂_t))
 
         # Cell count (y₂_count): negative log likelihood - only on valid time points
-        nll_count = -poisson_loglikelihood(ŷ₂_m, y₂_t, mask₂_t)/length(findall(mask₂_t .== 1))
+        # nll_count = -poisson_loglikelihood(ŷ₂_m, y₂_t, mask₂_t)/length(findall(mask₂_t .== 1))
+        nll_count = -poisson_loglikelihood_multiple_samples(clamp.(Ey₂_p, 0.0, 100.0), y₂_t) / length(findall(mask₂_t .== 1))
         
         if plot
             println("Health status cross entropy: ", crossentropy_health)
@@ -273,9 +274,9 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
     # Plot observed tumor size (historical data) - use index-based plotting for underlying tumor size
     lines!(ax2, Array(1:length(vcat(x_o[1, :, sample_n], x_t[1, :, sample_n]))), 
           vcat(x_o[1, :, sample_n], x_t[1, :, sample_n]), 
-          color=(PKPD_COLORS.observed, 0.7), linewidth=3.5, linestyle=:dash,
+          color=(PKPD_COLORS.observed, 0.7), linewidth=3.5, linestyle=:solid,
           label="Historical Observations")
-          
+
     # Plot confidence band first (so it's behind other elements)
     band!(ax2, t_p, ŷ₂_CI_low, ŷ₂_CI_up, 
          color=(PKPD_COLORS.confidence, 0.25))
@@ -294,14 +295,17 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
             color=PKPD_COLORS.truth, markersize=20)
     lines!(ax3, t_p_valid₂, y₂_t_valid, 
           color=(PKPD_COLORS.truth, 0.7), linewidth=3.5, linestyle=:dash)
-
+    scatter!(ax3, t_p_valid₂, ŷ₂_count_valid[:, 1], 
+            color=PKPD_COLORS.predicted, markersize=20)
+    lines!(ax3, t_p_valid₂, ŷ₂_count_valid[:,1], 
+          color=PKPD_COLORS.predicted, linewidth=3.5, linestyle=:dash)
     scatter!(ax3, t_p_valid₂, ŷ₂_count_m_valid, 
             color=PKPD_COLORS.predicted, markersize=20)
     lines!(ax3, t_p_valid₂, ŷ₂_count_m_valid, 
           color=PKPD_COLORS.predicted, linewidth=3.5, linestyle=:dash)
 
     errorbars!(ax3, t_p_valid₂, ŷ₂_count_m_valid, ŷ₂_count_confidence_valid, 
-              color=(PKPD_COLORS.confidence, 0.6), whiskerwidth=12)
+              color=(PKPD_COLORS.confidence, 0.6), whiskerwidth=20)
 
     # Link x-axes for synchronized zooming/panning
     linkxaxes!(ax1, ax2, ax3)

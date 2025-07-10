@@ -1,17 +1,17 @@
 model:
   encoder: 
-    hidden_size: 32
-    latent_dim: 64
-    num_layers: 4
+    hidden_size: 16
+    latent_dim: 16
+    num_layers: 2
   output_head:
-    hidden_size: 32
-    num_layers: 4
+    hidden_size: 16
+    num_layers: 2
 
 
 training:
   learning_rate: 0.005
   optimizer: AdamW(0.005) 
-  epochs: 200
+  epochs: 100
   log_freq: 20
   viz_freq: 10
   stop_patience: 20
@@ -20,6 +20,7 @@ training:
     gamma: 0.9  # Decay factor per epoch (0.95 means 95% of previous value)
     step_every: 50  # Apply decay every epoch
   validation:
+    mcmc_samples: 50
 
 
 experiment:

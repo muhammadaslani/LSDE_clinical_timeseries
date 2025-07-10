@@ -4,7 +4,8 @@ using Rhythm
 using Lux, DifferentialEquations, Random, SciMLSensitivity, ComponentArrays, Optimisers, OptimizationOptimisers, Statistics
 using MLUtils, Printf, SciMLSensitivity, OneHotArrays, CairoMakie, Distributions
 using YAML
-
+# Set random seed for reproducibility
+rng = Random.MersenneTwister(123);
 # Include necessary files
 include("../../data/data_prep.jl");
 include("../../data/data_utils.jl");
@@ -15,20 +16,18 @@ include("training/viz_fn.jl");
 include("training/kfold_trainer.jl");
 include("models/model_creator.jl");
 
-# Set random seed for reproducibility
-rng = Random.MersenneTwister(123);
+
 ## Configuration
 variables_of_interest = [ "Health Score", "Tumor Volume", "Cancer cell count" ];
 k_folds = 2 # Number of folds for cross-validation
 
 # loading data
-data, train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast = generate_dataloader(; n_samples=512, batchsize=32, split=(0.6,0.2), obs_fraction=0.5);
+data, train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_forecast = generate_dataloader(; n_samples=512, batchsize=32, split=(0.6,0.2), obs_fraction=0.4);
 
 # LSDE K-Fold Training
 model_type_lsde, config_lsde_path = "lsde", "/Volumes/Mine/Academic/PhD/Codes/Packages/Rhythm.jl/examples/pkpd/configs/PkPD_config_lsde.yml";
 lsde_models, lsde_params, lsde_states, lsde_performances = kfold_train_pkpd(data, dims, k_folds, rng, config_lsde_path, model_type_lsde, timepoints_forecast, 
                                                                             loss_fn_nde, eval_fn_nde, forecast_nde, viz_fn_nde);
-
 
 lsde_stats = assess_model_performance(lsde_performances, variables_of_interest; model_name="Latent SDE", model_type="lsde", forecast_fn=forecast_nde, plot_sample=true, 
                                         sample_n=1, viz_fn=viz_fn_nde, models=lsde_models, params=lsde_params, states=lsde_states, data=data, 
@@ -46,12 +45,12 @@ lode_stats = assess_model_performance(lode_performances, variables_of_interest; 
 # RNN K-Fold Training
 model_type_rnn, config_rnn_path = "rnn", "/Volumes/Mine/Academic/PhD/Codes/Packages/Rhythm.jl/examples/pkpd/configs/PkPD_config_rnn.yml";
 rnn_models, rnn_params, rnn_states, rnn_performances = kfold_train_pkpd(data, dims, k_folds, rng, config_rnn_path, model_type_rnn, timepoints_forecast, 
-                                                                        loss_fn_rnn, eval_fn_rnn, forecast_rnn, viz_fn_rnn);
+                                                                        loss_fn_rnn, eval_fn_rnn, forecast_rnn, viz_fn_nde);
 
 rnn_stats = assess_model_performance(rnn_performances, variables_of_interest; model_name="RNN", model_type="rnn", forecast_fn=forecast_rnn, plot_sample=true,
-                                     sample_n=1, viz_fn=viz_fn_rnn, models=rnn_models, params=rnn_params, states=rnn_states, data=data,
-                                     timepoints=(timepoints_obs, timepoints_forecast), config=YAML.load_file(config_rnn_path)["training"]);
+                                     sample_n=4, viz_fn=viz_fn_nde, models=rnn_models, params=rnn_params, states=rnn_states, data=data,
+                                     timepoints=(timepoints_obs, timepoints_forecast), config=YAML.load_file(config_rnn_path)["training"]["validation"]);
 
 
 # Compare multiple models
-model_comparison = compare_pkpd_models(Dict("LSDE" => lsde_stats, "LODE" => lode_stats, "RNN" => rnn_stats), sort_by="overall");
+model_comparison = compare_pkpd_models(Dict("LSDE" => lsde_stats, "RNN" => rnn_stats), sort_by="overall");

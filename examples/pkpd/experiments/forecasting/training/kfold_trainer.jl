@@ -105,21 +105,13 @@ function kfold_train_pkpd(data, dims, n_folds, rng, config_path, model_type, tim
             model, θ, st = create_latentsde(lode_config, dims, rng)
         elseif model_type == "rnn"
             model, θ, st = create_var_encoder_decoder_lstm(dims["obs_dim"]+dims["input_dim"], dims["input_dim"], config["model"]["encoder"]["hidden_size"],config["model"]["encoder"]["latent_dim"], dims["output_dim"], rng, config["model"]["encoder"]["num_layers"])
-            #model, θ, st = creat_encoder_decoder_lstm(dims["obs_dim"]+dims["input_dim"], dims["input_dim"], config["model"]["encoder"]["hidden_size"], dims["output_dim"], rng, config["model"]["encoder"]["num_layers"], config["model"]["output_head"]["num_layers"])
         else
             error("Unsupported model type: $model_type")
         end
-        
-        # Prepare training configuration for warm start
         training_config = deepcopy(config["training"])
-        
-        # Step 1: Train for 10% of epochs (warm start phase)
         warm_start_epochs = round(Int, training_config["epochs"] * 0.1)
         training_config["epochs"] = warm_start_epochs
         @info "Fold $fold_idx: warm start training for $warm_start_epochs epochs (10% of total)"
-        # @show st.output_head
-        # @show st.output_head.model
-        #Train the model for warm start
         θ_warm_start = train(model, θ, st, timepoints_for, loss_fn, eval_fn, viz_fn, 
                            train_loader, val_loader, training_config, exp_path)
         
@@ -127,9 +119,7 @@ function kfold_train_pkpd(data, dims, n_folds, rng, config_path, model_type, tim
         remaining_epochs = round(Int, config["training"]["epochs"] * 0.9)
         training_config["epochs"] = remaining_epochs
         @info "Fold $fold_idx: continuing training for $remaining_epochs epochs (90% of total) using warm start parameters"
-        
-        # Train for the remaining epochs using warm start parameters as initialization
-        θ_trained = train(model, θ_warm_start, st, timepoints_for, loss_fn, eval_fn, viz_fn, 
+                θ_trained = train(model, θ_warm_start, st, timepoints_for, loss_fn, eval_fn, viz_fn, 
                          train_loader, val_loader, training_config, exp_path)
         
         # Evaluate on test data
@@ -142,9 +132,6 @@ function kfold_train_pkpd(data, dims, n_folds, rng, config_path, model_type, tim
         # Make predictions
         Ex, Ey_pred = forecast_fn(model, θ_trained, st, data_obs, input_data_for_test, timepoints_for, config["training"]["validation"])
         forecasted_data = (Ex, Ey_pred)
-
-        # Evaluate model performance without plotting
-        # All model types (including RNN) return the three specific metrics
         crossentropy_health, rmse_tumor, nll_count = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, plot=false)
         
         # Store model, parameters, state, and performance

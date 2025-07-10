@@ -1,7 +1,6 @@
 using Random
 using Lux
 
-# VarEncoderDecoderLSTM Encoder that outputs mean and log-variance of latent distributions
 struct VarEncoderLSTM <: AbstractLuxContainerLayer{(:lstm_layers, :mean_head, :logvar_head)}
     lstm_layers::Chain
     mean_head::Dense
@@ -146,6 +145,66 @@ function create_var_encoder_decoder_lstm(history_dim::Int, control_dim::Int, hid
     return model, ps, st
 end
 
+function predict_rnn(model::VarEncoderDecoderLSTM, history_data, u_inputs, forecast_length::Int, ps, st; mcmc_samples::Int=1, rng::AbstractRNG=Random.default_rng())
+    """
+    Inference function for VarEncoderDecoderLSTM model with MCMC sampling.
+    
+    Args:
+        model: The VarEncoderDecoderLSTM model
+        history_data: Historical data for encoding (history_dim, sequence_length, batch_size)
+        u_inputs: Control inputs for decoding (control_dim, forecast_length, batch_size)
+        forecast_length: Number of steps to forecast
+        ps: Model parameters
+        st: Model state
+        mcmc_samples: Number of MCMC samples to generate per training sample
+        rng: Random number generator
+    
+    Returns:
+        predictions: Model predictions (output_dim1, forecast_length, batch_size, mcmc_samples) for first output
+                    and (output_dim2, forecast_length, batch_size, mcmc_samples) for second output
+        new_st: Updated model state
+    """
+    
+    # Encode history to latent representation (only once per batch)
+    (μ, logσ²), encoder_st = model.encoder(history_data, ps.encoder, st.encoder)
+    
+    # Initialize containers for predictions
+    decoder_st = st.decoder
+    head_st = st.output_head
+    all_predictions = []
+    
+    # Generate multiple samples
+    for sample_idx in 1:mcmc_samples
+        # Sample from latent distribution for this MCMC sample
+        latent_states = reparameterize(μ, logσ², rng)
+        
+        # Decode to generate predictions
+        decoder_output, decoder_st = model.decoder(u_inputs, latent_states, forecast_length, ps.decoder, st.decoder)
+        
+        # Apply output head to get final predictions
+        predictions, head_st = model.output_head(decoder_output, ps.output_head, st.output_head)
+        
+        # Store predictions for this sample
+        push!(all_predictions, predictions)
+    end
+    
+    # Stack predictions along a new dimension for MCMC samples
+    # predictions is a tuple of (output1, output2) from BranchLayer
+    output1_samples = stack([pred[1] for pred in all_predictions], dims=4)  # (output_dim1, forecast_length, batch_size, mcmc_samples)
+    output2_samples = stack([pred[2] for pred in all_predictions], dims=4)  # (output_dim2, forecast_length, batch_size, mcmc_samples)
+    
+    stacked_predictions = (output1_samples, output2_samples)
+    
+    # Update state (using the last decoder and head states)
+    new_st = (
+        encoder = encoder_st,
+        decoder = decoder_st,
+        output_head = head_st
+    )
+    return stacked_predictions, new_st
+end
+
+
 # KL divergence loss for VarEncoderDecoderLSTM regularization
 function kl_divergence_loss(μ, logσ²)
     return 0.5f0 * sum(1.0f0 .+ logσ² .- μ.^2 .- exp.(logσ²))
@@ -174,3 +233,6 @@ end
 
 # # Compute KL divergence for regularization
 # kl_loss = kl_divergence_loss(vae_params.μ, vae_params.logσ²)
+
+
+# predictions, new_st = predict_rnn(vae_model, history_data, u_input, 5, vae_ps, vae_st; mcmc_samples=100, rng=rng);
