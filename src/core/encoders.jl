@@ -81,7 +81,7 @@ function Recurrent_Encoder(obs_dim, latent_dim, context_dim; hidden_size)
     context_net = Chain(
                     Recurrence(LSTMCell(hidden_size=>hidden_size); return_sequence=true),
                     Recurrence(LSTMCell(hidden_size=>context_dim); return_sequence=true),
-                        x -> stack(x; dims=2))
+                    x -> stack(x; dims=2))
     
     return Encoder(linear_net, init_net, context_net)
 

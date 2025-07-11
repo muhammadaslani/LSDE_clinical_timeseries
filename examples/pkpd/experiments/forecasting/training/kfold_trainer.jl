@@ -102,7 +102,7 @@ function kfold_train_pkpd(data, dims, n_folds, rng, config_path, model_type, tim
             model, θ, st = create_latentsde(config["model"], dims, rng)
         elseif model_type == "lode"
             lode_config = deepcopy(config["model"])
-            model, θ, st = create_latentsde(lode_config, dims, rng)
+            model, θ, st = create_latentode(lode_config, dims, rng)
         elseif model_type == "rnn"
             model, θ, st = create_var_encoder_decoder_lstm(dims["obs_dim"]+dims["input_dim"], dims["input_dim"], config["model"]["encoder"]["hidden_size"],config["model"]["encoder"]["latent_dim"], dims["output_dim"], rng, config["model"]["encoder"]["num_layers"])
         else

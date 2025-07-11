@@ -7,18 +7,22 @@ using Parameters: @unpack, @with_kw
 import LuxCore: AbstractLuxContainerLayer, AbstractLuxWrapperLayer, AbstractLuxLayer
 
 abstract type LatentVariableModel <: AbstractLuxContainerLayer{(:obs_encoder, :ctrl_encoder, :init_map, :dynamics, :state_map, :obs_decoder, :ctrl_decoder)} end
+abstract type UDE <: AbstractLuxContainerLayer{(:vector_field,)} end
+abstract type DynamicalSystem <: AbstractLuxLayer end
 
 # Core stuff
 include("core/dynamics.jl")
 export SDE, sample_generative, sample_augmented
 include("core/latentsde.jl")
 export LatentSDE, predict, generate, filter, smooth
+include("core/latentode.jl")
+export LatentODE, predict, generate, filter, smooth
 include("core/encoders.jl")
 export Encoder, Identity_Encoder, Recurrent_Encoder
 include("core/decoders.jl")
 export Decoder, Identity_Decoder, Linear_Decoder, MLP_Decoder, MultiDecoder, MultiDecoder_linear, BranchDecoder, BranchDecoder_linear, MultiOutputDecoder
 include("core/vectorfields.jl")
-export MLP, SparseMLP,SparseMLP_ODE, HopfOscillators, Linear, LimitCycleOscillators, StuartLandauOscillators
+export MLP, SparseMLP, SparseMLP_ODE, HopfOscillators, Linear, LimitCycleOscillators, StuartLandauOscillators
 
 
 const TYPE_MAP = Dict(
@@ -42,6 +46,7 @@ const TYPE_MAP = Dict(
 
 
 const SOLVER_MAP = Dict(
+    "Euler" => Euler(),
     "EM" => EM(),
     "EulerHeun" => EulerHeun(),
     "LambaEM" => LambaEM(),
@@ -54,7 +59,7 @@ export sample_rp, interpolate!, basic_tgrad, dropmean, dropsd, pad_matrices, irr
 include("utils/losses.jl")
 export kl_normal, poisson_loglikelihood,poisson_nll_lograte, normal_loglikelihood, mse, frange_cycle_linear, bits_per_spike, CrossEntropy_Loss
 include("utils/config.jl")
-export create_object, create_latentsde
+export create_object, create_latentsde, create_latentode
 include("trainer.jl")
 export train, validate, vizualize
 include("utils//theme.jl")
