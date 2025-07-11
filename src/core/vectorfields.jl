@@ -13,15 +13,18 @@ Arguments:
 
 returns: 
 
-    - `LuxCompactLayer`
+    - `Chain`
         
 """
-MLP(Id::Vector{Int} ,Od::Int; hidden_size, depth, activation) = @compact(m=Chain(Dense(sum(Id) => hidden_size, activation), 
-                                                                        [Dense(hidden_size, hidden_size, activation) for i in 1:depth]..., 
-                                                                        Dense(hidden_size, Od))) do xs
-                                                                
-                                                                            @return m(vcat(xs...))
-                                                                             end
+function MLP(Id::Vector{Int}, Od::Int; hidden_size, depth, activation)
+    # For multi-input, we assume inputs will be concatenated before calling
+    layers = Any[Dense(sum(Id) => hidden_size, activation)]
+    for i in 1:depth
+        push!(layers, Dense(hidden_size => hidden_size, activation))
+    end
+    push!(layers, Dense(hidden_size => Od, identity))
+    return Chain(layers...)
+end
 
 
 """
@@ -60,15 +63,17 @@ Arguments:
 
 returns: 
 
-    - `LuxCompactLayer`
+    - `Chain`
         
 """
-MLP(Id::Int ,Od::Int; hidden_size, depth, activation) = @compact(m=Chain(Dense(Id => hidden_size, activation), 
-                                                                        [Dense(hidden_size, hidden_size, activation) for i in 1:depth]..., 
-                                                                        Dense(hidden_size, Od))) do x
-                    
-                                                                            @return m(x)
-                                                                        end
+function MLP(Id::Int, Od::Int; hidden_size, depth, activation)
+    layers = Any[Dense(Id => hidden_size, activation)]
+    for i in 1:depth
+        push!(layers, Dense(hidden_size => hidden_size, activation))
+    end
+    push!(layers, Dense(hidden_size => Od, identity))
+    return Chain(layers...)
+end
 
 
 """

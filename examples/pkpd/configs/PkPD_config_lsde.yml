@@ -35,8 +35,8 @@ model:
 training:
   learning_rate: 0.005
   optimizer: AdamW(0.005) 
-  epochs: 250
-  log_freq: 10
+  epochs: 50
+  log_freq: 1
   viz_freq: 10
   stop_patience: 20
   lr_decay:

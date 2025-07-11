@@ -7,7 +7,13 @@ Arguments:
 
   - `drift`: The drift of the generative SDE. 
   - `drift_aug`: The drift of the augmented SDE.
-  - `diffusion`: The shared diffusion of the SDEs.
+  - `diffusion`: The shared diffusion offunction (de::ODE)(x::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, p::ComponentVector, st::NamedTuple)
+    u_cont(t) = interp!(ts, u, t, Val(:linear))
+    dxdt(x, p, t) = dxdt_u(de.vector_field, x, u_cont(t), t, p.vector_field, st.vector_field)
+    ff = ODEFunction{false}(dxdt; tgrad = basic_tgrad)
+    prob = ODEProblem{false}(ff, x, (ts[1], ts[end]), p)
+    return solve(prob, de.solver; sensealg = InterpolatingAdjoint(; autojacvec = ZygoteVJP()), de.kwargs...), st
+endEs.
   - `solver': The nummerical solver used to solve the SDE.
   - `kwargs`: Additional keyword arguments to pass to the solver.
 """
@@ -235,12 +241,11 @@ returns:
 """
 function (de::ODE)(x::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, p::ComponentArray, st::NamedTuple)
     u_cont(t) = interp!(ts, u, t, Val(:linear))
-    dxdt(x, p, t) = dxdt_u(de.vector_field, x, u_cont(t), t, p, st)[1]
+    dxdt(x, p, t) = dxdt_u(de.vector_field, x, u_cont(t), t, p.vector_field, st.vector_field)
     ff = ODEFunction{false}(dxdt; tgrad = basic_tgrad)
     prob = ODEProblem{false}(ff, x, (ts[1], ts[end]), p)
-    return solve(prob, de.solver; sensealg = InterpolatingAdjoint(; autojacvec = ZygoteVJP()), de.kwargs...), st
+    return solve(prob, de.solver; sensealg = InterpolatingAdjoint(; autojacvec = ZygoteVJP()), saveat=ts, de.kwargs...), st
 end
-
 
 """
     sample_dynamics(de::ODE, x̂₀, u, ts, p, st, n_samples)
@@ -264,9 +269,9 @@ returns:
 """
 
 function sample_dynamics(de::ODE, x̂₀, u, ts, p, st, n_samples)
-    u_cont(t) = interp!(ts, u, t)
+    u_cont(t) = interp!(ts, u, t, Val(:linear))
     x₀ = sample_rp(x̂₀)
-    dxdt(x, p, t) = dxdt_u(de.vector_field, x, u_cont(t), t, p, st)[1]
+    dxdt(x, p, t) = dxdt_u(de.vector_field, x, u_cont(t), t, p.vector_field, st.vector_field)
     ff = ODEFunction{false}(dxdt; tgrad = basic_tgrad)
     prob = ODEProblem{false}(ff, x₀, (ts[1], ts[end]), p)
 
@@ -274,18 +279,20 @@ function sample_dynamics(de::ODE, x̂₀, u, ts, p, st, n_samples)
         remake(prob, u0=sample_rp(x̂₀))
     end
     ensemble_prob = EnsembleProblem(prob, prob_func = prob_func)
-    ensemble_sol = solve(ensemble_prob, de.solver, EnsembleThreads(); trajectories=n_samples, de.kwargs...)
+    ensemble_sol = solve(ensemble_prob, de.solver, EnsembleThreads(); trajectories=n_samples, saveat=ts, de.kwargs...)
     x = permutedims(Array(ensemble_sol), (1, 3, 2, 4)) 
     return x
 end
 ##############################################################################
 function dxdt_u(model::Lux.AbstractLuxLayer, x, u, t, p, st)
     xu = vcat(x, u)
-   return model(xu, p, st)
+    output, _ = model(xu, p, st)
+    return output
 end
 
 function dxdt_u(model::Lux.AbstractLuxLayer, x, u::Nothing, t, p, st)
-   return model(x, p, st)
+    output, _ = model(x, p, st)
+    return output
 end
 
 # Specialize the helper for DynamicalSystemLayer

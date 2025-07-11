@@ -68,7 +68,6 @@ function create_latentode(config::Dict, dims::Dict, rng::AbstractRNG)
     end
     obs_encoder = create_object(config["obs_encoder"], sum(obs_dim), latent_dim, context_dim)
     vector_field = create_object(config["ODE"]["vector_field"], [latent_dim, input_dim], latent_dim)
-@show vector_field
     ode_kwargs = Dict{Symbol, Any}(Symbol(k) => Float32.(v) for (k, v) in config["ODE"]["kwargs"])
     dynamics = ODE(vector_field, eval(Meta.parse(config["ODE"]["solver"])), ode_kwargs)
 

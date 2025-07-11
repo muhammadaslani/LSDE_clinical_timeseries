@@ -158,7 +158,7 @@ function kfold_train_pkpd(data, dims, n_folds, rng, config_path, model_type, tim
         avg_crossentropy_health = mean(crossentropy_health_values)
         avg_rmse_tumor = mean(rmse_tumor_values)
         avg_nll_count = mean(nll_count_values)
-    end
+     end
     
     # Calculate total training time
     end_time = time()
