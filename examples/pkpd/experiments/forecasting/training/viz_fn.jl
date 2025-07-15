@@ -21,6 +21,7 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
     # Unpack forecasted data
     u_p = u_t
     Ex, Ey_p = forecasted_data
+
     Ey₁_p, Ey₂_p = softmax(Ey_p[1], dims=1), Ey_p[2]
     
     # Convert time to days for plotting
@@ -35,10 +36,8 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
     ŷ₁_s = dropmean(std(Ey₁_p, dims=4), dims=4)
     ŷ₁_class = onecold(ŷ₁_m, Array(0:5))
     ŷ₁_conf = maximum(ŷ₁_m, dims=1)[1, :, :]
-@show size(Ey₂_p)
     ŷ₂_m = dropmean(Ey₂_p, dims=4)
     ŷ₂_s = dropmean(std(Ey₂_p, dims=4), dims=4)
-    @show ŷ₂_s[1, :, sample_n]
     ŷ₂_count = rand.(Poisson.(Ey₂_p))
     ŷ₂_count_m = dropmean(ŷ₂_count, dims=4)
 

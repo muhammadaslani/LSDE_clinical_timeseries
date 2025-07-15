@@ -1,7 +1,7 @@
 """
     MLP(Id::Vector{Int} ,Od::Int; hidden_size, depth, activation)
 
-Constructs an MLP decoder for multiple inputs and one output.
+Constructs an MLP vector field for multiple inputs and one output.
 
 Arguments:
 
@@ -93,10 +93,6 @@ SparseMLP(Id::Int, Od::Int; activation) = @compact(m=Scale(Id, activation, init_
                                                          end
 
                                        
-                                                         
-SparseMLP_ODE(Id::Int, Od::Int; activation) = @compact(m=Scale(Id, activation, init_weight=(args...) -> zeros(Float32, Id))) do x
-                                                            @return m(x)
-                                                        end |> l -> Lux.Experimental.freeze(l)
 """
     HopfOscillators(N::Int)
 

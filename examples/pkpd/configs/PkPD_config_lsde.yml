@@ -16,7 +16,7 @@ model:
     drift_aug:
       type: "MLP"
       hidden_size: 32
-      depth: 1
+      depth: 2
       activation: swish
     diffusion:
       type: "SparseMLP"
