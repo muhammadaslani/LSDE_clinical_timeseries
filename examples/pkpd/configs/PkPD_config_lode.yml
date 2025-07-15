@@ -15,7 +15,7 @@ model:
       activation: swish
     solver: Euler()
     kwargs:
-        dt: 0.1
+        dt: 0.01
 
   obs_decoder:
     type: "BranchDecoder"
@@ -38,9 +38,9 @@ training:
   validation:
       latent_dim: *latentdim
       solver: Euler()
-      mcmc_samples: 5
+      mcmc_samples: 50
       kwargs:
-          dt: 0.1
+          dt: 0.01
 
 experiment:
   name: "LatentODE_PKPD_V0"

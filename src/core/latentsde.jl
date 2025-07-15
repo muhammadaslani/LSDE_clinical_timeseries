@@ -67,7 +67,7 @@ end
 """
     predict(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractArray, t_obs::AbstractArray, t_pred::AbstractArray, u::Union{Nothing, AbstractArray}, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Device)
 
-  Predicts the future trajectory of the system given the observations from time `T` to `T+k` given observations from time `1` to `T` and control inputs from time `1` to `T+k`.
+  Predicts the future trajectory of the system from time `T` to `T+k` given observations from time `1` to `T` and control inputs from time `1` to `T+k`.
   Used for forecasting and control applications.
 
       ```math

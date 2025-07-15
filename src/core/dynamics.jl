@@ -96,10 +96,8 @@ function (de::SDE)(x::AbstractArray, u::Union{Nothing, AbstractArray}, c::Abstra
     
     ff = SDEFunction{false}(μ, σ)
     prob = SDEProblem{false}(ff, x, (ts[1], ts[end]), p)
-    return solve(prob, de.solver; u0 = x, p, sensealg=TrackerAdjoint(), saveat=ts, de.kwargs...), st
+    return solve(prob, de.solver; u0 = x, p, saveat=ts, sensealg=TrackerAdjoint(), de.kwargs...), st
 end
-
-
 
 """
     sample_generative(de::SDE, init_map, solver, px₀, u, ts, p, st, n_samples, dev; kwargs...)
@@ -244,7 +242,7 @@ function (de::ODE)(x::AbstractArray, u::Union{Nothing, AbstractArray}, ts::Abstr
     dxdt(x, p, t) = dxdt_u(de.vector_field, x, u_cont(t), t, p.vector_field, st.vector_field)
     ff = ODEFunction{false}(dxdt; tgrad = basic_tgrad)
     prob = ODEProblem{false}(ff, x, (ts[1], ts[end]), p)
-    return solve(prob, de.solver; sensealg = InterpolatingAdjoint(; autojacvec = ZygoteVJP()), saveat=ts, de.kwargs...), st
+    return solve(prob, de.solver; u0=x, p, sensealg =InterpolatingAdjoint(autojacvec=ZygoteVJP()), saveat=ts, de.kwargs...), st
 end
 
 """
@@ -285,8 +283,7 @@ function sample_dynamics(de::ODE, x̂₀, u, ts, p, st, n_samples)
 end
 ##############################################################################
 function dxdt_u(model::Lux.AbstractLuxLayer, x, u, t, p, st)
-    xu = vcat(x, u)
-    output, _ = model(xu, p, st)
+    output, _ = model((x,u), p, st)
     return output
 end
 

@@ -35,9 +35,10 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
     ŷ₁_s = dropmean(std(Ey₁_p, dims=4), dims=4)
     ŷ₁_class = onecold(ŷ₁_m, Array(0:5))
     ŷ₁_conf = maximum(ŷ₁_m, dims=1)[1, :, :]
-
+@show size(Ey₂_p)
     ŷ₂_m = dropmean(Ey₂_p, dims=4)
     ŷ₂_s = dropmean(std(Ey₂_p, dims=4), dims=4)
+    @show ŷ₂_s[1, :, sample_n]
     ŷ₂_count = rand.(Poisson.(Ey₂_p))
     ŷ₂_count_m = dropmean(ŷ₂_count, dims=4)
 
@@ -295,10 +296,10 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
             color=PKPD_COLORS.truth, markersize=20)
     lines!(ax3, t_p_valid₂, y₂_t_valid, 
           color=(PKPD_COLORS.truth, 0.7), linewidth=3.5, linestyle=:dash)
-    scatter!(ax3, t_p_valid₂, ŷ₂_count_valid[:, 1], 
-            color=PKPD_COLORS.predicted, markersize=20)
-    lines!(ax3, t_p_valid₂, ŷ₂_count_valid[:,1], 
-          color=PKPD_COLORS.predicted, linewidth=3.5, linestyle=:dash)
+    # scatter!(ax3, t_p_valid₂, ŷ₂_count_valid[:, 1], 
+    #         color=PKPD_COLORS.predicted, markersize=20)
+    # lines!(ax3, t_p_valid₂, ŷ₂_count_valid[:,1], 
+    #       color=PKPD_COLORS.predicted, linewidth=3.5, linestyle=:dash)
     scatter!(ax3, t_p_valid₂, ŷ₂_count_m_valid, 
             color=PKPD_COLORS.predicted, markersize=20)
     lines!(ax3, t_p_valid₂, ŷ₂_count_m_valid, 

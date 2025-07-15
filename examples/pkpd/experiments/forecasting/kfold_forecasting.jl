@@ -26,8 +26,6 @@ data, train_loader, val_loader, test_loader, dims, timepoints_obs, timepoints_fo
 
 # LSDE K-Fold Training
 model_type_lsde, config_lsde_path = "lsde", "/Volumes/Mine/Academic/PhD/Codes/Packages/Rhythm.jl/examples/pkpd/configs/PkPD_config_lsde.yml";
-config = YAML.load_file(config_lsde_path)
-lsde_model = create_latentsde(config["model"], dims, rng);
 lsde_models, lsde_params, lsde_states, lsde_performances = kfold_train_pkpd(data, dims, k_folds, rng, config_lsde_path, model_type_lsde, timepoints_forecast,
     loss_fn_nde, eval_fn_nde, forecast_nde, viz_fn_nde);
 
@@ -37,10 +35,6 @@ lsde_stats = assess_model_performance(lsde_performances, variables_of_interest; 
 
 # LODE K-Fold Training
 model_type_lode, config_lode_path = "lode", "/Volumes/Mine/Academic/PhD/Codes/Packages/Rhythm.jl/examples/pkpd/configs/PkPD_config_lode.yml";
-config = YAML.load_file(config_lode_path);
-lode_model, θ, st = create_latentode(config["model"], dims, rng);
-
-
 
 lode_models, lode_params, lode_states, lode_performances = kfold_train_pkpd(data, dims, k_folds, rng, config_lode_path, model_type_lode, timepoints_forecast,
     loss_fn_nde, eval_fn_nde, forecast_nde, viz_fn_nde);
@@ -60,4 +54,4 @@ rnn_stats = assess_model_performance(rnn_performances, variables_of_interest; mo
 
 
 # Compare multiple models
-model_comparison = compare_pkpd_models(Dict("LSDE" => lsde_stats, "RNN" => rnn_stats), sort_by="overall");
+model_comparison = compare_pkpd_models(Dict("LSDE" => lsde_stats, "LODE" => lode_stats,), sort_by="overall");

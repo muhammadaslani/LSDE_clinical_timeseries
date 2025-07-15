@@ -13,18 +13,14 @@ Arguments:
 
 returns: 
 
-    - `Chain`
+    - `LuxCompactLayer`
         
 """
-function MLP(Id::Vector{Int}, Od::Int; hidden_size, depth, activation)
-    # For multi-input, we assume inputs will be concatenated before calling
-    layers = Any[Dense(sum(Id) => hidden_size, activation)]
-    for i in 1:depth
-        push!(layers, Dense(hidden_size => hidden_size, activation))
-    end
-    push!(layers, Dense(hidden_size => Od, identity))
-    return Chain(layers...)
-end
+MLP(Id::Vector{Int} ,Od::Int; hidden_size, depth, activation) = @compact(m=Chain(Dense(sum(Id) => hidden_size, activation), 
+                                                                        [Dense(hidden_size, hidden_size, activation) for i in 1:depth]..., 
+                                                                        Dense(hidden_size, Od, activation))) do xs
+                                                                            @return m(vcat(xs...))
+                                                                             end
 
 
 """
