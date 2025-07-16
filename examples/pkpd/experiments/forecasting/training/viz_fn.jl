@@ -25,7 +25,7 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
     Ey₁_p, Ey₂_p = softmax(Ey_p[1], dims=1), Ey_p[2]
     
     # Convert time to days for plotting
-    t_o, t_p = obs_timepoints * 52.0f0 * 7.0f0, for_timepoints * 52.0f0 * 7.0f0
+    t_o, t_p = obs_timepoints *  7.0f0, for_timepoints * 7.0f0
 
     # Convert health status to classes
     y₁_o_class = onecold(softmax(y₁_o, dims=1), Array(0:5))
@@ -282,9 +282,8 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
          color=(PKPD_COLORS.confidence, 0.25))
          
     lines!(ax2, t_p, ŷ₂_m[1, :, sample_n], 
-          color=PKPD_COLORS.predicted, linewidth=3.5, linestyle=:dash,
+          color=PKPD_COLORS.predicted, linewidth=5.5, linestyle=:solid,
           label="Model Predictions")
-
     # Plot cell count with professional styling
     scatter!(ax3, t_o_valid₂, y₂_o_valid,
             color=PKPD_COLORS.observed, markersize=20)
@@ -295,10 +294,6 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
             color=PKPD_COLORS.truth, markersize=20)
     lines!(ax3, t_p_valid₂, y₂_t_valid, 
           color=(PKPD_COLORS.truth, 0.7), linewidth=3.5, linestyle=:dash)
-    # scatter!(ax3, t_p_valid₂, ŷ₂_count_valid[:, 1], 
-    #         color=PKPD_COLORS.predicted, markersize=20)
-    # lines!(ax3, t_p_valid₂, ŷ₂_count_valid[:,1], 
-    #       color=PKPD_COLORS.predicted, linewidth=3.5, linestyle=:dash)
     scatter!(ax3, t_p_valid₂, ŷ₂_count_m_valid, 
             color=PKPD_COLORS.predicted, markersize=20)
     lines!(ax3, t_p_valid₂, ŷ₂_count_m_valid, 
@@ -320,7 +315,6 @@ function viz_fn_nde(obs_timepoints, for_timepoints, obs_data, future_true_data, 
     ylims!(ax3, y3_min, y3_max)
     
     # Create consolidated legend at the bottom (ICU style)
-    # Create custom legend elements for better uncertainty representation
     custom_elements = [
         PolyElement(color=(PKPD_COLORS.obs_period, 0.3)),
         PolyElement(color=(PKPD_COLORS.forecast_period, 0.3)),

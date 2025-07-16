@@ -172,12 +172,12 @@ Randomly sets 20% of the values in the input matrices `y1` and `y2` to zero and 
 """
 
 
-function irregularize(y1,y2, mask1, mask2)
+function irregularize(y1, y2, mask1, mask2)
     mask1=copy(mask1)
     mask2=copy(mask2)
     for i in 1:size(y1)[3]
         for j in 1:size(y1)[2]
-            samp=rand(0:0.1:1)<0.8 # 100% chance to set to zero
+            samp=rand(0:0.1:1)<0.8
             if samp==0
                 y1[:,j,i].=0
                 y2[:,j,i].=0
@@ -189,7 +189,6 @@ function irregularize(y1,y2, mask1, mask2)
     end 
     return y1, y2, mask1, mask2
 end 
-
 
 
 """

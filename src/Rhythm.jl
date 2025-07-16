@@ -37,7 +37,6 @@ const TYPE_MAP = Dict(
     "BranchDecoder_linear" => BranchDecoder_linear,
     "MLP" => MLP,
     "SparseMLP" => SparseMLP,
-    "SparseMLP_ODE" => SparseMLP_ODE,
     "HopfOscillators" => HopfOscillators,
     "StuartLandauOscillators" => StuartLandauOscillators,
     "LimitCycleOscillators" => LimitCycleOscillators,

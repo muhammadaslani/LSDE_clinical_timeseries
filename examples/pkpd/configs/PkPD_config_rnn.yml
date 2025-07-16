@@ -1,10 +1,10 @@
 model:
   encoder: 
-    hidden_size: 16
-    latent_dim: 16
+    hidden_size: 32
+    latent_dim: 32
     num_layers: 2
   output_head:
-    hidden_size: 16
+    hidden_size: 32
     num_layers: 2
 
 
