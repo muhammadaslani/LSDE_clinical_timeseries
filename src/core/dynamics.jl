@@ -281,7 +281,8 @@ function sample_dynamics(de::ODE, x̂₀, u, ts, p, st, n_samples)
     x = permutedims(Array(ensemble_sol), (1, 3, 2, 4)) 
     return x
 end
-##############################################################################
+
+
 function dxdt_u(model::Lux.AbstractLuxLayer, x, u, t, p, st)
     output, _ = model((x,u), p, st)
     return output
@@ -301,3 +302,96 @@ function dxdt_u(model::DynamicalSystem, x,  u::Nothing, t, p, st)
     return  model(x, nothing, t, p, st)
 end
 
+
+
+
+###########################################################################################
+"""
+    LSTM(vector_field, solver; kwargs...)
+
+Constructs an LSTM model.
+
+Arguments:
+
+  - `vector_field`: The vector field of the LSTM. 
+
+"""
+
+
+struct LSTM <: UDE
+    vector_field
+end
+
+function LSTM(latent_dim, ctrl_dim)
+    vector_field = LSTMCell(latent_dim + ctrl_dim => latent_dim)
+    return LSTM(vector_field)
+end
+
+
+"""
+    (model::LSTM)(x::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, p::ComponentVector, st::NamedTuple)
+
+The forward pass of the LSTM.
+
+
+Arguments:
+
+  - `x`: The initial hidden state.
+  - `u`: The control input.
+  - `ts`: The time steps.
+  - `p`: The parameters.
+  - `st`: The state.
+
+returns: 
+    - The predictions of the LSTM.
+    - The state of the model.
+
+"""
+function (model::LSTM)(x::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple)
+    h , c = x , x
+    output = zeros(eltype(x), size(x))
+    ps = ps.vector_field
+    st = st.vector_field
+    outputs = [begin
+        u_t = u[:, t, :]
+        (output, (h, c)), st = model.vector_field((vcat(output, u_t), (h, c)), ps, st)
+        output
+    end for t in 1:length(ts)]
+    
+    return stack(outputs, dims=2) , (vector_field = st,)
+end
+
+
+
+"""
+    sample_dynamics(model::LSTM, x̂₀, u, ts, p, st, n_samples)
+Samples trajectories from the LSTM model.
+
+Arguments:
+
+  - `de`: The LSTM model to sample from.
+  - `x̂₀`: The initial hidden state.
+  - `u`: Inputs for the input encoder. Can be `Nothing` or an array.
+  - `ts`: Array of time points at which to sample the trajectories.
+  - `p`: The parameters.
+  - `st`: The state.
+  - `n_samples`: The number of samples to generate.
+
+returns: 
+    - The sampled trajectories.
+    - The state of the model.
+
+"""
+
+
+function sample_dynamics(dynamics::LSTM, x̂₀, u, ts, ps, st, n_samples)
+    x₀ = sample_rp(x̂₀)
+    x = []
+    
+    # Generate multiple samples
+    for sample_idx in 1:n_samples
+        x_, st = dynamics(x₀, u, ts, ps, st)
+        push!(x, x_)
+    end
+    return stack(x, dims=4)
+end

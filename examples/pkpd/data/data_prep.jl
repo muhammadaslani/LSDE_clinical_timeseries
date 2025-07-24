@@ -152,7 +152,7 @@ Generate observations from a solution.
 - `Tuple{Vector{Int}, Vector{Int}, Vector{Float64}}`: Health observations, tumor observations, and time points
 """
 
-function generate_observations(sol::RODESolution, sample_rate::Int; noise_std::Float64=0.2)::Tuple{Vector{Int},Vector{Int},Vector{Float64}}
+function generate_observations(sol::RODESolution, sample_rate::Int; noise_std::Float64=0.0)::Tuple{Vector{Int},Vector{Int},Vector{Float64}}
     # Poisson sampling
     y_obs = rand.(Poisson.((sol[1, :])))[1:sample_rate:end]
     noise_std = noise_std .* y_obs
@@ -331,8 +331,8 @@ function generate_dataset(;
     n_samples::Int,
     X₀_mean::Vector{Float64}=[50.0, 0.0, 0.0, 0.8, 0.9],
     X₀_std::Vector{Float64}=[10.0, 0.0, 0.0, 0.0, 0.0],
-    tspan::Tuple{Float64,Float64}=(0.0, 140.0),
-    sample_rate::Int=7,
+    tspan::Tuple{Float64,Float64}=(0.0, 70.0),
+    sample_rate::Int=1,
     params::ModelParameters=ModelParameters()
 )
 
@@ -368,8 +368,6 @@ function generate_dataset(;
 
     # One-hot encode health status
     Y₁ = [Array(onehotbatch(y[1, :], Array(0:5))) for y in Y]
-    #Y₁=[reshape(y[1,:], 1,:) for y in Y]
-    # Extract cancer cell count
     Y₂ = [reshape(y[2, :], 1, :) for y in Y]
 
     @info "Done"

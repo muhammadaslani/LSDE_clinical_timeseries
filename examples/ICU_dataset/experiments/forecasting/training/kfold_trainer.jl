@@ -111,11 +111,9 @@ function kfold_train(data, n_folds, rng, config_path, model_type, timepoints, lo
         if model_type == "lsde"
             model, θ, st = create_latentsde(config["model"], dims, rng)
         elseif model_type == "lode"
-            lode_config = deepcopy(config["model"])
-            model, θ, st = create_latentsde(lode_config, dims, rng)
+            model, θ, st = create_latentode(config["model"], dims, rng)
         elseif model_type == "rnn"
-            model, θ, st = creat_encoder_decoder_lstm(dims["obs_dim"]+dims["input_dim"], dims["input_dim"], config["model"]["encoder"]["hidden_size"], dims["output_dim"], rng, config["model"]["encoder"]["num_layers"], config["model"]["output_head"]["num_layers"])
-
+            model, θ, st = create_latent_lstm(dims["obs_dim"]+dims["input_dim"], dims["input_dim"], config["model"]["encoder"]["hidden_size"],config["model"]["encoder"]["latent_dim"], dims["output_dim"], rng, config["model"]["encoder"]["num_layers"])
         else
             error("Unsupported model type: $model_type")
         end
@@ -149,17 +147,7 @@ function kfold_train(data, n_folds, rng, config_path, model_type, timepoints, lo
         # Make predictions
         μ, σ = forecast_fn(model, θ_trained, st, data_obs, u_for, timepoints_for, config["training"]["validation"])
         forecasted_data = (μ, σ)
-        
-        # Evaluate model performance without plotting
-        # Handle different return formats for different model types
-        if model_type == "rnn"
-            # RNN models only return RMSE
-            rmse = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, plot=false)
-            crps = [0.0] * length(rmse)  # Set CRPS to zero for RNN models
-        else
-            # LSDE/LODE models return both RMSE and CRPS
-            rmse, crps = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, plot=false)
-        end
+        rmse, crps = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, plot=false)
         
         # Store model, parameters, state, and performance
         push!(models, model)

@@ -9,12 +9,10 @@ function eval_fn_nde(model, θ, st, ts, data, config)
     return (eval_loss, eval_loss_1, eval_loss_2)
 end
 
-function eval_fn_rnn(model, θ, st, ts, data, config)
-    u_obs, covars_obs, _, y₁_obs, y₂_obs, _, _, u_forecast, _, _, y₁_forecast, y₂_forecast, mask₁_forecast, mask₂_forecast = data
-    forecast_length = size(u_forecast, 2)
+function eval_fn_lstm(model, θ, st, ts, data, config)
+    _, covars_obs, _, y₁_obs, y₂_obs, _, _, u_forecast, _, _, y₁_forecast, y₂_forecast, mask₁_forecast, mask₂_forecast = data
     batch_size = size(y₁_forecast)[end]
-    history = vcat(covars_obs, y₁_obs, y₂_obs, u_obs)
-    (ŷ₁, ŷ₂), _, _ = model(history, u_forecast, forecast_length, θ, st)
+    (ŷ₁, ŷ₂), _, _ = model(vcat(covars_obs, y₁_obs, y₂_obs), u_forecast, ts, θ, st)
     eval_loss1 = CrossEntropy_Loss(ŷ₁, y₁_forecast, mask₁_forecast; agg=sum) / batch_size
     eval_loss2 = -poisson_loglikelihood(ŷ₂, y₂_forecast, mask₂_forecast) / batch_size
     total_eval_loss = eval_loss1 + eval_loss2
@@ -63,55 +61,25 @@ function assess_model_performance(performances, variables_of_interest; model_nam
     println("$model_name Performance Summary ($n_folds-fold Cross-Validation)")
     println("="^70)
     
-    # Extract and process metrics based on model type
-    if model_type == "rnn"
-        # RNN models may have different performance format
-        # Assuming RNN returns (total_loss, health_loss, tumor_loss) similar to other models
-        if length(performances) > 0 && length(performances[1]) == 3
-            health_losses = [perf[1] for perf in performances]  # or appropriate metric
-            tumor_losses = [perf[2] for perf in performances]
-            count_losses = [perf[3] for perf in performances]
-            
-            # Calculate statistics
-            health_mean, health_std = mean(health_losses), std(health_losses)
-            tumor_mean, tumor_std = mean(tumor_losses), std(tumor_losses)
-            count_mean, count_std = mean(count_losses), std(count_losses)
-            
-            println("\nPerformance Metrics:")
-            println("-"^40)
-            @printf("Health Status Loss: %.4f ± %.4f\n", health_mean, health_std)
-            @printf("Tumor Volume Loss:  %.4f ± %.4f\n", tumor_mean, tumor_std)
-            @printf("Cell Count Loss:    %.4f ± %.4f\n", count_mean, count_std)
-            
-            # Overall performance
-            overall_mean = mean([health_mean, tumor_mean, count_mean])
-            overall_std = sqrt(mean([health_std^2, tumor_std^2, count_std^2]))
-            
-        else
-            @warn "Unexpected RNN performance format. Using fallback processing."
-            return nothing
-        end
-    else
-        # Neural DE models: (crossentropy_health, rmse_tumor, nll_count)
-        crossentropy_health_values = [perf[1] for perf in performances]
-        rmse_tumor_values = [perf[2] for perf in performances]
-        nll_count_values = [perf[3] for perf in performances]
-        
-        # Calculate statistics
-        crossentropy_mean, crossentropy_std = mean(crossentropy_health_values), std(crossentropy_health_values)
-        rmse_mean, rmse_std = mean(rmse_tumor_values), std(rmse_tumor_values)
-        nll_mean, nll_std = mean(nll_count_values), std(nll_count_values)
-        
-        println("\nPerformance Metrics:")
-        println("-"^40)
-        @printf("Health Status (Cross-entropy): %.4f ± %.4f\n", crossentropy_mean, crossentropy_std)
-        @printf("Tumor Volume (RMSE):           %.4f ± %.4f\n", rmse_mean, rmse_std)
-        @printf("Cell Count (Neg. Log-lik):     %.4f ± %.4f\n", nll_mean, nll_std)
-        
-        # Overall performance (weighted average - lower is better for all metrics)
-        overall_mean = mean([crossentropy_mean, rmse_mean, nll_mean])
-        overall_std = sqrt(mean([crossentropy_std^2, rmse_std^2, nll_std^2]))
-    end
+    # All models should return the same format: (crossentropy_health, rmse_tumor, nll_count)
+    crossentropy_health_values = [perf[1] for perf in performances]
+    rmse_tumor_values = [perf[2] for perf in performances]
+    nll_count_values = [perf[3] for perf in performances]
+    
+    # Calculate statistics
+    crossentropy_mean, crossentropy_std = mean(crossentropy_health_values), std(crossentropy_health_values)
+    rmse_mean, rmse_std = mean(rmse_tumor_values), std(rmse_tumor_values)
+    nll_mean, nll_std = mean(nll_count_values), std(nll_count_values)
+    
+    println("\nPerformance Metrics:")
+    println("-"^40)
+    @printf("Health Status (Cross-entropy): %.4f ± %.4f\n", crossentropy_mean, crossentropy_std)
+    @printf("Tumor Volume (RMSE):           %.4f ± %.4f\n", rmse_mean, rmse_std)
+    @printf("Cell Count (Neg. Log-lik):     %.4f ± %.4f\n", nll_mean, nll_std)
+    
+    # Overall performance (weighted average - lower is better for all metrics)
+    overall_mean = mean([crossentropy_mean, rmse_mean, nll_mean])
+    overall_std = sqrt(mean([crossentropy_std^2, rmse_std^2, nll_std^2]))
     
     println("\nOverall Performance:")
     println("-"^40)
@@ -119,11 +87,7 @@ function assess_model_performance(performances, variables_of_interest; model_nam
     
     # Find best performing fold (lowest overall performance)
     if isnothing(best_fold_idx)
-        if model_type == "rnn"
-            best_fold_idx = argmin([mean([perf[1], perf[2], perf[3]]) for perf in performances])
-        else
-            best_fold_idx = argmin([mean([perf[1], perf[2], perf[3]]) for perf in performances])
-        end
+        best_fold_idx = argmin([mean([perf[1], perf[2], perf[3]]) for perf in performances])
     end
     
     println("Best performing fold: $best_fold_idx")
@@ -154,7 +118,7 @@ function assess_model_performance(performances, variables_of_interest; model_nam
             timepoints_obs, timepoints_forecast = timepoints;
 
             # Generate forecast
-            try
+
                 forecasted_data = forecast_fn(best_model, best_params, best_state, data_obs, 
                                             u_forecast, timepoints_forecast, config)
                 
@@ -174,32 +138,20 @@ function assess_model_performance(performances, variables_of_interest; model_nam
                 @printf("Tumor RMSE:          %.4f\n", sample_rmse)
                 @printf("Cell Count NLL:      %.4f\n", sample_nll)
                 
-            catch e
-                @warn "Error generating forecast visualization: $e"
-            end
+
+            
         end
     end
     
-    # Prepare return statistics
-    if model_type == "rnn"
-        return_stats = (
-            health_mean=health_mean, health_std=health_std,
-            tumor_mean=tumor_mean, tumor_std=tumor_std,
-            count_mean=count_mean, count_std=count_std,
-            overall_mean=overall_mean, overall_std=overall_std,
-            best_fold_idx=best_fold_idx,
-            figure=fig, sample_metrics=sample_metrics
-        )
-    else
-        return_stats = (
-            crossentropy_mean=crossentropy_mean, crossentropy_std=crossentropy_std,
-            rmse_mean=rmse_mean, rmse_std=rmse_std,
-            nll_mean=nll_mean, nll_std=nll_std,
-            overall_mean=overall_mean, overall_std=overall_std,
-            best_fold_idx=best_fold_idx,
-            figure=fig, sample_metrics=sample_metrics
-        )
-    end
+    # Prepare return statistics - use consistent naming for all models
+    return_stats = (
+        crossentropy_mean=crossentropy_mean, crossentropy_std=crossentropy_std,
+        rmse_mean=rmse_mean, rmse_std=rmse_std,
+        nll_mean=nll_mean, nll_std=nll_std,
+        overall_mean=overall_mean, overall_std=overall_std,
+        best_fold_idx=best_fold_idx,
+        figure=fig, sample_metrics=sample_metrics
+    )
     
     return return_stats
 end
@@ -232,11 +184,11 @@ function compare_pkpd_models(model_stats_dict; sort_by="overall", ascending=true
     if sort_by == "overall"
         sort_values = [stats.overall_mean for stats in model_stats]
     elseif sort_by == "health"
-        sort_values = [haskey(stats, :crossentropy_mean) ? stats.crossentropy_mean : stats.health_mean for stats in model_stats]
+        sort_values = [stats.crossentropy_mean for stats in model_stats]
     elseif sort_by == "tumor"
-        sort_values = [haskey(stats, :rmse_mean) ? stats.rmse_mean : stats.tumor_mean for stats in model_stats]
+        sort_values = [stats.rmse_mean for stats in model_stats]
     elseif sort_by == "count"
-        sort_values = [haskey(stats, :nll_mean) ? stats.nll_mean : stats.count_mean for stats in model_stats]
+        sort_values = [stats.nll_mean for stats in model_stats]
     else
         @warn "Invalid sort_by parameter. Using 'overall' as default."
         sort_values = [stats.overall_mean for stats in model_stats]
@@ -258,18 +210,18 @@ function compare_pkpd_models(model_stats_dict; sort_by="overall", ascending=true
     
     # Find best values for each metric
     best_overall = minimum([stats.overall_mean for stats in model_stats])
-    best_health = minimum([haskey(stats, :crossentropy_mean) ? stats.crossentropy_mean : stats.health_mean for stats in model_stats])
-    best_tumor = minimum([haskey(stats, :rmse_mean) ? stats.rmse_mean : stats.tumor_mean for stats in model_stats])
-    best_count = minimum([haskey(stats, :nll_mean) ? stats.nll_mean : stats.count_mean for stats in model_stats])
+    best_health = minimum([stats.crossentropy_mean for stats in model_stats])
+    best_tumor = minimum([stats.rmse_mean for stats in model_stats])
+    best_count = minimum([stats.nll_mean for stats in model_stats])
     
     for (rank, (name, stats)) in enumerate(zip(sorted_names, sorted_stats))
         # Get metric values and add indicators for best performance
-        health_val = haskey(stats, :crossentropy_mean) ? stats.crossentropy_mean : stats.health_mean
-        health_std = haskey(stats, :crossentropy_std) ? stats.crossentropy_std : stats.health_std
-        tumor_val = haskey(stats, :rmse_mean) ? stats.rmse_mean : stats.tumor_mean
-        tumor_std = haskey(stats, :rmse_std) ? stats.rmse_std : stats.tumor_std
-        count_val = haskey(stats, :nll_mean) ? stats.nll_mean : stats.count_mean
-        count_std = haskey(stats, :nll_std) ? stats.nll_std : stats.count_std
+        health_val = stats.crossentropy_mean
+        health_std = stats.crossentropy_std
+        tumor_val = stats.rmse_mean
+        tumor_std = stats.rmse_std
+        count_val = stats.nll_mean
+        count_std = stats.nll_std
         
         # Add indicators for best performance
         health_indicator = health_val ≈ best_health ? " ★" : ""

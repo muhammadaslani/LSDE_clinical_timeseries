@@ -12,11 +12,13 @@ abstract type DynamicalSystem <: AbstractLuxLayer end
 
 # Core stuff
 include("core/dynamics.jl")
-export SDE, sample_generative, sample_augmented
+export SDE, ODE, LSTM, sample_generative, sample_augmented
 include("core/latentsde.jl")
 export LatentSDE, predict, generate, filter, smooth
 include("core/latentode.jl")
 export LatentODE, predict, generate, filter, smooth
+include("core/latent_lstm.jl")
+export LatentLSTM, predict
 include("core/encoders.jl")
 export Encoder, Identity_Encoder, Recurrent_Encoder
 include("core/decoders.jl")
@@ -58,7 +60,7 @@ export sample_rp, interpolate!, basic_tgrad, dropmean, dropsd, pad_matrices, irr
 include("utils/losses.jl")
 export kl_normal, poisson_loglikelihood, poisson_nll_lograte, poisson_loglikelihood_multiple_samples, normal_loglikelihood, mse, frange_cycle_linear, bits_per_spike, CrossEntropy_Loss
 include("utils/config.jl")
-export create_object, create_latentsde, create_latentode
+export create_object, create_latentsde, create_latentode, create_latent_lstm
 include("trainer.jl")
 export train, validate, vizualize
 include("utils//theme.jl")

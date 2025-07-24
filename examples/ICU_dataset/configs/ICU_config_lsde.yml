@@ -1,6 +1,6 @@
 model:
   type: "LatentSDE"
-  latent_dim: &latentdim 32
+  latent_dim: &latentdim 8
   context_dim: 32
 
   obs_encoder:
@@ -23,14 +23,14 @@ model:
       hidden_size: 32
       depth: 1
       activation: sigmoid
-    solver: LambaEM()
+    solver: EM()
     kwargs:
-        dt: 0.05
+        dt: 0.5
 
   obs_decoder:
     type: "BranchDecoder"
     hidden_size: 32
-    depth: 2
+    depth: 1
     dists: ["Gaussian", "Gaussian", "Gaussian"]
 
 
@@ -47,10 +47,10 @@ training:
     step_every: 50  # Apply decay every epoch
   validation:
       latent_dim: *latentdim  
-      solver: LambaEM()
+      solver: EM()
       mcmc_samples: 50
       kwargs:
-          dt: 0.05
+          dt: 0.5
 
 experiment:
   name: "LatentSDE_ICU_Sys_ID_V0"

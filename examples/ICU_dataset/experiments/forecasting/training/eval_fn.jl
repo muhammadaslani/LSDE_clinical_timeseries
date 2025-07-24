@@ -15,27 +15,23 @@ function eval_fn_nde(model, θ, st, ts, data, config)
 end
 
 
-function eval_fn_rnn(model, θ, st, ts, data, config)
-    # For RNN, evaluation is similar to loss calculation
-    u_obs, x_obs, y_obs, masks_obs, u_for, x_for, y_for, masks_for = data
+function eval_fn_lstm(model, θ, st, ts, data, config)
+    u_obs, x_obs, _, _, u_for, _, y_for, masks_for = data
     batch_size = size(y_for)[end]
-    history_data = vcat(x_obs, u_obs)
     forecast_length = size(y_for)[2]
-    # Generate predictions
-    ŷ, st = model(history_data, u_for, forecast_length, θ, st)
-    loss = 0.0f0
+    ŷ, _, _ = model(vcat(x_obs, u_obs), u_for, forecast_length, θ, st)
+    eval_loss = 0.0f0
     for i in eachindex(ŷ)
-        μ, log_σ² = ŷ[i][1], ŷ[i][2]
+        μ, log_σ² = ŷ[i][1], ŷ[i][2]
         valid_indx = findall(masks_for[i, :, :] .== 1)
-        loss += normal_loglikelihood(μ[1,valid_indx], log_σ²[1,valid_indx], y_for[i, valid_indx]) / batch_size
+        eval_loss += normal_loglikelihood(μ[1,valid_indx], log_σ²[1,valid_indx], y_for[i, valid_indx]) / batch_size
     end
-    return (loss, 0.0f0, 0.0f0)
+    return (eval_loss, 0.0f0, 0.0f0)
 end
 
 
 
-# Define the kfold_forecast function for performance analysis
-function assess_model_performance(performances, variables_of_interest; model_name="Model", model_type="lsde", forecast_fn=forecast,
+function assess_model_performance(performances, variables_of_interest; model_name="Model", forecast_fn=forecast,
                        plot_sample=false, sample_n=3, viz_fn=viz_fn_forecast, models=nothing, params=nothing, states=nothing, 
                        data=nothing, timepoints=nothing, config=nothing, best_fold_idx=nothing)
     """
@@ -62,17 +58,12 @@ function assess_model_performance(performances, variables_of_interest; model_nam
     # Extract RMSE and CRPS values for each fold and feature
     rmse_values = zeros(n_folds, n_features)
     crps_values = zeros(n_folds, n_features)
-    if model_type == "lsde" || model_type== "lode"
-        for (fold_idx, (rmse, crps)) in enumerate(performances)
-        rmse_values[fold_idx, :] = rmse
-        crps_values[fold_idx, :] = crps
-        end
-    elseif model_type == "rnn" 
-        for (fold_idx, (rmse, crps)) in enumerate(performances)
-            rmse_values[fold_idx, :] = rmse[1:n_features]
-            crps_values[fold_idx, :] .= 0.0f0
-        end 
-    end 
+    
+    # All models now return both RMSE and CRPS
+    for (fold_idx, (rmse, crps)) in enumerate(performances)
+        rmse_values[fold_idx, :] = rmse[1:n_features]
+        crps_values[fold_idx, :] = crps[1:n_features]
+    end
     
     # Calculate statistics
     rmse_means = mean(rmse_values, dims=1)[1, :]
@@ -91,13 +82,10 @@ function assess_model_performance(performances, variables_of_interest; model_nam
         @printf("%-10s: %.4f ± %.4f\n", feature, rmse_means[i], rmse_stds[i])
     end
     
-    # Only display CRPS for models that support it
-    if model_type == "lsde" || model_type == "lode"
-        println("\nCRPS (Continuous Ranked Probability Score):")
-        println("-"^40)
-        for (i, feature) in enumerate(variables_of_interest)
-            @printf("%-10s: %.4f ± %.4f\n", feature, crps_means[i], crps_stds[i])
-        end
+    println("\nCRPS (Continuous Ranked Probability Score):")
+    println("-"^40)
+    for (i, feature) in enumerate(variables_of_interest)
+        @printf("%-10s: %.4f ± %.4f\n", feature, crps_means[i], crps_stds[i])
     end
     
     # Overall performance (mean across features)
@@ -109,11 +97,7 @@ function assess_model_performance(performances, variables_of_interest; model_nam
     println("\nOverall Performance (Average across features):")
     println("-"^40)
     @printf("RMSE: %.4f ± %.4f\n", overall_rmse_mean, overall_rmse_std)
-    if model_type == "lsde" || model_type == "lode"
-        @printf("CRPS: %.4f ± %.4f\n", overall_crps_mean, overall_crps_std)
-    else
-        println("CRPS: Not available for this model type")
-    end
+    @printf("CRPS: %.4f ± %.4f\n", overall_crps_mean, overall_crps_std)
     println("="^60)
     
     # Optional sample plotting
@@ -145,25 +129,13 @@ function assess_model_performance(performances, variables_of_interest; model_nam
             future_true_data = (inputs_data_for, obs_data_for, output_data_for, masks_for)
             
             # Generate forecast
-
             μ, σ = forecast_fn(best_model, best_params, best_state, data_obs, inputs_data_for, timepoints_for, config["training"]["validation"])
             forecasted_data = (μ, σ)
             
-            # Create visualization
-            if model_type == "rnn"
-                # For RNN models, viz function only returns rmse (no crps)
-                fig, rmse = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, sample_n=sample_n, plot=true)
-                crps = [0.0] * length(rmse)  # Set CRPS to zero for RNN
-            else
-                # For LSDE/LODE models, viz function returns both rmse and crps
-                fig, rmse, crps = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, sample_n=sample_n, plot=true)
-            end
+            # Create visualization - all models now return both rmse and crps
+            fig, rmse, crps = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, sample_n=sample_n, plot=true)
             
             println("\nSample number $sample_n forecast plotted for best model (fold $best_fold_idx)")
-            #println("Sample number $sample_n RMSE: [$(round.(rmse, digits=4))]")
-            # if model_type == "lsde" || model_type == "lode"
-            #     println("Sample number $sample_n CRPS: [$(round.(crps, digits=4))]")
-            # end
         end
     end
     
@@ -174,6 +146,8 @@ function assess_model_performance(performances, variables_of_interest; model_nam
             overall_crps_mean=overall_crps_mean, overall_crps_std=overall_crps_std,
             figure=fig)
 end
+
+
 
 # Function for comparing multiple model performances
 function compare_models(model_stats_dict; sort_by="rmse", ascending=true)
@@ -203,13 +177,7 @@ function compare_models(model_stats_dict; sort_by="rmse", ascending=true)
     if sort_by == "rmse"
         sort_values = [stats.overall_rmse_mean for stats in model_stats]
     elseif sort_by == "crps"
-        # Only consider models that have valid CRPS values (non-zero)
-        sort_values = [stats.overall_crps_mean > 0 ? stats.overall_crps_mean : Inf for stats in model_stats]
-        if all(isinf.(sort_values))
-            @warn "No models have CRPS values. Sorting by RMSE instead."
-            sort_values = [stats.overall_rmse_mean for stats in model_stats]
-            sort_by = "rmse"
-        end
+        sort_values = [stats.overall_crps_mean for stats in model_stats]
     else
         @warn "Invalid sort_by parameter. Using 'rmse' as default."
         sort_values = [stats.overall_rmse_mean for stats in model_stats]
@@ -222,61 +190,50 @@ function compare_models(model_stats_dict; sort_by="rmse", ascending=true)
     sorted_stats = model_stats[sorted_indices]
     
     # Print comparison table
-    println("\n" * "="^70)
+    println("\n" * "="^80)
     println("Model Comparison Summary (sorted by $(uppercase(sort_by)))")
-    println("="^70)
-    @printf("%-15s | %-15s | %-15s | %-10s\n", "Model", "Avg RMSE", "Avg CRPS", "Rank")
-    println("-"^70)
+    println("="^80)
+    @printf("%-15s | %-20s | %-20s | %-10s\n", "Model", "Avg RMSE", "Avg CRPS", "Rank")
+    println("-"^80)
     
+    # Find best performance for each metric
     best_rmse = minimum([stats.overall_rmse_mean for stats in model_stats])
-    # Only calculate best CRPS among models that have valid CRPS values
-    crps_values = [stats.overall_crps_mean for stats in model_stats if stats.overall_crps_mean > 0]
-    best_crps = isempty(crps_values) ? 0.0 : minimum(crps_values)
+    best_crps = minimum([stats.overall_crps_mean for stats in model_stats])
     
     for (rank, (name, stats)) in enumerate(zip(sorted_names, sorted_stats))
         # Add indicators for best performance
         rmse_indicator = stats.overall_rmse_mean ≈ best_rmse ? " ★" : ""
-        crps_indicator = (stats.overall_crps_mean > 0 && stats.overall_crps_mean ≈ best_crps) ? " ★" : ""
+        crps_indicator = stats.overall_crps_mean ≈ best_crps ? " ★" : ""
         
-        # Format CRPS display
-        crps_display = stats.overall_crps_mean > 0 ? 
-                      @sprintf("%.4f±%.4f%s", stats.overall_crps_mean, stats.overall_crps_std, crps_indicator) :
-                      "N/A          "
-        
-        @printf("%-15s | %.4f±%.4f%s | %s | %-10d\n", 
+        @printf("%-15s | %.4f±%.4f%s | %.4f±%.4f%s | %-10d\n", 
                 name, 
                 stats.overall_rmse_mean, stats.overall_rmse_std, rmse_indicator,
-                crps_display,
+                stats.overall_crps_mean, stats.overall_crps_std, crps_indicator,
                 rank)
     end
     
-    println("-"^70)
+    println("-"^80)
     println("★ = Best performance for that metric")
-    println("="^70)
+    println("="^80)
     
     # Print detailed comparison
     println("\nDetailed Performance Comparison:")
     println("-"^40)
     
-    # Find best model overall (using only RMSE for mixed model types)
-    best_overall_idx = argmin([stats.overall_rmse_mean for stats in sorted_stats])
+    # Find best model overall (based on sorting criterion)
+    best_overall_idx = 1  # First in sorted list is best
     best_model_name = sorted_names[best_overall_idx]
     
-    @info "Best overall model (lowest RMSE): $best_model_name"
+    @info "Best overall model (lowest $sort_by): $best_model_name"
     
     # Calculate performance differences
     if length(model_stats) > 1
         println("\nPerformance differences (compared to best):")
         for (name, stats) in zip(sorted_names[2:end], sorted_stats[2:end])
             rmse_diff = stats.overall_rmse_mean - sorted_stats[1].overall_rmse_mean
-            if stats.overall_crps_mean > 0 && sorted_stats[1].overall_crps_mean > 0
-                crps_diff = stats.overall_crps_mean - sorted_stats[1].overall_crps_mean
-                @printf("  %s vs %s: +%.4f RMSE, +%.4f CRPS\n", 
-                       name, sorted_names[1], rmse_diff, crps_diff)
-            else
-                @printf("  %s vs %s: +%.4f RMSE\n", 
-                       name, sorted_names[1], rmse_diff)
-            end
+            crps_diff = stats.overall_crps_mean - sorted_stats[1].overall_crps_mean
+            @printf("  %s vs %s: +%.4f RMSE, +%.4f CRPS\n", 
+                   name, sorted_names[1], rmse_diff, crps_diff)
         end
     end
     

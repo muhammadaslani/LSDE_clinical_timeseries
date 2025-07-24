@@ -1,7 +1,5 @@
-# functions for forecasting with different models
-
 function forecast_nde(model, θ, st, obs_data, u_forecast, time_forecast, config)
-    u_obs, x_obs, y_obs, masks_obs = obs_data    
+    u_obs, x_obs, _, _ = obs_data    
     solver = eval(Meta.parse(config["solver"]))
     kwargs_dict = Dict(Symbol(k) => v for (k, v) in config["kwargs"])
     _, Ey = predict(model, solver, x_obs, hcat(u_obs,u_forecast), time_forecast, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
@@ -11,10 +9,10 @@ function forecast_nde(model, θ, st, obs_data, u_forecast, time_forecast, config
 end 
 # Forecasting function for RNN models
 function forecast_rnn(model, θ, st, obs_data, u_forecast, time_forecast, config)
-    u_obs, x_obs, y_obs, masks_obs = obs_data
+    u_obs, x_obs, _, _ = obs_data
     history_data = vcat(x_obs, u_obs)
     forecast_length = size(u_forecast)[2]
-    ŷ, st = model(history_data, u_forecast, forecast_length, θ, st)
+    ŷ, _ = predict(model, history_data, u_forecast, forecast_length, θ, st; mcmc_samples=config["mcmc_samples"])
     μ = [ŷ[i][1] for i in eachindex(ŷ)]
     σ = [sqrt.(exp.(ŷ[i][2])) for i in eachindex(ŷ)]
     return μ, σ
