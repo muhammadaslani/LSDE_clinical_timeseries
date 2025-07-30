@@ -1,6 +1,6 @@
 model:
   type: "LatentODE"
-  latent_dim: &latentdim 8
+  latent_dim: &latentdim 32
   context_dim: 32
 
   obs_encoder:
@@ -12,22 +12,20 @@ model:
       type: "MLP"
       hidden_size: 32
       depth: 1
-      activation: swish
+      activation: sigmoid
     solver: Euler()
     kwargs:
-        dt: 0.5
+        dt: 0.01
 
   obs_decoder:
-    type: "BranchDecoder"
-    hidden_size: 32
-    depth: 1
+    type: "MultiHeadLinearDecoder"
     dists: ["Gaussian", "Gaussian", "Gaussian"]
 
 
 training:
   learning_rate: 0.005
   optimizer: AdamW(0.005) 
-  epochs: 100
+  epochs: 200
   log_freq: 10
   viz_freq: 1
   stop_patience: 20
@@ -40,7 +38,7 @@ training:
       solver: Euler()
       mcmc_samples: 50
       kwargs:
-          dt: 0.5
+          dt: 0.01
 
 experiment:
   name: "LatentODE_PKPD_V0"

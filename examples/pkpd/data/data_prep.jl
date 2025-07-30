@@ -1,22 +1,7 @@
 # PKPD Model Simulation
-using Pkg
-
-# Automatically install required packages if not already installed
-let
-    required_packages = ["DifferentialEquations", "Random", "Distributions", "CairoMakie", "Lux"]
-    for pkg in required_packages
-        if Base.find_package(pkg) === nothing
-            Pkg.add(pkg)
-        end
-    end
-end
-
-using DifferentialEquations, Random, Distributions, CairoMakie, Lux
-
 """
     ModelParameters
 """
-# ...existing code...
 Base.@kwdef struct ModelParameters
     # Static covariates
     gender::Int = rand(0:1)       # 0 for male, 1 for female
@@ -110,6 +95,7 @@ Base.@kwdef struct ModelParameters
                    (gender == 0 ? 1.04 : 0.96)
 end
 
+
 """
     health_to_score(S::Float64)::Int
 
@@ -202,7 +188,7 @@ Chemotherapy input function.
 # Returns
 - `Float64`: Chemotherapy input (0 or 1)
 """
-u_c(t::Float64, ω_c::Union{Int64,Float64})::Float64 = (t % (ω_c * 7) < 1) && t > 1 ? 1.0 : 0.0
+u_c(t::Float64, ω_c::Union{Int64,Float64})::Float64 = (t % (ω_c * 7) < 0.5) && t > 1 ? 1.0 : 0.0
 
 """
     u_r(t::Float64, ω_r::Float64)::Float64
@@ -216,7 +202,7 @@ Radiotherapy input function.
 # Returns
 - `Float64`: Radiotherapy input (0 or 1)
 """
-u_r(t::Float64, ω_r::Union{Int64,Float64})::Float64 = (t % (ω_r * 7) < 1) && t > 1 ? 1.0 : 0.0
+u_r(t::Float64, ω_r::Union{Int64,Float64})::Float64 = (t % (ω_r * 7) < 0.5) && t > 1 ? 1.0 : 0.0
 
 """
     generate_inputs(ω_c::Float64, ω_r::Float64, tspan::Tuple{Float64,Float64}, sample_rate::Int)::Matrix{Float64}
@@ -273,7 +259,7 @@ Diffusion term for the stochastic differential equation.
 - `t::Float64`: Time
 """
 function diffusion(dX::Vector{Float64}, X::Vector{Float64}, p::ModelParameters, t::Float64)
-    dX[1] = 1e-2 * sqrt(X[1]^2)
+    dX[1] = 10e-2 * sqrt(X[1]^2)
 end
 
 """
@@ -331,8 +317,8 @@ function generate_dataset(;
     n_samples::Int,
     X₀_mean::Vector{Float64}=[50.0, 0.0, 0.0, 0.8, 0.9],
     X₀_std::Vector{Float64}=[10.0, 0.0, 0.0, 0.0, 0.0],
-    tspan::Tuple{Float64,Float64}=(0.0, 70.0),
-    sample_rate::Int=1,
+    tspan::Tuple{Float64,Float64}=(0.0, 210.0),
+    sample_rate::Int=7,
     params::ModelParameters=ModelParameters()
 )
 

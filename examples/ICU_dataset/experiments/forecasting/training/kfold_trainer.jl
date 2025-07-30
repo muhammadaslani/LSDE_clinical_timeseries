@@ -102,7 +102,7 @@ function kfold_train(data, n_folds, rng, config_path, model_type, timepoints, lo
             inputs_data_for[:,:,test_indices], obs_data_for[:,:,test_indices], output_data_for[:,:,test_indices], masks_for[:,:,test_indices]
         )
         
-        batch_size = 32
+        batch_size = 64
         train_loader = DataLoader(train_data, batchsize=batch_size, shuffle=true)
         val_loader = DataLoader(val_data, batchsize=batch_size, shuffle=false)
         test_loader = DataLoader(test_data, batchsize=batch_size, shuffle=false)
@@ -112,12 +112,11 @@ function kfold_train(data, n_folds, rng, config_path, model_type, timepoints, lo
             model, θ, st = create_latentsde(config["model"], dims, rng)
         elseif model_type == "lode"
             model, θ, st = create_latentode(config["model"], dims, rng)
-        elseif model_type == "rnn"
-            model, θ, st = create_latent_lstm(dims["obs_dim"]+dims["input_dim"], dims["input_dim"], config["model"]["encoder"]["hidden_size"],config["model"]["encoder"]["latent_dim"], dims["output_dim"], rng, config["model"]["encoder"]["num_layers"])
+        elseif model_type == "latent_lstm"
+            model, θ, st = create_latent_lstm(config["model"], dims, rng)    
         else
             error("Unsupported model type: $model_type")
         end
-        
         # Prepare training configuration for warm start
         training_config = deepcopy(config["training"])
         
@@ -156,27 +155,20 @@ function kfold_train(data, n_folds, rng, config_path, model_type, timepoints, lo
         push!(performances, (rmse, crps))
         
         @info "Fold $fold_idx completed"
+        @info "Fold $fold_idx completed: rmse=$rmse, CRPS=$crps"
     end
     
     # Compute average performance across folds
     avg_rmse = mean([perf[1] for perf in performances])
-    if model_type == "rnn"
-        avg_crps = 0.0  # RNN models don't have CRPS
-    else
-        avg_crps = mean([perf[2] for perf in performances])
-    end
-    
+    avg_crps = mean([perf[2] for perf in performances])
+
     # Calculate total training time
     end_time = time()
     total_training_time = end_time - start_time
     
     @info "K-Fold Cross-Validation Results:"
     @info "Average RMSE across $n_folds folds: $avg_rmse"
-    if model_type == "rnn"
-        @info "CRPS: Not available for RNN models"
-    else
-        @info "Average CRPS across $n_folds folds: $avg_crps"
-    end
+    @info "Average CRPS across $n_folds folds: $avg_crps"
     @info "Total training time: $(round(total_training_time, digits=2)) seconds ($(round(total_training_time/60, digits=2)) minutes)"
     
     return models, trained_params, states, performances

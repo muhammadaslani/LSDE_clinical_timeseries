@@ -13,10 +13,10 @@ const PKPD_COLORS = (
 # Neural differential equation visualization function
 function viz_fn(obs_timepoints, for_timepoints, obs_data, future_true_data, forecasted_data; sample_n=3, plot=true)
     # Unpack observation data
-    u_o, covars_o, x_o, y₁_o, y₂_o, mask₁_o, mask₂_o = obs_data
+    u_o, _, x_o, y₁_o, y₂_o, mask₁_o, mask₂_o = obs_data
     
     # Unpack future data  
-    u_t, covars_t, x_t, y₁_t, y₂_t, mask₁_t, mask₂_t = future_true_data
+    u_t, _, x_t, y₁_t, y₂_t, mask₁_t, mask₂_t = future_true_data
     
     # Unpack forecasted data
     u_p = u_t
@@ -25,7 +25,8 @@ function viz_fn(obs_timepoints, for_timepoints, obs_data, future_true_data, fore
     Ey₁_p, Ey₂_p = softmax(Ey_p[1], dims=1), Ey_p[2]
     
     # Convert time to days for plotting
-    t_o, t_p = obs_timepoints *  7.0f0, for_timepoints * 7.0f0
+    dt= for_timepoints[2] - for_timepoints[1]  # Assuming uniform time steps
+    t_o, t_p = obs_timepoints/dt, for_timepoints/dt
 
     # Convert health status to classes
     y₁_o_class = onecold(softmax(y₁_o, dims=1), Array(0:5))
@@ -276,6 +277,7 @@ function viz_fn(obs_timepoints, for_timepoints, obs_data, future_true_data, fore
           vcat(x_o[1, :, sample_n], x_t[1, :, sample_n]), 
           color=(PKPD_COLORS.observed, 0.7), linewidth=3.5, linestyle=:solid,
           label="Historical Observations")
+
     # Plot confidence band first (so it's behind other elements)
     band!(ax2, t_p, ŷ₂_CI_low, ŷ₂_CI_up, 
          color=(PKPD_COLORS.confidence, 0.25))

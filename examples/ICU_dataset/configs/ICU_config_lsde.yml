@@ -1,6 +1,6 @@
 model:
   type: "LatentSDE"
-  latent_dim: &latentdim 8
+  latent_dim: &latentdim 32
   context_dim: 32
 
   obs_encoder:
@@ -22,15 +22,13 @@ model:
       type: "MLP"
       hidden_size: 32
       depth: 1
-      activation: sigmoid
+      activation: sigmoid  
     solver: EM()
     kwargs:
-        dt: 0.5
+        dt: 0.01
 
   obs_decoder:
-    type: "BranchDecoder"
-    hidden_size: 32
-    depth: 1
+    type: "MultiHeadLinearDecoder"
     dists: ["Gaussian", "Gaussian", "Gaussian"]
 
 
@@ -50,7 +48,7 @@ training:
       solver: EM()
       mcmc_samples: 50
       kwargs:
-          dt: 0.5
+          dt: 0.01
 
 experiment:
   name: "LatentSDE_ICU_Sys_ID_V0"

@@ -8,12 +8,10 @@ function forecast_nde(model, θ, st, obs_data, u_forecast, time_forecast, config
     return μ, σ
 end 
 # Forecasting function for RNN models
-function forecast_rnn(model, θ, st, obs_data, u_forecast, time_forecast, config)
-    u_obs, x_obs, _, _ = obs_data
-    history_data = vcat(x_obs, u_obs)
-    forecast_length = size(u_forecast)[2]
-    ŷ, _ = predict(model, history_data, u_forecast, forecast_length, θ, st; mcmc_samples=config["mcmc_samples"])
-    μ = [ŷ[i][1] for i in eachindex(ŷ)]
-    σ = [sqrt.(exp.(ŷ[i][2])) for i in eachindex(ŷ)]
+function forecast_lstm(model, θ, st, obs_data, u_forecast, time_forecast, config)
+    _, x_obs, _, _ = obs_data
+    _, Ey_p = predict(model, x_obs, u_forecast, time_forecast, θ, st, config["mcmc_samples"], model.device)
+    μ = [Ey_p[i][1] for i in eachindex(Ey_p)]
+    σ = [sqrt.(exp.(Ey_p[i][2])) for i in eachindex(Ey_p)]
     return μ, σ
 end

@@ -22,7 +22,7 @@ export LatentLSTM, predict
 include("core/encoders.jl")
 export Encoder, Identity_Encoder, Recurrent_Encoder
 include("core/decoders.jl")
-export Decoder, Identity_Decoder, Linear_Decoder, MLP_Decoder, MultiDecoder, MultiDecoder_linear, BranchDecoder, BranchDecoder_linear, MultiOutputDecoder
+export Decoder, Identity_Decoder, Linear_Decoder, MLP_Decoder, MultiHeadMLPDecoder, MultiHeadLinearDecoder
 include("core/vectorfields.jl")
 export MLP, SparseMLP, SparseMLP_ODE, HopfOscillators, Linear, LimitCycleOscillators, StuartLandauOscillators
 
@@ -31,12 +31,10 @@ const TYPE_MAP = Dict(
     "Identity_Encoder" => Identity_Encoder,
     "Recurrent_Encoder" => Recurrent_Encoder,
     "MLP_Decoder" => MLP_Decoder,
-    "MultiDecoder" => MultiDecoder,
-    "MultiDecoder_linear" => MultiDecoder_linear,
+    "MultiHeadMLPDecoder" => MultiHeadMLPDecoder,
+    "MultiHeadLinearDecoder" => MultiHeadLinearDecoder,
     "Identity_Decoder" => Identity_Decoder,
     "Linear_Decoder" => Linear_Decoder,
-    "BranchDecoder" => BranchDecoder,
-    "BranchDecoder_linear" => BranchDecoder_linear,
     "MLP" => MLP,
     "SparseMLP" => SparseMLP,
     "HopfOscillators" => HopfOscillators,

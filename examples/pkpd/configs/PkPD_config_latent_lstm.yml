@@ -1,29 +1,27 @@
 model:
   type: "LatentLSTM"
-  latent_dim: 32
+  latent_dim: 64
   context_dim: 32
 
   obs_encoder: 
     type: "Recurrent_Encoder"
-    hidden_size: 32
+    hidden_size: 64
 
   dynamics:
     type: "LSTM"
     hidden_size: 32
-    depth: 2
+    depth: 1
 
   obs_decoder:
-    type: "BranchDecoder"
-    hidden_size: 32
-    depth: 1
+    type: "MultiHeadLinearDecoder"
     dists: ["Classification", "Poisson"]
 
 
 training:
-  learning_rate: 0.005
-  optimizer: AdamW(0.005) 
-  epochs: 10
-  log_freq: 1
+  learning_rate: 0.001
+  optimizer: AdamW(0.001) 
+  epochs: 200
+  log_freq: 10
   viz_freq: 10
   stop_patience: 20
   lr_decay:

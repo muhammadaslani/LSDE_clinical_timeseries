@@ -11,31 +11,29 @@ model:
     drift:
       type: "MLP"
       hidden_size: 32
-      depth: 2
+      depth: 1
       activation: swish
     drift_aug:
       type: "MLP"
       hidden_size: 32
-      depth: 2
+      depth: 1
       activation: swish
     diffusion:
       type: "SparseMLP"
-      activation: sigmoid
+      activation: softplus
     solver: EM()
     kwargs:
         dt: 0.1
 
   obs_decoder:
-    type: "BranchDecoder"
-    hidden_size: 32
-    depth: 1
+    type: "MultiHeadLinearDecoder"
     dists: ["Classification", "Poisson"]
 
 
 training:
-  learning_rate: 0.005
-  optimizer: AdamW(0.005) 
-  epochs: 100
+  learning_rate: 0.001
+  optimizer: AdamW(0.001) 
+  epochs: 200
   log_freq: 10
   viz_freq: 10
   stop_patience: 20

@@ -1,7 +1,7 @@
 function loss_fn_nde(model, θ, st, data)
     (u_obs, x_obs, _, _, u_for, _, y_for, masks_for), ts, λ = data
     batch_size= size(y_for)[end]
-    ŷ, px₀, kl_pq = model(x_obs, hcat(u_obs, u_for), ts, θ, st)
+    ŷ, px₀, kl_pq = model(x_obs,  u_for, ts, θ, st)
     recon_loss = 0.0f0
     for i in eachindex(ŷ)
         μ, log_σ² = ŷ[i][1], ŷ[i][2]
@@ -21,20 +21,18 @@ function loss_fn_nde(model, θ, st, data)
 end
 
 
-function loss_fn_rnn(model, θ, st, data)
-    (u_obs, x_obs, _, _, u_for, _, y_for, masks_for), _, λ = data
+function loss_fn_lstm(model, θ, st, data)
+    (_, x_obs, _, _, u_for, _, y_for, masks_for), ts, λ = data
     batch_size = size(y_for)[end]
-    history_data= vcat(x_obs, u_obs)
-    forecast_length = size(y_for)[2]
-    ŷ, st, vae_params = model(history_data, u_for, forecast_length, θ, st)
+
+    ŷ, px₀, kl_path = model(x_obs, u_for, ts, θ, st)
     recon_loss = 0.0f0
     for i in eachindex(ŷ)
         μ, log_σ² = ŷ[i][1], ŷ[i][2]
         valid_indx = findall(masks_for[i, :, :] .== 1)
         recon_loss += normal_loglikelihood(μ[1, valid_indx], log_σ²[1, valid_indx], y_for[i, valid_indx]) / batch_size
     end
-    μ, logσ² = vae_params.μ, vae_params.logσ²
-    kl_loss = kl_normal(μ, exp.(logσ²)) / batch_size
+    kl_loss = kl_normal(px₀...) / batch_size
     total_loss = recon_loss + λ * kl_loss
     return total_loss, st, (kl_loss, recon_loss, 0.0f0, 0.0f0)
 end

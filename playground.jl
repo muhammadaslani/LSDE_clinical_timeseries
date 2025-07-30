@@ -58,3 +58,5 @@ model, ps, st = create_latent_lstm(config, Dict("input_dim" => ctrl_dim, "obs_di
 ŷ, px₀, kl_path = model(y, u, ts, ps, st);
 
 xx,yy= predict(model, y, u, ts, ps, st, 5, CPUDevice());
+
+

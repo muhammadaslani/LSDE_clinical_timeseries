@@ -1,7 +1,7 @@
 """
     Decoder
 
-A decoder is a function that takes a latent variable and produces an output (Observations or Control inputs).    
+A decoder is a function that takes latent variables and produces outputs (Observations or Control inputs).    
 
 """
 struct Decoder{ON} <: AbstractLuxWrapperLayer{(:output_net)}
@@ -46,7 +46,7 @@ end
 """
     Linear_Decoder(obs_dim, latent_dim) 
 
-Constructs a linear decoder.
+Constructs a linear decoder (mapping from latent space to observation space without any hidden layers).
 
 Arguments:
 
@@ -61,10 +61,13 @@ returns:
 """
 function Linear_Decoder(latent_dim, obs_dim, dist="Gaussian")
     if dist == "Gaussian"
-        output_net = BranchLayer(Dense(latent_dim, obs_dim), Dense(latent_dim, obs_dim, softplus))
+        # Assumption: the output is a Gaussian distribution with mean and log variance
+        output_net = BranchLayer(Dense(latent_dim, obs_dim), Dense(latent_dim, obs_dim))
     elseif dist == "Poisson"
+        # Assumption: the output is a Poisson distribution mean rate, should be positive
         output_net = Chain(Dense(latent_dim, obs_dim), x -> exp.(x))
-    elseif dist == "None" 
+    elseif dist == "None"
+        # Assumption: can be used for Classification tasks as well, where the output is raw logits (softmax applied later (loss function))
         output_net = Dense(latent_dim, obs_dim)
     else
         error("Unknown Observation noise: $dataset_name \n Currnet supported dist: Gaussian, Poisson, None")
@@ -77,7 +80,7 @@ end
 """
     MLP_Decoder(obs_dim, latent_dim, hidden_dim, n_hidden)
 
-Constructs an MLP decoder.
+Constructs an MLP decoder (mapping from latent space to observation space with hidden layers).
 
 Arguments:
 
@@ -96,14 +99,14 @@ function MLP_Decoder(latent_dim, obs_dim; hidden_size, depth, dist)
 
     mlp = Chain(Dense(latent_dim => hidden_size), [Dense(hidden_size, hidden_size) for i in 1:depth]...)
     if dist == "Gaussian"
-        # BranchLayer is used to create two outputs: one for the mean and one for the log variance
+        # Assumption: the output is a Gaussian distribution with mean and log variance
         output_net = Chain(mlp, BranchLayer(Dense(hidden_size, obs_dim), Dense(hidden_size, obs_dim)))
     elseif dist == "Poisson"
+        # Assumption: the output is a Poisson distribution mean rate, should be positive
         output_net = Chain(mlp, Dense(hidden_size, obs_dim), x -> exp.(x))
-    elseif dist== "Classification"
-        output_net = Chain(mlp, Dense(hidden_size, obs_dim))
     elseif dist == "None"
-        output_net = Chain(mlp, Dense(hidden_size, obs_dim), softplus)
+        # Assumption: can be used for Classification tasks as well, where the output is raw logits (softmax applied later (loss function))
+        output_net = Chain(mlp, Dense(hidden_size, obs_dim))
 
     else
         error("Unknown Observation noise: $dist \n Currnet supported distributions: Gaussian, Poisson, None")
@@ -112,51 +115,34 @@ function MLP_Decoder(latent_dim, obs_dim; hidden_size, depth, dist)
     return Decoder(output_net)
 end
 
-
-
-function MultiDecoder(latent_dims, obs_dims; hidden_size, depth, dist)
-    decoders = [MLP_Decoder(latent_dims[i], obs_dims[i]; hidden_size=hidden_size, depth=depth, dist=dist) for i in 1:length(latent_dims)]
-    return Decoder(Parallel(vcat, decoders...))
-end
-
 """
-    MultiDecoder_linear(latent_dims, obs_dims; dist)
+    MultiHeadMLPDecoder(obs_dims, latent_dim, hidden_dim, n_hidden)
 
-TBW
-"""
-function MultiDecoder_linear(latent_dims, obs_dims; dist)
-    decoders = [Linear_Decoder(latent_dims[i], obs_dims[i], dist) for i in 1:length(latent_dims)]
-    return Decoder(Parallel(vcat, decoders...))
-end
-
-
-"""
-    BranchDecoder(latent_dim, obs_dims; hidden_size, depth, dists)
-
-Constructs a decoder with multiple branches from a single latent space.
+Constructs a multi-head MLP decoder (mapping from latent space to observation space with hidden layers).
 
 Arguments:
 
+- `obs_dim`: Dimension of the observations.
 - `latent_dim`: Dimension of the latent space.
-- `obs_dims`: List of dimensions of the observations.
 - `hidden_size`: Dimension of the hidden layers.
 - `depth`: Number of hidden layers.
-- `dists`: List of observation noise. Default is Gaussian. Options are Gaussian, Poisson, None.
+- `dists`: Type of observation noises. Default is Gaussian. Options are Gaussian, Poisson, None.
 
 returns: 
 
-    - The decoder.
-        
+    - The decoders.
+      
 """
-function BranchDecoder(latent_dim, output_dims; hidden_size, depth, dists)
-    decoders = [MLP_Decoder(latent_dim, output_dims[i]; hidden_size=hidden_size, depth=depth, dist=dists[i]) for i in eachindex(output_dims)]
+
+
+function MultiHeadMLPDecoder(latent_dim, output_dims; hidden_size, depth, dists)
+    decoders = [MLP_Decoder(latent_dim, output_dims[i]; hidden_size=hidden_size, depth=depth, dist=dists[i]) for i in eachindex(dists)]
     return Decoder(Parallel(nothing, decoders...))
 end
 
 
-
 """
-    BranchDecoder_linear(latent_dim, obs_dims; dists)
+    MultiHeadLinearDecoder(latent_dim, obs_dims; dists)
 
 Constructs a decoder with multiple branches from a single latent space.
 
@@ -168,10 +154,12 @@ Arguments:
 
 returns: 
 
-    - The decoder.
+    - The decoders.
         
 """
-function BranchDecoder_linear(latent_dim, obs_dims; dists)
-    decoders = [Linear_Decoder(latent_dim, obs_dims[i], dists[i]) for i in 1:length(obs_dims)]
+function MultiHeadLinearDecoder(latent_dim, output_dims; dists)
+    decoders = [Linear_Decoder(latent_dim, output_dims[i], dists[i]) for i in eachindex(dists)]
     return Decoder(Parallel(nothing, decoders...))
 end
+
+

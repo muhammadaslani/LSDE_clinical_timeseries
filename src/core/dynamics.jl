@@ -347,14 +347,16 @@ returns:
     - The state of the model.
 
 """
-function (model::LSTM)(x::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple)
-    h , c = x , x
-    output = zeros(eltype(x), size(x))
+function (model::LSTM)(x₀::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple)
+    h = x₀
+    c = zeros(eltype(x₀), size(x₀))
     ps = ps.vector_field
     st = st.vector_field
+    output= zeros(eltype(x₀), size(x₀))
     outputs = [begin
-        u_t = u[:, t, :]
-        (output, (h, c)), st = model.vector_field((vcat(output, u_t), (h, c)), ps, st)
+        u_t = vcat(output, u[:, t, :])
+        (output, (h, c)), st = model.vector_field((u_t, (h, c)), ps, st)
+
         output
     end for t in 1:length(ts)]
     

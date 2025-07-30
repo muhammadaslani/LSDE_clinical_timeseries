@@ -2,7 +2,7 @@
 function eval_fn_nde(model, θ, st, ts, data, config)
     u_obs, covars_obs, _, y₁_obs, y₂_obs, _, _, u_forecast, _, x_forecast, y₁_forecast, y₂_forecast, mask₁_forecast, mask₂_forecast = data
     batch_size = size(x_forecast)[end]
-    (ŷ₁, ŷ₂), _, _ = model(vcat(covars_obs, y₁_obs, y₂_obs), hcat(u_obs, u_forecast), ts, θ, st)
+    (ŷ₁, ŷ₂), _, _ = model(vcat(covars_obs, y₁_obs, y₂_obs),  u_forecast, ts, θ, st)
     eval_loss_1 = CrossEntropy_Loss(ŷ₁, y₁_forecast, mask₁_forecast; agg=sum) / batch_size
     eval_loss_2 = -poisson_loglikelihood(ŷ₂, y₂_forecast, mask₂_forecast) / batch_size
     eval_loss = eval_loss_1 + eval_loss_2

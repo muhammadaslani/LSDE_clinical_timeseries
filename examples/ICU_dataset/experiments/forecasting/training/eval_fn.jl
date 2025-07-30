@@ -1,10 +1,10 @@
 
 function eval_fn_nde(model, θ, st, ts, data, config)
-    u_obs, x_obs, y_obs, masks_obs, u_for, x_for, y_for, masks_for = data
+    _, x_obs, _, _, u_for, _, y_for, masks_for = data
     batch_size= size(y_for)[end]
     solver = eval(Meta.parse(config["solver"]))
     kwargs_dict = Dict(Symbol(k) => v for (k, v) in config["kwargs"])
-    _, Ey = predict(model, solver, x_obs, hcat(u_obs,u_for), ts, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
+    _, Ey = predict(model, solver, x_obs, u_for, ts, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
     loss=0.0f0
     for i in eachindex(Ey)
         μ, log_σ² = dropmean(Ey[i][1], dims=4), dropmean(Ey[i][2], dims=4)
@@ -16,10 +16,9 @@ end
 
 
 function eval_fn_lstm(model, θ, st, ts, data, config)
-    u_obs, x_obs, _, _, u_for, _, y_for, masks_for = data
+    _, x_obs, _, _, u_for, _, y_for, masks_for = data
     batch_size = size(y_for)[end]
-    forecast_length = size(y_for)[2]
-    ŷ, _, _ = model(vcat(x_obs, u_obs), u_for, forecast_length, θ, st)
+    ŷ, _, _ = model(x_obs, u_for, ts, θ, st)
     eval_loss = 0.0f0
     for i in eachindex(ŷ)
         μ, log_σ² = ŷ[i][1], ŷ[i][2]

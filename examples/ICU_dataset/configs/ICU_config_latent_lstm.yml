@@ -1,17 +1,26 @@
 model:
-  encoder: 
-    hidden_size: 8
-    latent_dim: 32
-    num_layers: 2
-  output_head:
+  type: "LatentLSTM"
+  latent_dim: 32
+  context_dim: 32
+
+  obs_encoder: 
+    type: "Recurrent_Encoder"
     hidden_size: 32
-    num_layers: 1
+
+  dynamics:
+    type: "LSTM"
+    hidden_size: 32
+    depth: 1
+
+  obs_decoder:
+    type: "MultiHeadLinearDecoder"
+    dists: ["Gaussian", "Gaussian", "Gaussian"]
 
 
 training:
   learning_rate: 0.005
   optimizer: AdamW(0.005) 
-  epochs: 100
+  epochs: 200
   log_freq: 10
   viz_freq: 10
   stop_patience: 20
@@ -24,6 +33,6 @@ training:
 
 
 experiment:
-  name: "latent lstm ICU forecasting V0"
+  name: "latent LSTM ICU_Forecasting_V0"
   description: "First experiment with a latent LSTM model using Rhythm on the ICU dataset"
   path: "experiments/"
