@@ -16,19 +16,20 @@ include("training/viz_fn.jl");
 rng = Random.MersenneTwister(123);
 
 # Load data
-variables_of_interest = ["MAP", "HR", "Temp"];
+variables_of_interest = ["MAP", "HR"];
 n_features = length(variables_of_interest);
-data, train_loader, val_loader, test_loader, time_series_dataset = load_data(
-    split_at=24, 
-    n_samples=1024, 
+data, train_loader, val_loader, test_loader, time_series_dataset, normalization_stats = load_data(
+    split_at=50, 
+    n_samples=512, 
     batch_size=64, 
-    variables_of_interest=variables_of_interest
+    variables_of_interest=variables_of_interest, 
+    normalization=true
 );
 
 # Setup timepoints
 n_timepoints = size(hcat(data[2], data[6]))[2];
 tspan = (1.0, n_timepoints);
-timepoints = (range(tspan[1], tspan[2], length=n_timepoints)) / n_timepoints |> Array{Float32};
+timepoints = Array(tspan[1]:tspan[2]) / (n_timepoints+1) |> Array{Float32};
 n_folds = 2
 
 # Perform k-fold training with Latent SDE model
@@ -48,8 +49,8 @@ lsde_models, lsde_params, lsde_states, lsde_performances = kfold_train(
 
 # Present LSDE model performance with sample plot
 lsde_stats = assess_model_performance(lsde_performances, variables_of_interest, model_name="Latent SDE", forecast_fn=forecast_nde,
-                           plot_sample=true, sample_n=1, viz_fn=viz_fn, models=lsde_models, params=lsde_params, 
-                           states=lsde_states, data=data, timepoints=timepoints, 
+                           plot_sample=true, sample_n=2, viz_fn=viz_fn, models=lsde_models, params=lsde_params, 
+                           states=lsde_states, data=data, normalization_stats=normalization_stats, timepoints=timepoints, 
                            config=YAML.load_file(config_path_lsde));
 
 # Perform k-fold training with Latent ODE model
@@ -70,7 +71,7 @@ lode_models, lode_params, lode_states, lode_performances = kfold_train(
 # Present LODE model performance with sample plot
 lode_stats = assess_model_performance(lode_performances, variables_of_interest, model_name="Latent ODE", forecast_fn=forecast_nde,
                                         plot_sample=true, sample_n=1,viz_fn=viz_fn, models=lode_models, params=lode_params, 
-                                        states=lode_states, data=data, timepoints=timepoints, 
+                                        states=lode_states, data=data,normalization_stats=normalization_stats, timepoints=timepoints, 
                                         config=YAML.load_file(config_path_lode));
 
 # Latent LSTM model training and evaluation
@@ -90,8 +91,8 @@ lstm_models, lstm_params, lstm_states, lstm_performances = kfold_train(
 
 # Present LSTM model performance with sample plot
 latent_lstm_stats = assess_model_performance(lstm_performances, variables_of_interest, model_name="Latent LSTM", forecast_fn=forecast_lstm,
-                           plot_sample=true, sample_n=3, viz_fn=viz_fn, models=lstm_models, params=lstm_params, 
-                           states=lstm_states, data=data, timepoints=timepoints, 
+                           plot_sample=true, sample_n=1, viz_fn=viz_fn, models=lstm_models, params=lstm_params, 
+                           states=lstm_states, data=data, normalization_stats=normalization_stats, timepoints=timepoints, 
                            config=YAML.load_file(lstm_config_path));
 
 

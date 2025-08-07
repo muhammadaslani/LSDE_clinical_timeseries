@@ -356,7 +356,6 @@ function (model::LSTM)(x₀::AbstractArray, u::Union{Nothing, AbstractArray}, ts
     outputs = [begin
         u_t = vcat(output, u[:, t, :])
         (output, (h, c)), st = model.vector_field((u_t, (h, c)), ps, st)
-
         output
     end for t in 1:length(ts)]
     
@@ -387,11 +386,11 @@ returns:
 
 
 function sample_dynamics(dynamics::LSTM, x̂₀, u, ts, ps, st, n_samples)
-    x₀ = sample_rp(x̂₀)
+
     x = []
-    
     # Generate multiple samples
     for sample_idx in 1:n_samples
+        x₀ = sample_rp(x̂₀)
         x_, st = dynamics(x₀, u, ts, ps, st)
         push!(x, x_)
     end

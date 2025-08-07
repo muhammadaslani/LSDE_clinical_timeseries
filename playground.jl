@@ -1,62 +1,28 @@
-using Revise
-using Rhythm
-using Random
-using Lux, DifferentialEquations, Random, SciMLSensitivity, ComponentArrays, Optimisers, OptimizationOptimisers, Statistics
-using MLUtils, Printf, SciMLSensitivity, OneHotArrays, CairoMakie, Distributions
-using YAML
+function npe_timepoint(y_pred::AbstractArray{T,4}, mask::AbstractArray{Bool,3}) where T <: Number
+    n_features, n_timepoints, n_samples, n_mc_samples = size(y_pred)
+    npe_per_t_s = zeros(T, n_timepoints, n_samples)
+
+        for t in 1:n_timepoints
+            for s in 1:n_samples
+                if mask[1, t, s] == true
+                # Get MC samples for this prediction point
+                pred_dist = y_pred[:, t, s, :]
+                # Calculate negative entropy over MC samples
+                pred_softmax = softmax(pred_dist, dims=1)
+                npe_val = -sum(pred_softmax .* log.(pred_softmax .+ 1e-10))
+                
+                # Store NPE for this feature, time point, and sample
+                npe_per_t_s[t, s] = npe_val / n_mc_samples
+                end
+            end
+        end
+
+    return npe_per_t_s
+end
 
 
 
-
-Random.seed!(123)
-
-# Define dimensions
-obs_dim = 4
-ctrl_dim = 2
-latent_dim=16
-hidden_size = 8
-seq_len = 10
-context_dim = 32
-batch_size = 32
-
-# Create simple mock components
-obs_encoder = Recurrent_Encoder(obs_dim, latent_dim, context_dim; hidden_size)
-init_map = NoOpLayer()
-ctrl_encoder = NoOpLayer()
-dynamics = LSTM(LSTMCell(latent_dim+ctrl_dim => latent_dim))
-state_map = NoOpLayer()
-obs_decoder = MLP_Decoder(latent_dim, obs_dim; hidden_size=hidden_size, depth=2, dist= "None")
-
-# Create model
-model = LatentLSTM(
-    obs_encoder=obs_encoder,
-    ctrl_encoder=ctrl_encoder,
-    init_map=init_map,
-    dynamics=dynamics,
-    state_map=state_map,
-    obs_decoder=obs_decoder
-)
-
-# Create test data
-# Create batch test data
-# Shape: (obs_dim, seq_len, batch_size)
-y = randn(Float32, obs_dim, seq_len, batch_size);
-u = randn(Float32, ctrl_dim, seq_len, batch_size);
-ts = collect(1:seq_len);
-
-# Initialize parameters and states
-rng = Random.default_rng()
-ps, st = Lux.setup(rng, model);
-ps = ComponentArray(ps);
-
-# Test forward pass
-
-
-config= YAML.load_file("examples/pkpd/configs/PkPD_config_latent_lstm.yml")["model"]
-model, ps, st = create_latent_lstm(config, Dict("input_dim" => ctrl_dim, "obs_dim" => obs_dim, "output_dim" => [obs_dim, obs_dim]), rng);
-
-ŷ, px₀, kl_path = model(y, u, ts, ps, st);
-
-xx,yy= predict(model, y, u, ts, ps, st, 5, CPUDevice());
-
-
+x= rand(5, 10, 3, 100); # Example input
+mask = rand(Bool, 5, 10, 3); # Example mask
+np = npe_timepoint(x, mask) # Call the function to test it
+1 .- np./log(5) # Example usage of the output

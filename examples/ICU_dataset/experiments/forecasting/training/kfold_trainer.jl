@@ -102,7 +102,7 @@ function kfold_train(data, n_folds, rng, config_path, model_type, timepoints, lo
             inputs_data_for[:,:,test_indices], obs_data_for[:,:,test_indices], output_data_for[:,:,test_indices], masks_for[:,:,test_indices]
         )
         
-        batch_size = 64
+        batch_size = 32
         train_loader = DataLoader(train_data, batchsize=batch_size, shuffle=true)
         val_loader = DataLoader(val_data, batchsize=batch_size, shuffle=false)
         test_loader = DataLoader(test_data, batchsize=batch_size, shuffle=false)
@@ -146,7 +146,7 @@ function kfold_train(data, n_folds, rng, config_path, model_type, timepoints, lo
         # Make predictions
         μ, σ = forecast_fn(model, θ_trained, st, data_obs, u_for, timepoints_for, config["training"]["validation"])
         forecasted_data = (μ, σ)
-        rmse, crps = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, plot=false)
+        rmse, crps = eval_forecast(future_true_data, forecasted_data)
         
         # Store model, parameters, state, and performance
         push!(models, model)

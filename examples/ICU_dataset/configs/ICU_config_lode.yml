@@ -12,22 +12,22 @@ model:
       type: "MLP"
       hidden_size: 32
       depth: 1
-      activation: sigmoid
+      activation: swish
     solver: Euler()
     kwargs:
         dt: 0.01
 
   obs_decoder:
     type: "MultiHeadLinearDecoder"
-    dists: ["Gaussian", "Gaussian", "Gaussian"]
+    dists: ["Gaussian", "Gaussian"]
 
 
 training:
-  learning_rate: 0.005
-  optimizer: AdamW(0.005) 
-  epochs: 200
+  learning_rate: 2e-3
+  optimizer: AdamW(2e-3)
+  epochs: 50
   log_freq: 10
-  viz_freq: 1
+  viz_freq: 10
   stop_patience: 20
   lr_decay:
     type: "exponential"

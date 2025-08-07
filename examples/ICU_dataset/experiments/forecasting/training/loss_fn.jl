@@ -1,5 +1,5 @@
 function loss_fn_nde(model, θ, st, data)
-    (u_obs, x_obs, _, _, u_for, _, y_for, masks_for), ts, λ = data
+    (_, x_obs, _, _, u_for, _, y_for, masks_for), ts, λ = data
     batch_size= size(y_for)[end]
     ŷ, px₀, kl_pq = model(x_obs,  u_for, ts, θ, st)
     recon_loss = 0.0f0

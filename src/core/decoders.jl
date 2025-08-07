@@ -66,11 +66,11 @@ function Linear_Decoder(latent_dim, obs_dim, dist="Gaussian")
     elseif dist == "Poisson"
         # Assumption: the output is a Poisson distribution mean rate, should be positive
         output_net = Chain(Dense(latent_dim, obs_dim), x -> exp.(x))
-    elseif dist == "None"
+    elseif dist == "None" || dist == "Classification"
         # Assumption: can be used for Classification tasks as well, where the output is raw logits (softmax applied later (loss function))
         output_net = Dense(latent_dim, obs_dim)
     else
-        error("Unknown Observation noise: $dataset_name \n Currnet supported dist: Gaussian, Poisson, None")
+        error("Unknown Observation noise: $dataset_name \n Currnet supported dist: Gaussian, Poisson, Classification, None")
     end
     return Decoder(output_net)
     
@@ -88,7 +88,7 @@ Arguments:
 - `latent_dim`: Dimension of the latent space.
 - `hidden_size`: Dimension of the hidden layers.
 - `depth`: Number of hidden layers.
-- `dist`: Type of observation noise. Default is Gaussian. Options are Gaussian, Poisson, None.
+- `dist`: Type of observation noise. Default is Gaussian. Options are Gaussian, Poisson, Classification, None.
 
 returns: 
 
@@ -104,12 +104,12 @@ function MLP_Decoder(latent_dim, obs_dim; hidden_size, depth, dist)
     elseif dist == "Poisson"
         # Assumption: the output is a Poisson distribution mean rate, should be positive
         output_net = Chain(mlp, Dense(hidden_size, obs_dim), x -> exp.(x))
-    elseif dist == "None"
+    elseif dist == "None" || dist == "Classification"
         # Assumption: can be used for Classification tasks as well, where the output is raw logits (softmax applied later (loss function))
         output_net = Chain(mlp, Dense(hidden_size, obs_dim))
 
     else
-        error("Unknown Observation noise: $dist \n Currnet supported distributions: Gaussian, Poisson, None")
+        error("Unknown Observation noise: $dist \n Currnet supported distributions: Gaussian, Poisson, Classification, None")
     end
 
     return Decoder(output_net)
@@ -126,7 +126,7 @@ Arguments:
 - `latent_dim`: Dimension of the latent space.
 - `hidden_size`: Dimension of the hidden layers.
 - `depth`: Number of hidden layers.
-- `dists`: Type of observation noises. Default is Gaussian. Options are Gaussian, Poisson, None.
+- `dists`: Type of observation noises. Default is Gaussian. Options are Gaussian, Poisson, Classification, None.
 
 returns: 
 

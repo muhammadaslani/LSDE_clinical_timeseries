@@ -14,12 +14,12 @@ model:
 
   obs_decoder:
     type: "MultiHeadLinearDecoder"
-    dists: ["Gaussian", "Gaussian", "Gaussian"]
+    dists: ["Gaussian", "Gaussian"]
 
 
 training:
-  learning_rate: 0.005
-  optimizer: AdamW(0.005) 
+  learning_rate: 2e-3
+  optimizer: AdamW(2e-3)
   epochs: 200
   log_freq: 10
   viz_freq: 10

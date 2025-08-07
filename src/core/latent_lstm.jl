@@ -90,7 +90,7 @@ Returns:
 
 
 function predict(model::LatentLSTM, y::AbstractArray, u::Union{Nothing, AbstractArray}, t_pred::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
-    x̂₀, _ = model.obs_encoder(y, ps.obs_encoder, st.obs_encoder)[1] 
+    x̂₀, _ = model.obs_encoder(y, ps.obs_encoder, st.obs_encoder)[1]
     u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
     x̂ = sample_dynamics(model.dynamics, x̂₀, u_enc, t_pred, ps.dynamics, st.dynamics, n_samples) |> model.device
     x_pred = model.state_map(x̂, ps.state_map, st.state_map)[1]

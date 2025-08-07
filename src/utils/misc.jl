@@ -1,109 +1,69 @@
-"""
-    empirical_crps(y_true::AbstractArray{Int,3}, 
-                  y_pred_samples::AbstractArray{Int,4}, 
-                  mask::AbstractArray{Bool,3})
+#######################
+    # Data Normalization Functions
+#######################
 
-Compute the empirical Continuous Ranked Probability Score (CRPS) for probabilistic forecasts.
+function z_normalize(z::AbstractArray{T,3}; dim::Int=1, eps::T=T(1e-8)) where T
+   
+    # Calculate mean and std for each slice along slice_dim
+    μ = [mean(selectdim(z, dim, i)) for i in axes(z, dim)]
+    σ = [std(selectdim(z, dim, i)) for i in axes(z, dim)]
 
-# Arguments
-- `y_true::AbstractArray{T,3}`: Ground truth values, shape (n_features, n_timepoints, n_samples).
-- `y_pred_samples::AbstractArray{T,4}`: Predicted samples, shape (n_features, n_timepoints, n_samples, n_draws).
-- `mask::AbstractArray{Bool,3}`: Boolean mask indicating valid entries, shape (n_features, n_timepoints, n_samples).
-
-# Returns
-- Mean empirical CRPS over all valid points.
-"""
-
-function empirical_crps(y_true::AbstractArray{T,3}, 
-                       y_pred_samples::AbstractArray{T,4}, 
-                       mask::AbstractArray{Bool,3}) where T <: Number
-
-    n_features, n_timepoints, n_samples = size(y_true)
-    total_crps = zero(T)  # Use zero of type T
-    count = 0
-
-    for f in 1:n_features
-        for i in 1:n_samples
-            for t in 1:n_timepoints
-                if mask[f, t, i]
-                    y_obs = y_true[f, t, i]
-                    preds = y_pred_samples[f, t, i, :]
-
-                    term1 = mean(abs.(preds .- y_obs))
-                    term2 = 0.5 * mean(abs.(preds .- preds'))
-
-                    total_crps += (term1 - term2)
-                    count += 1
-                end
-            end
-        end
-    end
-
-    return total_crps / count
+    return z_normalize(z, μ, σ; dim=dim, eps=eps)
 end
 
-
-
-function z_normalize(z::AbstractArray)
-    μ = mean(z, dims=1)
-    σ = std(z, dims=1)
-
-    return (z .- μ) ./ σ
-end
-
-
-function z_normalize(z::AbstractArray, μ::AbstractArray, σ::AbstractArray)
-
-    return (z .- μ) ./ σ
-end                
-
-function min_max_normalize(z::AbstractArray, min_val::AbstractArray, max_val::AbstractArray)
-    return (z .- min_val) ./ (max_val - min_val)
-end
-
-function min_max_normalize(z::AbstractArray)
-    min_val = minimum(z)
-    max_val = maximum(z)
-
-    return (z .- min_val) ./ (max_val - min_val)
-end
-
-
-
-
-"""
-    prediction_entropy(predictions; dims=1)
-
-Calculate the entropy of model predictions (uncertainty quantification).
-
-# Arguments
-- `predictions`: Array of model predictions, typically probabilities or class scores
-- `dims=1`: Dimension along which to compute entropy (default: 1)
-
-# Returns
-- Entropy values computed across the specified dimension
-
-# Description
-Computes the Shannon entropy of the predictions, which measures the uncertainty
-in the model's predictions. Higher entropy values indicate higher uncertainty.
-The function applies a small epsilon to avoid log(0) issues.
-
-"""
-function prediction_entropy(ŷ::Array{T,3}) where T 
-    p_entropy = zeros(1, size(ŷ, 2), size(ŷ, 3))
+function z_normalize(z::AbstractArray{T,3}, μ::AbstractVector, σ::AbstractVector; dim::Int=1, eps::T=T(1e-8)) where T
+    z_norm = similar(z)
     
-    for i in 1:size(ŷ, 3)
-        for j in 1:size(ŷ, 2)
-            p_entropy[1, j, i] = prediction_entropy(ŷ[:, j, i])
-        end
+    for i in axes(z, dim)
+        slice_view = selectdim(z_norm, dim, i)
+        slice_view .= (selectdim(z, dim, i) .- μ[i]) ./ (σ[i] + eps)
     end
     
-    return p_entropy
+    return z_norm, μ, σ
 end
 
-function prediction_entropy(ŷ::Vector{T}) where T 
-    ŷ_softmax = softmax(ŷ, dims=1)
-    return -sum(ŷ_softmax .* log.(ŷ_softmax .+1e-10))
+function z_denormalize(z_norm::AbstractArray{T,3}, μ::AbstractVector, σ::AbstractVector; dim::Int=1, eps::T=T(1e-8)) where T
+    z = similar(z_norm)
+    
+    for i in axes(z_norm, dim)
+        slice_view = selectdim(z, dim, i)
+        slice_view .= selectdim(z_norm, dim, i) .* (σ[i] + eps) .+ μ[i]
+    end
+    
+    return z
+end
+
+
+
+
+function min_max_normalize(z::AbstractArray{T,3}; dim::Int=1, eps::T=T(1e-8)) where T
+    # Calculate min and max for each slice along dim
+    min_vals = [minimum(selectdim(z, dim, i)) for i in axes(z, dim)]
+    max_vals = [maximum(selectdim(z, dim, i)) for i in axes(z, dim)]
+
+    return min_max_normalize(z, min_vals, max_vals; dim=dim, eps=eps)
+end
+
+function min_max_normalize(z::AbstractArray{T,3}, min_vals::AbstractVector, max_vals::AbstractVector; dim::Int=1, eps::T=T(1e-8)) where T
+    z_norm = similar(z)
+
+    for i in axes(z, dim)
+        slice_view = selectdim(z_norm, dim, i)
+        slice_view .= (selectdim(z, dim, i) .- min_vals[i]) ./ (max_vals[i] - min_vals[i] + eps)
+    end
+    
+    return z_norm, min_vals, max_vals
+end
+
+function min_max_denormalize(z_norm::AbstractArray{T,3}, min_vals::AbstractVector, max_vals::AbstractVector; dim::Int=1, eps::T=T(1e-8)) where T
+    z = similar(z_norm)
+
+    for i in axes(z_norm, dim)
+        slice_view = selectdim(z, dim, i)
+        slice_view .= selectdim(z_norm, dim, i) .* (max_vals[i] - min_vals[i] ) .+ min_vals[i]
+    end
+    
+    return z
 end
 
 
@@ -637,3 +597,287 @@ end
 
 
 
+
+
+
+
+
+############################################
+# Models evaluatiion metrics 
+############################################
+"""
+    npe(y_pred::AbstractArray, mask::AbstractArray{Bool})
+
+Calculate negative predictive entropy for probabilistic predictions.
+
+# Arguments
+- `y_pred::AbstractArray`: Predicted probability distributions or logits
+- `mask::AbstractArray{Bool}`: Boolean mask indicating valid entries
+
+# Returns
+- Mean negative predictive entropy over all valid points
+
+# Description
+Computes the negative Shannon entropy of predictions, which measures the confidence
+in the model's predictions. Higher NPE values indicate higher confidence (lower uncertainty).
+This is the negative of prediction_entropy, making it a reward rather than a penalty.
+"""
+function npe(y_pred::AbstractArray{T,4}, 
+             mask::AbstractArray{Bool,3}) where T <: Number
+
+    n_features, n_timepoints, n_samples = size(mask)
+    total_npe = zero(T)
+    count = 0
+
+    for f in 1:n_features
+        for i in 1:n_samples
+            for t in 1:n_timepoints
+                if mask[f, t, i]
+                    # Get prediction distribution for this point
+                    pred_dist = y_pred[f, t, i, :]
+                    
+                    # Calculate negative entropy
+                    pred_softmax = softmax(pred_dist)
+                    entropy_val = -sum(pred_softmax .* log.(pred_softmax .+ 1e-10))
+                    npe_val = -entropy_val  # Negative entropy
+                    
+                    total_npe += npe_val
+                    count += 1
+                end
+            end
+        end
+    end
+
+    return count > 0 ? total_npe / count : zero(T)
+end
+
+
+"""
+    npe(y_pred::AbstractArray{T,3}) where T <: Number
+Calculate negative predictive entropy for probabilistic predictions without a mask.
+# Arguments
+- `y_pred::AbstractArray{T,3}`: Predicted probability distributions or logits, shape (n_features, n_timepoints, n_samples).
+# Returns
+- Mean negative predictive entropy over all points.
+    """
+function npe(y_pred::AbstractArray{T,3}) where T <: Number
+    total_npe = zero(T)
+    count = 0
+    
+    for i in eachindex(size(y_pred, 3))
+        for j in eachindex(size(y_pred, 2))
+            pred_dist = y_pred[:, j, i]
+            pred_softmax = softmax(pred_dist)
+            entropy_val = -sum(pred_softmax .* log.(pred_softmax .+ 1e-10))
+            npe_val = -entropy_val
+            total_npe += npe_val
+            count += 1
+        end
+    end
+    
+    return count > 0 ? total_npe / count : zero(T)
+end
+
+
+"""
+    npe_per_timepoint(y_pred::AbstractArray{T,4}, mask::AbstractArray{Bool,3}) where T <: Number
+
+Calculate negative predictive entropy for each time point and each sample over MC samples.
+
+# Arguments
+- `y_pred::AbstractArray{T,4}`: Predicted probability distributions or logits, 
+  shape (n_features, n_timepoints, n_samples, n_mc_samples)
+- `mask::AbstractArray{Bool,3}`: Boolean mask indicating valid entries,
+  shape (n_features, n_timepoints, n_samples)
+
+# Returns
+- Array of shape (n_timepoints, n_samples) containing NPE for each time point and sample
+
+# Description
+Computes the negative Shannon entropy of predictions for each time point and sample, 
+averaged over features at each position. The entropy is calculated over the MC samples 
+dimension for each prediction point.
+"""
+function npe_per_timepoint(y_pred::AbstractArray{T,4}, mask::AbstractArray{Bool,3}) where T <: Number
+    n_features, n_timepoints, n_samples, n_mc_samples = size(y_pred)
+    npe_per_t_s = zeros(T, n_timepoints, n_samples)
+
+        for t in 1:n_timepoints
+            for s in 1:n_samples
+                if mask[1, t, s] == true
+                # Get MC samples for this prediction point
+                pred_dist = y_pred[:, t, s, :]
+                # Calculate negative entropy over MC samples
+                pred_softmax = softmax(pred_dist, dims=1)
+                npe_val = -sum(pred_softmax .* log.(pred_softmax .+ 1e-10))
+                
+                # Store NPE for this feature, time point, and sample
+                npe_per_t_s[t, s] = npe_val / n_mc_samples
+                end
+            end
+        end
+
+    return npe_per_t_s
+end
+
+function npe_per_timepoint(y_pred::AbstractArray{T,4}) where T <: Number
+    n_features, n_timepoints, n_samples, n_mc_samples = size(y_pred)
+    npe_per_t_s = zeros(T, n_timepoints, n_samples)
+
+        for t in 1:n_timepoints
+            for s in 1:n_samples
+                # Get MC samples for this prediction point
+                pred_dist = y_pred[:, t, s, :]
+                # Calculate negative entropy over MC samples
+                pred_softmax = softmax(pred_dist, dims=1)
+                npe_val = -sum(pred_softmax .* log.(pred_softmax .+ 1e-10))
+                
+                # Store NPE for this feature, time point, and sample
+                npe_per_t_s[t, s] = npe_val / n_mc_samples
+            end
+        end
+
+    return npe_per_t_s
+end
+
+"""
+    acc(y_true::AbstractArray{T,3}, y_pred::AbstractArray{T,3}, mask::AbstractArray{Bool,3})
+
+Calculate classification accuracy for 3D data with 3D mask.
+
+# Arguments
+- `y_true::AbstractArray{T,3}`: Ground truth labels, shape (n_features, n_timepoints, n_samples)
+- `y_pred::AbstractArray{T,3}`: Predicted labels, shape (n_features, n_timepoints, n_samples)
+- `mask::AbstractArray{Bool,3}`: Boolean mask indicating valid entries
+
+# Returns
+- Classification accuracy as a float between 0 and 1
+
+# Description
+Computes the accuracy by comparing predicted and true labels only at valid positions
+indicated by the mask. For 3D predictions, it directly compares the values.
+"""
+function acc(y_true::AbstractArray{T,3}, 
+             y_pred::AbstractArray{T,3}, 
+             mask::AbstractArray{Bool,3}) where T <: Number
+
+    n_features, n_timepoints, n_samples = size(y_true)
+    correct = 0
+    total = 0
+
+    for f in 1:n_features
+        for i in 1:n_samples
+            for t in 1:n_timepoints
+                if mask[f, t, i]
+                    # For 3D predictions, directly compare values
+                    pred_class = round(Int, y_pred[f, t, i])
+                    true_class = round(Int, y_true[f, t, i])
+                    
+                    if pred_class == true_class
+                        correct += 1
+                    end
+                    total += 1
+                end
+            end
+        end
+    end
+
+    return total > 0 ? correct / total : 0.0
+end
+
+"""
+    acc(y_true::AbstractArray, y_pred::AbstractArray, mask::AbstractArray{Bool})
+
+Calculate classification accuracy for masked data.
+
+# Arguments
+- `y_true::AbstractArray`: Ground truth labels
+- `y_pred::AbstractArray`: Predicted labels or probabilities
+- `mask::AbstractArray{Bool}`: Boolean mask indicating valid entries
+
+# Returns
+- Classification accuracy as a float between 0 and 1
+
+# Description
+Computes the accuracy by comparing predicted and true labels only at valid positions
+indicated by the mask. If y_pred contains probabilities, it takes the argmax to get
+predicted class labels.
+"""
+function acc(y_true::AbstractArray{T,3}, 
+             y_pred::AbstractArray{T,4}, 
+             mask::AbstractArray{Bool,3}) where T <: Number
+
+    n_features, n_timepoints, n_samples = size(y_true)
+    correct = 0
+    total = 0
+
+    for f in 1:n_features
+        for i in 1:n_samples
+            for t in 1:n_timepoints
+                if mask[f, t, i]
+                    # Convert predictions to class labels (argmax for probabilities)
+                    if size(y_pred, 4) > 1
+                        pred_class = argmax(y_pred[f, t, i, :])
+                    else
+                        pred_class = round(Int, y_pred[f, t, i, 1])
+                    end
+                    
+                    true_class = round(Int, y_true[f, t, i])
+                    
+                    if pred_class == true_class
+                        correct += 1
+                    end
+                    total += 1
+                end
+            end
+        end
+    end
+
+    return total > 0 ? correct / total : 0.0
+end
+
+"""
+    empirical_crps(y_true::AbstractArray, 
+                  y_pred_samples::AbstractArray, 
+                  mask::AbstractArray{Bool,3})
+
+Compute the empirical Continuous Ranked Probability Score (CRPS) for probabilistic forecasts.
+
+# Arguments
+- `y_true::AbstractArray{T1,3}`: Ground truth values, shape (n_features, n_timepoints, n_samples).
+- `y_pred_samples::AbstractArray{T2,4}`: Predicted samples, shape (n_features, n_timepoints, n_samples, n_draws).
+- `mask::AbstractArray{Bool,3}`: Boolean mask indicating valid entries, shape (n_features, n_timepoints, n_samples).
+
+# Returns
+- Mean empirical CRPS over all valid points.
+"""
+function empirical_crps(y_true::AbstractArray{T1,3}, 
+                       y_pred_samples::AbstractArray{T2,4}, 
+                       mask::AbstractArray{Bool,3}) where {T1 <: Number, T2 <: Number}
+
+    n_features, n_timepoints, n_samples = size(y_true)
+    
+    # Promote to common type to handle Float32/Float64 mismatch
+    CommonType = promote_type(T1, T2)
+    total_crps = zero(CommonType)
+    count = 0
+
+    for f in 1:n_features
+        for i in 1:n_samples
+            for t in 1:n_timepoints
+                if mask[f, t, i]
+                    y_obs = CommonType(y_true[f, t, i])
+                    preds = CommonType.(y_pred_samples[f, t, i, :])
+
+                    term1 = mean(abs.(preds .- y_obs))
+                    term2 = 0.5 * mean(abs.(preds .- preds'))
+
+                    total_crps += (term1 - term2)
+                    count += 1
+                end
+            end
+        end
+    end
+
+    return total_crps / count
+end

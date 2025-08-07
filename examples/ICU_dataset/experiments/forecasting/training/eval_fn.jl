@@ -1,13 +1,10 @@
-
 function eval_fn_nde(model, θ, st, ts, data, config)
     _, x_obs, _, _, u_for, _, y_for, masks_for = data
     batch_size= size(y_for)[end]
-    solver = eval(Meta.parse(config["solver"]))
-    kwargs_dict = Dict(Symbol(k) => v for (k, v) in config["kwargs"])
-    _, Ey = predict(model, solver, x_obs, u_for, ts, θ, st, config["mcmc_samples"], cpu_device(); kwargs_dict...)
+    ŷ, _, _ = model(x_obs,  u_for, ts, θ, st)
     loss=0.0f0
-    for i in eachindex(Ey)
-        μ, log_σ² = dropmean(Ey[i][1], dims=4), dropmean(Ey[i][2], dims=4)
+    for i in eachindex(ŷ)
+        μ, log_σ² =ŷ[i][1], ŷ[i][2]
         valid_indx= findall(masks_for[i, :, :] .== 1)
         loss += normal_loglikelihood(μ[1,valid_indx], log_σ²[1,valid_indx],y_for[i, valid_indx])/batch_size
     end
@@ -30,9 +27,38 @@ end
 
 
 
+
+function eval_forecast(true_data, forecasted_data)
+    _, _, y_for, masks_for = true_data
+    μ, σ² = forecasted_data
+    crps = []
+    rmse = []
+    # Calculate RMSE and CRPS for each feature
+    n_features = size(μ)[1]
+    for i in 1:n_features
+
+        dists = Normal.(μ[i], sqrt.(σ²[i]))
+        ŷ = rand.(dists)
+
+        ŷ_mean = dropdims(mean(ŷ, dims=4), dims=4)
+
+        crps_ = empirical_crps(y_for[i:i, :, :], ŷ, masks_for[i:i, :, :])
+        rmse_ = sqrt(mse(ŷ_mean[1,:,:], y_for[i,:,:], masks_for[i,:,:]))
+
+        push!(crps, crps_)
+        push!(rmse, rmse_)
+
+    end 
+
+    return rmse, crps
+
+end
+
+
+
 function assess_model_performance(performances, variables_of_interest; model_name="Model", forecast_fn=forecast,
                        plot_sample=false, sample_n=3, viz_fn=viz_fn_forecast, models=nothing, params=nothing, states=nothing, 
-                       data=nothing, timepoints=nothing, config=nothing, best_fold_idx=nothing)
+                       data=nothing, normalization_stats=nothing, timepoints=nothing, config=nothing, best_fold_idx=nothing)
     """
     Presents model performance across k-folds by calculating and printing
     mean and standard deviation for RMSE and CRPS for each feature.
@@ -132,7 +158,7 @@ function assess_model_performance(performances, variables_of_interest; model_nam
             forecasted_data = (μ, σ)
             
             # Create visualization - all models now return both rmse and crps
-            fig, rmse, crps = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, sample_n=sample_n, plot=true)
+            fig, rmse, crps = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, sample_n=sample_n, plot=true, normalization_stats =normalization_stats)
             
             println("\nSample number $sample_n forecast plotted for best model (fold $best_fold_idx)")
         end

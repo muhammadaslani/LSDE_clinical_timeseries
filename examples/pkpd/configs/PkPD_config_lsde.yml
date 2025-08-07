@@ -20,7 +20,7 @@ model:
       activation: swish
     diffusion:
       type: "SparseMLP"
-      activation: softplus
+      activation: sigmoid
     solver: EM()
     kwargs:
         dt: 0.1
@@ -31,8 +31,8 @@ model:
 
 
 training:
-  learning_rate: 0.001
-  optimizer: AdamW(0.001) 
+  learning_rate: 0.002
+  optimizer: AdamW(0.002) 
   epochs: 200
   log_freq: 10
   viz_freq: 10

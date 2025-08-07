@@ -131,31 +131,36 @@ function kfold_train(data, dims, n_folds, rng, config_path, model_type, timepoin
         # Make predictions
         Ex, Ey_pred = forecast_fn(model, θ_trained, st, data_obs, input_data_for_test, timepoints_for, config["training"]["validation"])
         forecasted_data = (Ex, Ey_pred)
-        crossentropy_health, rmse_tumor, nll_count = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, plot=false)
+        (y₁_acc, y₁_npe), (ŷ₂_rmse, ŷ₂_nll) = eval_forecast(future_true_data, forecasted_data)
+        #crossentropy_health, rmse_tumor, nll_count = viz_fn(timepoints_obs, timepoints_for, data_obs, future_true_data, forecasted_data, plot=false)
 
         # Store model, parameters, state, and performance
         push!(models, model)
         push!(trained_params, θ_trained)
         push!(states, st)
-        push!(performances, (crossentropy_health, rmse_tumor, nll_count))
+        push!(performances, ((y₁_acc, y₁_npe), (ŷ₂_rmse, ŷ₂_nll)))
 
-        @info "Fold $fold_idx completed: Health cross-entropy=$crossentropy_health, Tumor RMSE=$rmse_tumor, Count NLL=$nll_count"
+        @info "Fold $fold_idx completed:"
+        @info "Health status classes accuracy=$y₁_acc, Health status classes negative predictive entropy=$y₁_npe"
+        @info "Cell count RMSE=$ŷ₂_rmse, Cell count NLL=$ŷ₂_nll"
     end
 
     # Compute average performance across folds
 
-    avg_crossentropy_health = mean([perf[1] for perf in performances])
-    avg_rmse_tumor = mean([perf[2] for perf in performances])
-    avg_nll_count = mean([perf[3] for perf in performances])
+    avg_health_status_acc = mean([perf[1][1] for perf in performances])
+    avg_health_status_npe = mean([perf[1][2] for perf in performances])
+    avg_cell_count_rmse = mean([perf[2][1] for perf in performances])
+    avg_cell_count_nll = mean([perf[2][2] for perf in performances])
 
     # Calculate total training time
     end_time = time()
     total_training_time = end_time - start_time
 
     @info "K-Fold Cross-Validation Results:"
-    @info "Average Health Cross-entropy across $n_folds folds: $avg_crossentropy_health"
-    @info "Average Tumor RMSE across $n_folds folds: $avg_rmse_tumor"
-    @info "Average Cell Count NLL across $n_folds folds: $avg_nll_count"
+    @info "Average Health Status classes accuracy $n_folds folds: $avg_health_status_acc"
+    @info "Average Health Status classes NPE across $n_folds folds: $avg_health_status_npe"
+    @info "Average Cell Count RMSE across $n_folds folds : $avg_cell_count_rmse"
+    @info "Average Cell Count NLL across $n_folds folds: $avg_cell_count_nll"
     @info "Total training time: $(round(total_training_time, digits=2)) seconds ($(round(total_training_time/60, digits=2)) minutes)"
 
     return models, trained_params, states, performances

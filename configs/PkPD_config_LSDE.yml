@@ -1,6 +1,6 @@
 model:
   type: "LatentSDE"
-  latent_dim: &latentdim 8
+  latent_dim: &latentdim 16
   context_dim: 32
 
   obs_encoder:

@@ -17,6 +17,8 @@ function kl_normal(μ, σ²)
     kl = 0.5f0 * mean(σ² .+ μ .^ 2 .- 1 .- log.(σ²))
     return kl
 end
+
+
 """
     poisson_loglikelihood(λ::AbstractArray, y::AbstractArray)
 
@@ -33,29 +35,23 @@ Calculate the Poisson log-likelihood of observed counts `y` given rates `λ`.
 - A small constant (1e-4) is added to λ to prevent log(0)
 - NaN or negative values in λ will raise an error
 """
+
+
+
 function poisson_loglikelihood(λ::AbstractArray, y::AbstractArray)
     @assert size(λ) == size(y) "poisson_loglikelihood: Rates and spikes should be of the same shape"
     @assert !any(isnan.(λ)) "poisson_loglikelihood: NaN rate predictions found"
     @assert all(λ .>= 0) "poisson_loglikelihood: Negative rate predictions found"
     
     λ = λ .+ 1f-4  # Add small constant to prevent log(0)
-    ll = sum(y .* log.(λ) .- λ .- loggamma.(y .+ 1))
-    
+    ll = sum((y * log(λ) - λ - loggamma(y + 1)))
+
     return ll
-end
-
-
-function poisson_loglikelihood_multiple_samples(λ::AbstractArray, y::AbstractArray)
-    ll=0.0f0
-        for i in 1:size(λ, 4)
-            ll += poisson_loglikelihood(λ[:, :, :, i], y[:, :, :])
-        end
-    return ll/size(λ, 4)
 end
 """
     poisson_loglikelihood(λ::AbstractArray, y::AbstractArray, mask::AbstractArray{Bool})
 
-Calculate the masked Poisson log-likelihood of observed counts `y` given rates `λ`.
+Calculate the Poisson log-likelihood of observed counts `y` given rates `λ`.
 
 # Arguments
 - `λ::AbstractArray`: Predicted rates (λ > 0)
@@ -66,20 +62,89 @@ Calculate the masked Poisson log-likelihood of observed counts `y` given rates `
 - `ll::Float32`: The calculated log-likelihood
 
 # Notes
-- Only the elements where mask is true are included in the calculation
 - A small constant (1e-4) is added to λ to prevent log(0)
 - NaN or negative values in λ will raise an error
 """
-function poisson_loglikelihood(λ::AbstractArray, y::AbstractArray,  mask::AbstractArray{Bool})
-    @assert size(λ) == size(y) "poisson_loglikelihood: Rates, spikes, and mask should be of the same shape"
+function poisson_loglikelihood(λ::AbstractArray, y::AbstractArray, mask::AbstractArray{Bool})
+    @assert size(λ) == size(y) "poisson_loglikelihood: Rates and spikes should be of the same shape"
     @assert !any(isnan.(λ)) "poisson_loglikelihood: NaN rate predictions found"
     @assert all(λ .>= 0) "poisson_loglikelihood: Negative rate predictions found"
     
     λ = λ .+ 1f-4  # Add small constant to prevent log(0)
     ll = sum(@. mask * (y * log(λ) - λ - loggamma(y + 1)))
-    
+
     return ll
 end
+
+
+"""
+    poisson_loglikelihood_multiple_samples(λ::AbstractArray, y::AbstractArray, mask::AbstractArray{Bool}; agg=mean)
+
+Calculate the Poisson log-likelihood across multiple Monte Carlo samples with masking.
+
+# Arguments
+- `λ::AbstractArray`: Predicted rates with shape (n_features, n_timepoints, n_samples, n_mc_samples)
+- `y::AbstractArray`: Observed counts with shape (n_features, n_timepoints, n_samples)
+- `mask::AbstractArray{Bool}`: Boolean mask indicating valid entries
+- `agg`: Aggregation function (default: `mean`). Can be `mean` or `sum`
+
+# Returns
+- `Float32`: Aggregated log-likelihood across all Monte Carlo samples
+
+# Description
+Computes the Poisson log-likelihood for each Monte Carlo sample in the 4th dimension
+and returns the aggregated result based on the `agg` parameter.
+"""
+function poisson_loglikelihood_multiple_samples(λ::AbstractArray, y::AbstractArray, mask::AbstractArray{Bool}; agg=mean)
+    ll = 0.0f0
+    for i in eachindex(size(λ, 4))
+        ll += poisson_loglikelihood(λ[:, :, :, i], y[:, :, :], mask)
+    end
+    
+    if agg == mean
+        num_valid = sum(mask)
+        return ll / num_valid / size(λ, 4)
+    elseif agg == sum
+        return ll
+    else
+        error("Unsupported aggregation function. Use `mean` or `sum`.")
+    end
+end
+
+"""
+    poisson_loglikelihood_multiple_samples(λ::AbstractArray, y::AbstractArray; agg=mean)
+
+Calculate the Poisson log-likelihood across multiple Monte Carlo samples without masking.
+
+# Arguments
+- `λ::AbstractArray`: Predicted rates with shape (n_features, n_timepoints, n_samples, n_mc_samples)
+- `y::AbstractArray`: Observed counts with shape (n_features, n_timepoints, n_samples)
+- `agg`: Aggregation function (default: `mean`). Can be `mean` or `sum`
+
+# Returns
+- `Float32`: Aggregated log-likelihood across all Monte Carlo samples
+
+# Description
+Computes the Poisson log-likelihood for each Monte Carlo sample in the 4th dimension
+and returns the aggregated result based on the `agg` parameter.
+"""
+function poisson_loglikelihood_multiple_samples(λ::AbstractArray, y::AbstractArray; agg=mean)
+    ll = 0.0f0
+    for i in eachindex(size(λ, 4))
+        ll += poisson_loglikelihood(λ[:, :, :, i], y[:, :, :])
+    end
+    
+    if agg == mean
+        num_elements = prod(size(y))
+        return ll / num_elements / size(λ, 4)
+    elseif agg == sum
+        return ll
+    else
+        error("Unsupported aggregation function. Use `mean` or `sum`.")
+    end
+end
+
+
 
 
 """
@@ -92,7 +157,6 @@ Returns a scalar loss to **minimise**.
 function poisson_nll_lograte(logλ::AbstractArray, y::AbstractArray)
     @assert size(logλ) == size(y)
     @assert all(y .>= 0)
-
     ll = y .* logλ .- exp.(logλ) .- loggamma.(y .+ 1)   # log‑likelihood
     return -mean(ll)   # negative mean log‑likelihood
 end
@@ -116,11 +180,14 @@ returns:
     - The log-likelihood.
 
 """
-function normal_loglikelihood(μ, log_σ², y)
-    σ² = exp.(log_σ²)
-    ll = -0.5f0 * sum(log.(2π * σ²) + ((y - μ).^2 ./ σ²))
+function normal_loglikelihood(μ, log_σ², y; ϵ=1e-8)
+    # Clamp log_σ² to prevent extreme values
+    log_σ² = clamp.(log_σ², -10.0f0, 10.0f0)
+    # Compute log-likelihood in a numerically stable way
+    ll = -0.5 * sum(log_σ² .+ log(2π) .+ ((y .- μ).^2 ./ exp.(log_σ²) .+ ϵ))
     return -ll
 end
+
 
 
 """
@@ -145,9 +212,36 @@ end
 function mse(ŷ, y, mask::AbstractArray{Bool})
     @assert size(ŷ) == size(y) "MSE: Predictions and targets must have the same shape"
     @assert size(ŷ) == size(mask) "MSE: Predictions and mask must have the same shape"
-    return sum(mask .* abs.(ŷ .- y))/length(findall(mask.== true))
+    num_valid = sum(mask)
+    return sum(abs.(ŷ .* mask .- y .* mask))/num_valid
 end
 
+
+
+"""
+    CrossEntropy_loss(y, ŷ, mask; agg=mean, logits=true, label_smoothing=0.2)
+
+Compute the cross-entropy loss between ground truth labels `y` and predicted labels `ŷ`, applying a mask.
+
+# Arguments
+- `y`: Ground truth labels.
+- `ŷ`: Predicted labels.
+- `mask`: Boolean mask specifying which elements to include in the calculation.
+- `agg`: Aggregation function (default: `mean`).
+- `logits`: Indicates if `ŷ` contains logits (normalized) (default: `true`).
+- `label_smoothing`: Label smoothing factor (default: `0.2`).
+
+# Returns
+- The computed cross-entropy loss.
+
+"""
+CrossEntropy_Loss( ŷ, y, mask; agg=mean, logits=true, label_smoothing=0.1, epsilon=1e-10) =
+    CrossEntropyLoss(; agg=agg, logits=logits, label_smoothing=label_smoothing, epsilon=epsilon)(mask .* ŷ, mask .* y)
+
+
+
+
+#######################################
 """
     bits_per_spike(rates, spikes)
 
@@ -207,24 +301,3 @@ function frange_cycle_linear(n_iter, start::T=0.0f0, stop::T=1.0f0,  n_cycle=4, 
     end
     return T.(L)
 end
-
-
-"""
-    CrossEntropy_loss(y, ŷ, mask; agg=mean, logits=true, label_smoothing=0.2)
-
-Compute the cross-entropy loss between ground truth labels `y` and predicted labels `ŷ`, applying a mask.
-
-# Arguments
-- `y`: Ground truth labels.
-- `ŷ`: Predicted labels.
-- `mask`: Boolean mask specifying which elements to include in the calculation.
-- `agg`: Aggregation function (default: `mean`).
-- `logits`: Indicates if `ŷ` contains logits (normalized) (default: `true`).
-- `label_smoothing`: Label smoothing factor (default: `0.2`).
-
-# Returns
-- The computed cross-entropy loss.
-
-"""
-CrossEntropy_Loss( ŷ, y, mask; agg=mean, logits=true, label_smoothing=0.1, epsilon=1e-10) =
-    CrossEntropyLoss(; agg=agg, logits=logits, label_smoothing=label_smoothing, epsilon=epsilon)(mask .* ŷ, mask .* y)

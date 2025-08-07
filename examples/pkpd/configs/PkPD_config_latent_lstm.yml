@@ -1,11 +1,11 @@
 model:
   type: "LatentLSTM"
-  latent_dim: 64
+  latent_dim: 32
   context_dim: 32
 
   obs_encoder: 
     type: "Recurrent_Encoder"
-    hidden_size: 64
+    hidden_size: 256
 
   dynamics:
     type: "LSTM"
@@ -18,8 +18,8 @@ model:
 
 
 training:
-  learning_rate: 0.001
-  optimizer: AdamW(0.001) 
+  learning_rate: 0.002
+  optimizer: AdamW(0.002) 
   epochs: 200
   log_freq: 10
   viz_freq: 10
