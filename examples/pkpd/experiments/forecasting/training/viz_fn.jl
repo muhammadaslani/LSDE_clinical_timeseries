@@ -11,9 +11,9 @@ const PKPD_COLORS = (
 )
 
 # Neural differential equation visualization function
-function viz_fn(obs_timepoints, for_timepoints, obs_data, future_true_data, forecasted_data, normalization_stats; sample_n=3)
+function viz_fn(obs_timepoints, for_timepoints, obs_data, future_true_data, forecasted_data, normalization_stats)
     # Convert time to days for plotting
-    t_o, t_p = obs_timepoints * 7, for_timepoints * 7
+    t_o, t_p = obs_timepoints * 7 * length(vcat(obs_timepoints, for_timepoints)), for_timepoints * 7 * length(vcat(obs_timepoints, for_timepoints))
     # Unpack observation data
     u_o, _, x_o, y₁_o, y₂_o, mask₁_o, mask₂_o = obs_data
     # Unpack future data  
@@ -22,7 +22,7 @@ function viz_fn(obs_timepoints, for_timepoints, obs_data, future_true_data, fore
     Ex, Ey_p = forecasted_data
     ŷ₁_mc, ŷ₂_mc = softmax(Ey_p[1], dims=1), Ey_p[2]
 
-    if normalization_stats["Y₂_stats"] !== nothing
+    if normalization_stats !== nothing
         y_max = normalization_stats["Y₂_stats"].max_val
         ŷ₂_mc = ŷ₂_mc .* y_max # Scale predictions back to original scale
         y₂_o = y₂_o .* y_max # Scale y₂_o for visualization
@@ -37,47 +37,47 @@ function viz_fn(obs_timepoints, for_timepoints, obs_data, future_true_data, fore
     # Calculate prediction results
     ŷ₁_m = dropmean(ŷ₁_mc, dims=4)
     ŷ₁_class = onecold(ŷ₁_m, Array(0:5))
-    ŷ₁_conf = 1 .- npe_timepoint(Ey_p[1], mask₁_t)./log(6)
+    ŷ₁_conf = 1 .- npe_per_timepoint(Ey_p[1], mask₁_t)
     ŷ₂_m = dropmean(ŷ₂_mc, dims=4)
     ŷ₂_s = dropmean(std(ŷ₂_mc, dims=4), dims=4)
     ŷ₂_count = rand.(Poisson.(clamp.(ŷ₂_mc, 0.0, 1000.0)))
     ŷ₂_count_m = dropmean(ŷ₂_count, dims=4)
 
     # Find valid time points for each output
-    t_o_valid₁ = t_o[mask₁_o[1, :, sample_n].==1]
-    t_p_valid₁ = t_p[mask₁_t[1, :, sample_n].==1]
+    t_o_valid₁ = t_o[mask₁_o[1, :, 1].==1]
+    t_p_valid₁ = t_p[mask₁_t[1, :, 1].==1]
     max_t_o_valid₁ = isempty(t_o_valid₁) ? 0.0 : maximum(t_o_valid₁)
     max_t_p_valid₁ = isempty(t_p_valid₁) ? 0.0 : maximum(t_p_valid₁)
 
-    t_o_valid₂ = t_o[mask₂_o[1, :, sample_n].==1]
-    t_p_valid₂ = t_p[mask₂_t[1, :, sample_n].==1]
+    t_o_valid₂ = t_o[mask₂_o[1, :, 1].==1]
+    t_p_valid₂ = t_p[mask₂_t[1, :, 1].==1]
     max_t_o_valid₂ = isempty(t_o_valid₂) ? 0.0 : maximum(t_o_valid₂)
     max_t_p_valid₂ = isempty(t_p_valid₂) ? 0.0 : maximum(t_p_valid₂)
 
     # Extract valid data points
-    y₁_o_class_valid = y₁_o_class[findall(i -> t_o[i] <= max_t_o_valid₁ && mask₁_o[1, i, sample_n] == 1, 1:length(t_o)), sample_n]
-    y₁_t_class_valid = y₁_t_class[findall(i -> t_p[i] <= max_t_p_valid₁ && mask₁_t[1, i, sample_n] == 1, 1:length(t_p)), sample_n]
-    ŷ₁_class_valid = ŷ₁_class[findall(i -> t_p[i] <= max_t_p_valid₁ && mask₁_t[1, i, sample_n] == 1, 1:length(t_p)), sample_n]
-    ŷ₁_conf_valid = ŷ₁_conf[findall(i -> t_p[i] <= max_t_p_valid₁ && mask₁_t[1, i, sample_n] == 1, 1:length(t_p)), sample_n]
+    y₁_o_class_valid = y₁_o_class[findall(i -> t_o[i] <= max_t_o_valid₁ && mask₁_o[1, i, 1] == 1, 1:length(t_o)), 1]
+    y₁_t_class_valid = y₁_t_class[findall(i -> t_p[i] <= max_t_p_valid₁ && mask₁_t[1, i, 1] == 1, 1:length(t_p)), 1]
+    ŷ₁_class_valid = ŷ₁_class[findall(i -> t_p[i] <= max_t_p_valid₁ && mask₁_t[1, i, 1] == 1, 1:length(t_p)), 1]
+    ŷ₁_conf_valid = ŷ₁_conf[findall(i -> t_p[i] <= max_t_p_valid₁ && mask₁_t[1, i, 1] == 1, 1:length(t_p)), 1]
 
-    y₂_o_valid = y₂_o[1, findall(i -> t_o[i] <= max_t_o_valid₂ && mask₂_o[1, i, sample_n] == 1, 1:length(t_o)), sample_n]
-    y₂_t_valid = y₂_t[1, findall(i -> t_p[i] <= max_t_p_valid₂ && mask₂_t[1, i, sample_n] == 1, 1:length(t_p)), sample_n]
-    ŷ₂_m_valid = ŷ₂_m[1, findall(i -> t_p[i] <= max_t_p_valid₂ && mask₂_t[1, i, sample_n] == 1, 1:length(t_p)), sample_n]
-    ŷ₂_s_valid = ŷ₂_s[1, findall(i -> t_p[i] <= max_t_p_valid₂ && mask₂_t[1, i, sample_n] == 1, 1:length(t_p)), sample_n]
-    ŷ₂_count_m_valid = ŷ₂_count_m[1, findall(i -> t_p[i] <= max_t_p_valid₂ && mask₂_t[1, i, sample_n] == 1, 1:length(t_p)), sample_n]
-    ŷ₂_count_valid = ŷ₂_count[1, findall(i -> t_p[i] <= max_t_p_valid₂ && mask₂_t[1, i, sample_n] == 1, 1:length(t_p)), sample_n, :]
+    y₂_o_valid = y₂_o[1, findall(i -> t_o[i] <= max_t_o_valid₂ && mask₂_o[1, i, 1] == 1, 1:length(t_o)), 1]
+    y₂_t_valid = y₂_t[1, findall(i -> t_p[i] <= max_t_p_valid₂ && mask₂_t[1, i, 1] == 1, 1:length(t_p)), 1]
+    ŷ₂_m_valid = ŷ₂_m[1, findall(i -> t_p[i] <= max_t_p_valid₂ && mask₂_t[1, i, 1] == 1, 1:length(t_p)), 1]
+    ŷ₂_s_valid = ŷ₂_s[1, findall(i -> t_p[i] <= max_t_p_valid₂ && mask₂_t[1, i, 1] == 1, 1:length(t_p)), 1]
+    ŷ₂_count_m_valid = ŷ₂_count_m[1, findall(i -> t_p[i] <= max_t_p_valid₂ && mask₂_t[1, i, 1] == 1, 1:length(t_p)), 1]
+    ŷ₂_count_valid = ŷ₂_count[1, findall(i -> t_p[i] <= max_t_p_valid₂ && mask₂_t[1, i, 1] == 1, 1:length(t_p)), :, 1]
 
     # Calculate confidence intervals
-    ŷ₂_CI_low = ŷ₂_m[1, :, sample_n] .- 1.96 * ŷ₂_s[1, :, sample_n]
-    ŷ₂_CI_up = ŷ₂_m[1, :, sample_n] .+ 1.96 * ŷ₂_s[1, :, sample_n]
+    ŷ₂_CI_low = ŷ₂_m[1, :, 1] .- 1.96 * ŷ₂_s[1, :, 1]
+    ŷ₂_CI_up = ŷ₂_m[1, :, 1] .+ 1.96 * ŷ₂_s[1, :, 1]
     ŷ₂_count_confidence_valid = 1.96 * sqrt.(ŷ₂_m_valid)
 
 
     # Find treatment indices
-    valid_indices_chemo_o = findall(i -> u_o[1, i, sample_n] == 1 && t_o[i] <= max_t_o_valid₁, 1:length(t_o))
-    valid_indices_radio_o = findall(i -> u_o[2, i, sample_n] == 1 && t_o[i] <= max_t_o_valid₁, 1:length(t_o))
-    valid_indices_chemo_p = findall(i -> u_t[1, i, sample_n] == 1 && t_p[i] <= max_t_p_valid₁, 1:length(t_p))
-    valid_indices_radio_p = findall(i -> u_t[2, i, sample_n] == 1 && t_p[i] <= max_t_p_valid₁, 1:length(t_p))
+    valid_indices_chemo_o = findall(i -> u_o[1, i, 1] == 1 && t_o[i] <= max_t_o_valid₁, 1:length(t_o))
+    valid_indices_radio_o = findall(i -> u_o[2, i, 1] == 1 && t_o[i] <= max_t_o_valid₁, 1:length(t_o))
+    valid_indices_chemo_p = findall(i -> u_t[1, i, 1] == 1 && t_p[i] <= max_t_p_valid₁, 1:length(t_p))
+    valid_indices_radio_p = findall(i -> u_t[2, i, 1] == 1 && t_p[i] <= max_t_p_valid₁, 1:length(t_p))
 
     # Calculate dynamic plot limits based on actual data (ICU style)
     x_min = 0.0
@@ -96,7 +96,7 @@ function viz_fn(obs_timepoints, for_timepoints, obs_data, future_true_data, fore
     end
 
     # Panel 2: Tumor size - based on all tumor data with padding
-    all_tumor_values = vcat(x_o[1, :, sample_n], x_t[1, :, sample_n], ŷ₂_m_valid, ŷ₂_CI_low, ŷ₂_CI_up)
+    all_tumor_values = vcat(x_o[1, :, 1], x_t[1, :, 1], ŷ₂_m_valid, ŷ₂_CI_low, ŷ₂_CI_up)
     if !isempty(all_tumor_values)
         tumor_range = maximum(all_tumor_values) - minimum(all_tumor_values)
         tumor_padding = max(0.25 * tumor_range, 0.1 * maximum(all_tumor_values))
@@ -243,17 +243,17 @@ function viz_fn(obs_timepoints, for_timepoints, obs_data, future_true_data, fore
     end
 
     # Plot observed tumor size (historical data) - use index-based plotting for underlying tumor size
-    lines!(ax2, Array(0:length(vcat(x_o[1, :, sample_n], x_t[1, :, sample_n]))-1),
-        vcat(x_o[1, :, sample_n], x_t[1, :, sample_n]),
-        color=(PKPD_COLORS.observed, 0.7), linewidth=3.5, linestyle=:solid,
+    lines!(ax2, Array(0:length(vcat(x_o[1, :, 1], x_t[1, :, 1]))-1),
+        vcat(x_o[1, :, 1], x_t[1, :, 1]),
+        color=(PKPD_COLORS.observed, 0.7), linewidth=3.5, linestyle=:dash,
         label="Historical Observations")
 
     # Plot confidence band first (so it's behind other elements)
     band!(ax2, t_p, ŷ₂_CI_low, ŷ₂_CI_up,
         color=(PKPD_COLORS.confidence, 0.25))
 
-    lines!(ax2, t_p, ŷ₂_m[1, :, sample_n],
-        color=PKPD_COLORS.predicted, linewidth=2.5, linestyle=:solid,
+    lines!(ax2, t_p, ŷ₂_m[1, :, 1],
+        color=PKPD_COLORS.predicted, linewidth=2.5, linestyle=:dash,
         label="Model Predictions")
 
     # Plot cell count with professional styling

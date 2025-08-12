@@ -5,7 +5,7 @@ model:
 
   obs_encoder: 
     type: "Recurrent_Encoder"
-    hidden_size: 256
+    hidden_size: 32
 
   dynamics:
     type: "LSTM"
@@ -29,7 +29,7 @@ training:
     gamma: 0.9  # Decay factor per epoch (0.95 means 95% of previous value)
     step_every: 50  # Apply decay every epoch
   validation:
-    mcmc_samples: 50
+    mcmc_samples: 100
 
 
 experiment:

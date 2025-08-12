@@ -1,7 +1,7 @@
 model:
   type: "LatentSDE"
   latent_dim: &latentdim 32
-  context_dim: 32
+  context_dim: 128
 
   obs_encoder:
     type: "Recurrent_Encoder"
@@ -11,19 +11,19 @@ model:
     drift:
       type: "MLP"
       hidden_size: 32
-      depth: 1
+      depth: 2
       activation: swish
     drift_aug:
       type: "MLP"
       hidden_size: 32
-      depth: 1
+      depth: 2
       activation: swish
     diffusion:
       type: "SparseMLP"
       activation: sigmoid
     solver: EM()
     kwargs:
-        dt: 0.1
+        dt: 0.01
 
   obs_decoder:
     type: "MultiHeadLinearDecoder"
@@ -44,9 +44,9 @@ training:
   validation:
       latent_dim: *latentdim  
       solver: EM()
-      mcmc_samples: 50
+      mcmc_samples: 100
       kwargs:
-          dt: 0.1
+          dt: 0.01
 experiment:
   name: "LatentSDE_PKPD_V0"
   description: "First experiment with a Latent SDE model using Rhythm on the PKPD model"
