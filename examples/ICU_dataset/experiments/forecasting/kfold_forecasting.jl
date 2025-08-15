@@ -16,10 +16,9 @@ include("training/viz_fn.jl");
 rng = Random.MersenneTwister(123);
 
 # Load data
-variables_of_interest = ["MAP", "HR"];
-n_features = length(variables_of_interest);
+variables_of_interest = ["MAP", "HR", "Temp"];
 data, train_loader, val_loader, test_loader, time_series_dataset, normalization_stats = load_data(
-    split_at=50, 
+    split_at=36, 
     n_samples=512, 
     batch_size=64, 
     variables_of_interest=variables_of_interest, 
@@ -41,15 +40,15 @@ lsde_models, lsde_params, lsde_states, lsde_performances = kfold_train(
     config_path_lsde, 
     "lsde", 
     timepoints, 
-    loss_fn_nde, 
-    eval_fn_nde, 
+    loss_fn, 
+    eval_fn, 
     forecast_nde,
     viz_fn
 );
 
 # Present LSDE model performance with sample plot
 lsde_stats = assess_model_performance(lsde_performances, variables_of_interest, model_name="Latent SDE", forecast_fn=forecast_nde,
-                           plot_sample=true, sample_n=2, viz_fn=viz_fn, models=lsde_models, params=lsde_params, 
+                           plot_sample=true, sample_n=1, viz_fn=viz_fn, models=lsde_models, params=lsde_params, 
                            states=lsde_states, data=data, normalization_stats=normalization_stats, timepoints=timepoints, 
                            config=YAML.load_file(config_path_lsde));
 
@@ -62,8 +61,8 @@ lode_models, lode_params, lode_states, lode_performances = kfold_train(
     config_path_lode,
     "lode", 
     timepoints, 
-    loss_fn_nde, 
-    eval_fn_nde, 
+    loss_fn, 
+    eval_fn, 
     forecast_nde,
     viz_fn
 );
@@ -83,8 +82,8 @@ lstm_models, lstm_params, lstm_states, lstm_performances = kfold_train(
     lstm_config_path, 
     "latent_lstm",
     timepoints, 
-    loss_fn_lstm, 
-    eval_fn_lstm, 
+    loss_fn, 
+    eval_fn, 
     forecast_lstm,
     viz_fn
 );
@@ -103,3 +102,4 @@ model_comparison_lstm = compare_models(
     ascending=true  
 );
 
+ 

@@ -1,26 +1,26 @@
 model:
   type: "LatentSDE"
-  latent_dim: &latentdim 32
-  context_dim: 32
+  latent_dim: &latentdim 64
+  context_dim: 256
 
   obs_encoder:
     type: "Recurrent_Encoder"
-    hidden_size: 32
+    hidden_size: 256
 
   SDE:
     drift:
       type: "MLP"
-      hidden_size: 32
+      hidden_size: 64
       depth: 1
       activation: swish
     drift_aug:
       type: "MLP"
-      hidden_size: 32
+      hidden_size: 64
       depth: 1
       activation: swish
     diffusion:
       type: "MLP"
-      hidden_size: 32
+      hidden_size: 64
       depth: 1
       activation: sigmoid  
     solver: EM()
@@ -29,14 +29,14 @@ model:
 
   obs_decoder:
     type: "MultiHeadLinearDecoder"
-    dists: ["Gaussian", "Gaussian"]
+    dists: ["Gaussian", "Gaussian", "Gaussian"]
 
 
 training:
   learning_rate: 2e-3
-  optimizer: AdamW(2e-3) 
-  epochs: 50
-  log_freq: 10
+  optimizer: AdamW(2e-3)
+  epochs: 200
+  log_freq: 1
   viz_freq: 10
   stop_patience: 20
   lr_decay:

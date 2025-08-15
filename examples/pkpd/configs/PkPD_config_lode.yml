@@ -11,7 +11,7 @@ model:
     vector_field:
       type: "MLP"
       hidden_size: 32
-      depth: 2
+      depth: 1
       activation: swish
     solver: Euler()
     kwargs:
@@ -25,7 +25,7 @@ model:
 training:
   learning_rate: 0.002
   optimizer: AdamW(0.002) 
-  epochs: 200
+  epochs: 300
   log_freq: 10
   viz_freq: 1
   stop_patience: 20

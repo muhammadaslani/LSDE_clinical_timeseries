@@ -1,22 +1,22 @@
 model:
   type: "LatentSDE"
   latent_dim: &latentdim 32
-  context_dim: 128
+  context_dim: 64
 
   obs_encoder:
     type: "Recurrent_Encoder"
-    hidden_size: 32
+    hidden_size: 64
 
   SDE:
     drift:
       type: "MLP"
       hidden_size: 32
-      depth: 2
+      depth: 1
       activation: swish
     drift_aug:
       type: "MLP"
       hidden_size: 32
-      depth: 2
+      depth: 1
       activation: swish
     diffusion:
       type: "SparseMLP"
@@ -33,7 +33,7 @@ model:
 training:
   learning_rate: 0.002
   optimizer: AdamW(0.002) 
-  epochs: 200
+  epochs: 300
   log_freq: 10
   viz_freq: 10
   stop_patience: 20

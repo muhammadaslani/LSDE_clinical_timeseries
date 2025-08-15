@@ -85,15 +85,15 @@ function load_physionet_file(filepath::String; combine_method::Function=mean)
     end
 
     # Aggregate data based on the hour of the day
-    # df_long.Hour = time_to_hour.(df_long.Time)
-    # df_agg = combine(groupby(df_long, [:Hour, :Parameter]), :Value => combine_method => :Value)
-    # df_wide = DataFrames.unstack(df_agg, :Hour, :Parameter, :Value)
-    # sort!(df_wide, :Hour)
+    df_long.Hour = time_to_hour.(df_long.Time)
+    df_agg = combine(groupby(df_long, [:Hour, :Parameter]), :Value => combine_method => :Value)
+    df_wide = DataFrames.unstack(df_agg, :Hour, :Parameter, :Value)
+    sort!(df_wide, :Hour)
 
     #Aggregate data based on the original time points, ignoring hours
-    df_agg = combine(groupby(df_long, [:Time, :Parameter]), :Value => combine_method => :Value)
-    df_wide = DataFrames.unstack(df_agg, :Time, :Parameter, :Value)
-    sort!(df_wide, :Time)
+    # df_agg = combine(groupby(df_long, [:Time, :Parameter]), :Value => combine_method => :Value)
+    # df_wide = DataFrames.unstack(df_agg, :Time, :Parameter, :Value)
+    # sort!(df_wide, :Time)
 
     return df_wide
 end

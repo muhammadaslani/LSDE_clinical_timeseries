@@ -1,31 +1,14 @@
-function eval_fn_nde(model, θ, st, ts, data, config)
+function eval_fn(model, θ, st, ts, data, config)
     _, x_obs, _, _, u_for, _, y_for, masks_for = data
     batch_size= size(y_for)[end]
     ŷ, _, _ = model(x_obs,  u_for, ts, θ, st)
     loss=0.0f0
     for i in eachindex(ŷ)
-        μ, log_σ² =ŷ[i][1], ŷ[i][2]
-        valid_indx= findall(masks_for[i, :, :] .== 1)
-        loss += normal_loglikelihood(μ[1,valid_indx], log_σ²[1,valid_indx],y_for[i, valid_indx])/batch_size
-    end
+        μ, log_σ² = ŷ[i][1], ŷ[i][2]
+        loss += normal_loglikelihood(μ[1,:,:].*masks_for[i, :, :], log_σ²[1,:,:].*masks_for[i, :, :], y_for[i, :,:].*masks_for[i, :, :])/batch_size
+    end 
     return (loss, 0.0f0, 0.0f0) 
 end
-
-
-function eval_fn_lstm(model, θ, st, ts, data, config)
-    _, x_obs, _, _, u_for, _, y_for, masks_for = data
-    batch_size = size(y_for)[end]
-    ŷ, _, _ = model(x_obs, u_for, ts, θ, st)
-    eval_loss = 0.0f0
-    for i in eachindex(ŷ)
-        μ, log_σ² = ŷ[i][1], ŷ[i][2]
-        valid_indx = findall(masks_for[i, :, :] .== 1)
-        eval_loss += normal_loglikelihood(μ[1,valid_indx], log_σ²[1,valid_indx], y_for[i, valid_indx]) / batch_size
-    end
-    return (eval_loss, 0.0f0, 0.0f0)
-end
-
-
 
 
 function eval_forecast(true_data, forecasted_data)
@@ -150,11 +133,11 @@ function assess_model_performance(performances, variables_of_interest; model_nam
             timepoints_for = timepoints[size(obs_data_obs, 2)+1:end]
             
             # Prepare data for forecast function
-            data_obs = (inputs_data_obs, obs_data_obs, output_data_obs, masks_obs)
-            future_true_data = (inputs_data_for, obs_data_for, output_data_for, masks_for)
+            data_obs = (inputs_data_obs[:,:,sample_n:sample_n], obs_data_obs[:,:,sample_n:sample_n], output_data_obs[:,:, sample_n:sample_n], masks_obs[:,:, sample_n:sample_n])
+            future_true_data = (inputs_data_for[:,:,sample_n:sample_n], obs_data_for[:,:,sample_n:sample_n], output_data_for[:,:,sample_n:sample_n], masks_for[:,:,sample_n:sample_n])
             
             # Generate forecast
-            μ, σ = forecast_fn(best_model, best_params, best_state, data_obs, inputs_data_for, timepoints_for, config["training"]["validation"])
+            μ, σ = forecast_fn(best_model, best_params, best_state, data_obs, inputs_data_for[:,:,sample_n:sample_n], timepoints_for, config["training"]["validation"])
             forecasted_data = (μ, σ)
             
             # Create visualization - all models now return both rmse and crps

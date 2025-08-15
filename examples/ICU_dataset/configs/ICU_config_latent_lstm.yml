@@ -1,20 +1,20 @@
 model:
   type: "LatentLSTM"
-  latent_dim: 32
-  context_dim: 32
+  latent_dim: 64
+  context_dim: 256
 
   obs_encoder: 
     type: "Recurrent_Encoder"
-    hidden_size: 32
+    hidden_size: 256
 
   dynamics:
     type: "LSTM"
-    hidden_size: 32
+    hidden_size: 64
     depth: 1
 
   obs_decoder:
     type: "MultiHeadLinearDecoder"
-    dists: ["Gaussian", "Gaussian"]
+    dists: ["Gaussian", "Gaussian", "Gaussian"]
 
 
 training:
@@ -29,7 +29,7 @@ training:
     gamma: 0.9  # Decay factor per epoch (0.95 means 95% of previous value)
     step_every: 50  # Apply decay every epoch
   validation:
-    mcmc_samples: 50
+    mcmc_samples: 100
 
 
 experiment:

@@ -206,14 +206,14 @@ returns:
 
 """
 function mse(ŷ, y)
-    return mean(abs, ŷ .- y)
+    return mean((ŷ .- y).^2)
 end
 
 function mse(ŷ, y, mask::AbstractArray{Bool})
     @assert size(ŷ) == size(y) "MSE: Predictions and targets must have the same shape"
     @assert size(ŷ) == size(mask) "MSE: Predictions and mask must have the same shape"
     num_valid = sum(mask)
-    return sum(abs.(ŷ .* mask .- y .* mask))/num_valid
+    return sum((ŷ .* mask .- y .* mask).^2)/num_valid
 end
 
 

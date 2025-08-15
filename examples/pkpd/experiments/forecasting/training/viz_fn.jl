@@ -125,7 +125,7 @@ function viz_fn(obs_timepoints, for_timepoints, obs_data, future_true_data, fore
     # Panel 1: Health status
     ax1 = CairoMakie.Axis(fig[1, 1],
         xlabel="",
-        ylabel="Health Status",
+        ylabel="Performance score",
         xgridvisible=true,
         ygridvisible=true,
         xgridcolor=("#E5E5E5", 0.8),
@@ -245,7 +245,7 @@ function viz_fn(obs_timepoints, for_timepoints, obs_data, future_true_data, fore
     # Plot observed tumor size (historical data) - use index-based plotting for underlying tumor size
     lines!(ax2, Array(0:length(vcat(x_o[1, :, 1], x_t[1, :, 1]))-1),
         vcat(x_o[1, :, 1], x_t[1, :, 1]),
-        color=(PKPD_COLORS.observed, 0.7), linewidth=3.5, linestyle=:dash,
+        color=(PKPD_COLORS.observed, 0.8), linewidth=3.5, linestyle=:dash,
         label="Historical Observations")
 
     # Plot confidence band first (so it's behind other elements)
@@ -253,26 +253,26 @@ function viz_fn(obs_timepoints, for_timepoints, obs_data, future_true_data, fore
         color=(PKPD_COLORS.confidence, 0.25))
 
     lines!(ax2, t_p, ŷ₂_m[1, :, 1],
-        color=PKPD_COLORS.predicted, linewidth=2.5, linestyle=:dash,
+        color=PKPD_COLORS.predicted, linewidth=3.5, linestyle=:dash,
         label="Model Predictions")
 
     # Plot cell count with professional styling
     scatter!(ax3, t_o_valid₂, y₂_o_valid,
         color=PKPD_COLORS.observed, markersize=20)
     lines!(ax3, t_o_valid₂, y₂_o_valid,
-        color=(PKPD_COLORS.observed, 0.7), linewidth=3.5, linestyle=:dash)
+        color=(PKPD_COLORS.observed, 0.8), linewidth=3.5, linestyle=:dash)
 
     scatter!(ax3, t_p_valid₂, y₂_t_valid,
         color=PKPD_COLORS.truth, markersize=20)
     lines!(ax3, t_p_valid₂, y₂_t_valid,
-        color=(PKPD_COLORS.truth, 0.7), linewidth=3.5, linestyle=:dash)
+        color=(PKPD_COLORS.truth, 0.8), linewidth=3.5, linestyle=:dash)
     scatter!(ax3, t_p_valid₂, ŷ₂_count_m_valid,
         color=PKPD_COLORS.predicted, markersize=20)
     lines!(ax3, t_p_valid₂, ŷ₂_count_m_valid,
         color=PKPD_COLORS.predicted, linewidth=3.5, linestyle=:dash)
 
     errorbars!(ax3, t_p_valid₂, ŷ₂_count_m_valid, ŷ₂_count_confidence_valid,
-        color=(PKPD_COLORS.confidence, 0.6), whiskerwidth=20)
+        color=(PKPD_COLORS.confidence, 0.8), whiskerwidth=20)
 
     # Set axis limits based on actual data range
     x_data_max = max_t_p_valid₁ > 0 ? max_t_p_valid₁ : 10.0

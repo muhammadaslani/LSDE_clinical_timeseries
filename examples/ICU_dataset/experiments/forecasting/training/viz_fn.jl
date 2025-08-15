@@ -19,8 +19,8 @@ function viz_fn(t_obs, t_for, obs_data, future_true_data, forecasted_data; sampl
     dt = t_for[2] - t_for[1] # Assuming uniform time steps
     t_obs = t_obs / dt
     t_for = t_for / dt
-    #y_labels = ["MAP (mmHg)", "HR (bpm)", "Temperature (°C)"]
-    y_labels = ["MAP (mmHg)", "HR (bpm)"] 
+    y_labels = ["MAP (mmHg)", "HR (bpm)", "Temperature (°C)"]
+    #y_labels = ["Temperature (°C)"] # For single feature visualization
     n_mc_samples= size(μ[1], 4) # Number of Monte Carlo samples
     rmse = []
     crps = []
@@ -39,8 +39,8 @@ function viz_fn(t_obs, t_for, obs_data, future_true_data, forecasted_data; sampl
 
     for i in 1:n_features
         y_label = y_labels[i]
-        t_obs_val = t_obs[masks_obs[i, :, sample_n] .== 1]
-        t_for_val = t_for[masks_for[i, :, sample_n] .== 1]
+        t_obs_val = t_obs[masks_obs[i, :, 1] .== 1]
+        t_for_val = t_for[masks_for[i, :, 1] .== 1]
         
         # Denormalize all data if normalization_stats is provided
         if normalization_stats !== nothing 
@@ -69,10 +69,10 @@ function viz_fn(t_obs, t_for, obs_data, future_true_data, forecasted_data; sampl
 
         ŷ_ci_lower, ŷ_ci_upper = ŷ_mean.*masks_for[i:i,:,:] .- 1.96 .* ŷ_std.*masks_for[i:i,:,:]/sqrt(n_mc_samples), ŷ_mean .+ 1.96 .* ŷ_std.*masks_for[i:i,:,:]/sqrt(n_mc_samples)
         # Calculate metrics using denormalized data
-        if !isempty(masks_for[i, :, sample_n])
-            sample_rmse_ = sqrt(mse(ŷ_mean[1, :, sample_n], y_for_denorm[:, sample_n], masks_for[i, :, sample_n]))
-            sample_ŷ = ŷ[:, :, sample_n:sample_n, :] # Keep 4D structure for empirical_crps
-            sample_crps_ = empirical_crps(reshape(y_for_denorm[:, sample_n:sample_n], 1, :, 1), sample_ŷ, masks_for[i:i, :, sample_n:sample_n])
+        if !isempty(masks_for[i, :, 1])
+            sample_rmse_ = sqrt(mse(ŷ_mean[1, :, 1], y_for_denorm[:, 1], masks_for[i, :, 1]))
+            sample_ŷ = ŷ[:, :, 1:1, :] # Keep 4D structure for empirical_crps
+            sample_crps_ = empirical_crps(reshape(y_for_denorm[:, 1:1], 1, :, 1), sample_ŷ, masks_for[i:i, :, 1:1])
         else
             sample_rmse_ = NaN
             sample_crps_ = NaN
@@ -86,7 +86,7 @@ function viz_fn(t_obs, t_for, obs_data, future_true_data, forecasted_data; sampl
         if plot && !isempty(t_obs_val) && !isempty(t_for_val)
             # Initialize figure only on the first valid iteration
             if fig === nothing
-                fig = Figure(size=(1200, 800), fontsize=20,
+                fig = Figure(size=(1500, 800), fontsize=20,
                              backgroundcolor=:white,
                              figure_padding=20)
                 axes = CairoMakie.Axis[]
@@ -110,13 +110,13 @@ function viz_fn(t_obs, t_for, obs_data, future_true_data, forecasted_data; sampl
             push!(axes, ax)
 
             # Calculate data range for background polygons using denormalized data
-            temp_pred_vals = ŷ_mean[1, masks_for[i, :, sample_n] .== 1, sample_n]
-            temp_ci_lower = ŷ_ci_lower[1, masks_for[i, :, sample_n] .== 1, sample_n]
-            temp_ci_upper = ŷ_ci_upper[1, masks_for[i, :, sample_n] .== 1, sample_n]
+            temp_pred_vals = ŷ_mean[1, masks_for[i, :, 1] .== 1, 1]
+            temp_ci_lower = ŷ_ci_lower[1, masks_for[i, :, 1] .== 1, 1]
+            temp_ci_upper = ŷ_ci_upper[1, masks_for[i, :, 1] .== 1, 1]
 
             temp_all_y_values = vcat(
-                y_obs_denorm[masks_obs[i, :, sample_n] .== 1, sample_n],
-                y_for_denorm[masks_for[i, :, sample_n] .== 1, sample_n],
+                y_obs_denorm[masks_obs[i, :, 1] .== 1, 1],
+                y_for_denorm[masks_for[i, :, 1] .== 1, 1],
                 temp_pred_vals,
                 temp_ci_lower,
                 temp_ci_upper
@@ -135,29 +135,29 @@ function viz_fn(t_obs, t_for, obs_data, future_true_data, forecasted_data; sampl
                  label=i == 1 ? "Forecasting Period" : "")
 
             # Plot historical observations using denormalized data
-            scatter!(ax, t_obs_val, y_obs_denorm[masks_obs[i, :, sample_n] .== 1, sample_n],
+            scatter!(ax, t_obs_val, y_obs_denorm[masks_obs[i, :, 1] .== 1, 1],
                     color=MEDICAL_COLORS.observed,
                     label=i == 1 ? "Historical Observations" : "",
                     markersize=16)
-            lines!(ax, t_obs_val, y_obs_denorm[masks_obs[i, :, sample_n] .== 1, sample_n],
+            lines!(ax, t_obs_val, y_obs_denorm[masks_obs[i, :, 1] .== 1, 1],
                   color=(MEDICAL_COLORS.observed, 0.7),
                   linewidth=2,
                   linestyle=:dash)
 
             # Plot ground truth future data using denormalized data
-            scatter!(ax, t_for_val, y_for_denorm[masks_for[i, :, sample_n] .== 1, sample_n],
+            scatter!(ax, t_for_val, y_for_denorm[masks_for[i, :, 1] .== 1, 1],
                     color=MEDICAL_COLORS.truth,
                     label=i == 1 ? "Ground Truth" : "",
                     markersize=16)
-            lines!(ax, t_for_val, y_for_denorm[masks_for[i, :, sample_n] .== 1, sample_n],
+            lines!(ax, t_for_val, y_for_denorm[masks_for[i, :, 1] .== 1, 1],
                   color=(MEDICAL_COLORS.truth, 0.7),
                   linewidth=2,
                   linestyle=:dash)
 
             # Plot model predictions with confidence intervals (already denormalized)
-            pred_vals = ŷ_mean[1, masks_for[i, :, sample_n] .== 1, sample_n]
-            ci_lower = ŷ_ci_lower[1, masks_for[i, :, sample_n] .== 1, sample_n]
-            ci_upper = ŷ_ci_upper[1, masks_for[i, :, sample_n] .== 1, sample_n]
+            pred_vals = ŷ_mean[1, masks_for[i, :, 1] .== 1, 1]
+            ci_lower = ŷ_ci_lower[1, masks_for[i, :, 1] .== 1, 1]
+            ci_upper = ŷ_ci_upper[1, masks_for[i, :, 1] .== 1, 1]
 
             band!(ax, t_for_val, ci_lower, ci_upper,
                  color=(MEDICAL_COLORS.confidence, 0.25),
@@ -174,8 +174,8 @@ function viz_fn(t_obs, t_for, obs_data, future_true_data, forecasted_data; sampl
 
             # Set axis limits with proper padding using denormalized data
             all_y_values = vcat(
-                y_obs_denorm[masks_obs[i, :, sample_n] .== 1, sample_n],
-                y_for_denorm[masks_for[i, :, sample_n] .== 1, sample_n],
+                y_obs_denorm[masks_obs[i, :, 1] .== 1, 1],
+                y_for_denorm[masks_for[i, :, 1] .== 1, 1],
                 pred_vals,
                 ci_lower,
                 ci_upper

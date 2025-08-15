@@ -55,7 +55,7 @@ Base.@kwdef struct ModelParameters
                  (1 - 0.005 * (age - 50) / 30) *
                  (BMI > 30 ? 0.95 : 1.05)
 
-    # Increased drug-induced immune suppression: affected by age and BMI
+    # Increased chemotherapy-induced immune suppression: affected by age and BMI
     β_I::Float64 = abs(rand(Normal(0.1, 0.05))) *
                    (1 + 0.001 * (age - 50)) *
                    (BMI > 30 ? 1.05 : 0.95)
@@ -259,7 +259,7 @@ Diffusion term for the stochastic differential equation.
 - `t::Float64`: Time
 """
 function diffusion(dX::Vector{Float64}, X::Vector{Float64}, p::ModelParameters, t::Float64)
-    dX .= 2e-2 .* sqrt.(X.^2)
+    dX .= 1e-2 .* sqrt.(X.^2)
 end
 
 """
@@ -316,8 +316,8 @@ Generate a dataset of PKPD model simulations.
 function generate_dataset(;
     n_samples::Int,
     X₀_mean::Vector{Float64}=[50.0, 0.0, 0.0, 0.8, 0.9],
-    X₀_std::Vector{Float64}=[10.0, 0.0, 0.0, 0.0, 0.0],
-    tspan::Tuple{Float64,Float64}=(0.0, 140.0),
+    X₀_std::Vector{Float64}=[10.0, 0.0, 0.0, 0.2, 0.2],
+    tspan::Tuple{Float64,Float64}=(0.0, 365.0),
     sample_rate::Int=7,
     params::ModelParameters=ModelParameters()
 )
