@@ -1,16 +1,16 @@
 model:
   type: "LatentODE"
-  latent_dim: &latentdim 32
-  context_dim: 32
+  latent_dim: &latentdim 64
+  context_dim: 256
 
   obs_encoder:
     type: "Recurrent_Encoder"
-    hidden_size: 32
+    hidden_size: 128
 
   ODE:
     vector_field:
       type: "MLP"
-      hidden_size: 32
+      hidden_size: 64
       depth: 1
       activation: swish
     solver: Euler()
@@ -36,7 +36,7 @@ training:
   validation:
       latent_dim: *latentdim
       solver: Euler()
-      mcmc_samples: 100
+      mcmc_samples: 30
       kwargs:
           dt: 0.01
 

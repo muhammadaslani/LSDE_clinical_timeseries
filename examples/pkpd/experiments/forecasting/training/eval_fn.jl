@@ -1,5 +1,5 @@
 # Evaluation functions for PKPD forecasting models
-function eval_fn_nde(model, θ, st, ts, data, config)
+function eval_fn(model, θ, st, ts, data, config)
     _, covars_obs, _, y₁_obs, y₂_obs, _, _, u_forecast, _, x_forecast, y₁_forecast, y₂_forecast, mask₁_forecast, mask₂_forecast = data
     batch_size = size(x_forecast)[end]
     (ŷ₁, ŷ₂), _, _ = model(vcat(covars_obs, y₁_obs, y₂_obs), u_forecast, ts, θ, st)
@@ -8,18 +8,6 @@ function eval_fn_nde(model, θ, st, ts, data, config)
     eval_loss = eval_loss_1 + eval_loss_2
     return (eval_loss, eval_loss_1, eval_loss_2)
 end
-
-function eval_fn_lstm(model, θ, st, ts, data, config)
-    _, covars_obs, _, y₁_obs, y₂_obs, _, _, u_forecast, _, _, y₁_forecast, y₂_forecast, mask₁_forecast, mask₂_forecast = data
-    batch_size = size(y₁_forecast)[end]
-    (ŷ₁, ŷ₂), _, _ = model(vcat(covars_obs, y₁_obs, y₂_obs), u_forecast, ts, θ, st)
-    eval_loss1 = CrossEntropy_Loss(ŷ₁, y₁_forecast, mask₁_forecast; agg=sum) / batch_size
-    eval_loss2 = -poisson_loglikelihood(ŷ₂, y₂_forecast, mask₂_forecast) / batch_size
-    total_eval_loss = eval_loss1 + eval_loss2
-
-    return (total_eval_loss, eval_loss1, eval_loss2)
-end
-
 
 function eval_forecast(true_data, forecasted_data)
     _, _, _, y₁_f, y₂_f, mask₁_f, mask₂_f = true_data

@@ -5,7 +5,7 @@
 Base.@kwdef struct ModelParameters
     # Static covariates
     gender::Int = rand(0:1)       # 0 for male, 1 for female
-    age::Float64 = rand(20:80)    # Age in years
+    age::Float64 = rand(18:95)    # Age in years
     weight::Float64 = rand(50:120) # Weight in kg
     height::Float64 = rand(150:190) # Height in cm
     tumor_type::String = rand(["NSCLC", "SCLC"]) # Tumor type
@@ -16,14 +16,14 @@ Base.@kwdef struct ModelParameters
 
     # Base parameters with covariate effects
     # Tumor growth rate: affected by age, gender, and tumor type
-    ρ::Float64 = abs(rand(Normal(8e-2, 1e-3))) *
+    ρ::Float64 = abs(rand(Normal(8e-2, 2e-2))) *
                  (1 + 0.002 * (age - 50) / 30) *
-                 (gender == 0 ? 1.03 : 0.97) *
+                 (gender == 0 ? rand(Normal(1.03, 0.05)) : rand(Normal(0.97, 0.09))) *
                  (tumor_type == "SCLC" ? 1.05 : 0.95)
 
     # Tumor carrying capacity: affected by gender and tumor type
-    K::Float64 = abs(rand(Normal(100.0, 10))) *
-                 (gender == 0 ? 1.05 : 0.95) *
+    K::Float64 = abs(rand(Normal(100.0, 30))) *
+                 (gender == 0 ? rand(Normal(1.05, 0.05)) : rand(Normal(0.95, 0.09))) *
                  (tumor_type == "SCLC" ? 0.92 : 1.08)
 
     # Linear effect of chemotherapy: affected by age, BSA, and tumor type
@@ -93,6 +93,8 @@ Base.@kwdef struct ModelParameters
     # Health impact of tumor: affected by gender
     λ_S::Float64 = abs(rand(Normal(200.0, 20))) *
                    (gender == 0 ? 1.04 : 0.96)
+    σ_process::Float64 = rand(Uniform(1e-2, 1e-1)) # Patient-specific noise level
+
 end
 
 
@@ -138,7 +140,7 @@ Generate observations from a solution.
 - `Tuple{Vector{Int}, Vector{Int}, Vector{Float64}}`: Health observations, tumor observations, and time points
 """
 
-function generate_observations(sol::RODESolution, sample_rate::Int; noise_std::Float64=0.0)::Tuple{Vector{Int},Vector{Int},Vector{Float64}}
+function generate_observations(sol::RODESolution, sample_rate::Int; noise_std::Float64=0.2)::Tuple{Vector{Int},Vector{Int},Vector{Float64}}
     # Poisson sampling
     y_obs = rand.(Poisson.((sol[1, :])))[1:sample_rate:end]
     noise_std = noise_std .* y_obs
@@ -168,7 +170,9 @@ function generate_observations(ensemble_sol::EnsembleSolution, sample_rate::Int)
     T = Vector{Vector{Float64}}()
 
     for sol in ensemble_sol
-        H_obs, y_obs, t_obs = generate_observations(sol, sample_rate)
+        random_obs_noise_level = rand(Uniform(0.05, 0.25)) # e.g., noise from 5% to 25%
+
+        H_obs, y_obs, t_obs = generate_observations(sol, sample_rate, noise_std=random_obs_noise_level)
         push!(Y, hcat(H_obs, y_obs)')
         push!(T, t_obs)
     end
@@ -259,7 +263,7 @@ Diffusion term for the stochastic differential equation.
 - `t::Float64`: Time
 """
 function diffusion(dX::Vector{Float64}, X::Vector{Float64}, p::ModelParameters, t::Float64)
-    dX .= 1e-2 .* sqrt.(X.^2)
+    dX .= p.σ_process .* sqrt.(X.^2)
 end
 
 """
@@ -316,7 +320,7 @@ Generate a dataset of PKPD model simulations.
 function generate_dataset(;
     n_samples::Int,
     X₀_mean::Vector{Float64}=[50.0, 0.0, 0.0, 0.8, 0.9],
-    X₀_std::Vector{Float64}=[10.0, 0.0, 0.0, 0.2, 0.2],
+    X₀_std::Vector{Float64}=[25.0, 0.0, 0.0, 0.3, 0.3],
     tspan::Tuple{Float64,Float64}=(0.0, 365.0),
     sample_rate::Int=7,
     params::ModelParameters=ModelParameters()
@@ -324,8 +328,8 @@ function generate_dataset(;
 
     Random.seed!(1234)
 
-    ω_cs = rand([2, 5, 6, 7, 8], n_samples)
-    ω_rs = rand([2, 5, 6, 7, 8], n_samples)
+    ω_cs = rand(Array(1:10), n_samples)
+    ω_rs = rand(Array(1:10), n_samples)
     covariates = zeros(5, n_samples)
 
     @info "Generating inputs"

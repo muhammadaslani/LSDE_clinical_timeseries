@@ -1,15 +1,15 @@
 model:
   type: "LatentLSTM"
-  latent_dim: 32
+  latent_dim: 64
   context_dim: 32
 
   obs_encoder: 
     type: "Recurrent_Encoder"
-    hidden_size: 32
+    hidden_size: 128
 
   dynamics:
     type: "LSTM"
-    hidden_size: 32
+    hidden_size: 64
     depth: 1
 
   obs_decoder:
@@ -20,7 +20,7 @@ model:
 training:
   learning_rate: 0.002
   optimizer: AdamW(0.002) 
-  epochs: 300
+  epochs: 200
   log_freq: 10
   viz_freq: 10
   stop_patience: 20
@@ -29,7 +29,7 @@ training:
     gamma: 0.9  # Decay factor per epoch (0.95 means 95% of previous value)
     step_every: 50  # Apply decay every epoch
   validation:
-    mcmc_samples: 100
+    mcmc_samples: 30
 
 
 experiment:

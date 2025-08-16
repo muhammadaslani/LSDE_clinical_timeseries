@@ -1,5 +1,5 @@
-function loss_fn_nde(model, θ, st, data)
-    (u_obs, covars_obs, _, y₁_obs, y₂_obs, _, _,
+function loss_fn(model, θ, st, data)
+    (_, covars_obs, _, y₁_obs, y₂_obs, _, _,
         u_forecast, _, x_forecast, y₁_forecast, y₂_forecast, mask₁_forecast, mask₂_forecast), ts, λ = data
     batch_size = size(x_forecast)[end]
     (ŷ₁, ŷ₂), px₀, kl_pq = model(vcat(covars_obs, y₁_obs, y₂_obs),  u_forecast, ts, θ, st)
@@ -16,18 +16,4 @@ function loss_fn_nde(model, θ, st, data)
     
     loss = recon_loss + λ * kl_loss
     return loss, st, (kl_loss, recon_loss, recon_loss1, recon_loss2)
-end
-
-
-function loss_fn_lstm(model, θ, st, data)
-    (_, covars_obs, _, y₁_obs, y₂_obs, _, _,
-        u_forecast, _, _, y₁_forecast, y₂_forecast, mask₁_forecast, mask₂_forecast), ts, λ = data
-    batch_size = size(y₁_forecast)[end]
-    (ŷ₁, ŷ₂), px₀, kl_path = model(vcat(covars_obs, y₁_obs, y₂_obs), u_forecast, ts, θ, st)
-    recon_loss1 = CrossEntropy_Loss(ŷ₁, y₁_forecast, mask₁_forecast; agg=sum) / batch_size
-    recon_loss2 = -poisson_loglikelihood(ŷ₂, y₂_forecast, mask₂_forecast) / batch_size
-    total_recon_loss = recon_loss1 + recon_loss2
-    kl_loss = kl_normal(px₀...) / batch_size
-    total_loss = recon_loss1 + recon_loss2 + λ * kl_loss
-    return total_loss, st, (kl_loss, total_recon_loss, recon_loss1, recon_loss2)
 end
