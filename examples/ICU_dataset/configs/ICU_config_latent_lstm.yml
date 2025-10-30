@@ -5,7 +5,7 @@ model:
 
   obs_encoder: 
     type: "Recurrent_Encoder"
-    hidden_size: 256
+    hidden_size: 64
 
   dynamics:
     type: "LSTM"

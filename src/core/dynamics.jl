@@ -307,7 +307,7 @@ end
 
 ###########################################################################################
 """
-    LSTM(vector_field, solver; kwargs...)
+    LSTM(vector_field; kwargs...)
 
 Constructs an LSTM model.
 
