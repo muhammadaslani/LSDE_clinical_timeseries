@@ -21,9 +21,9 @@ model:
     diffusion:
       type: "SparseMLP"
       activation: sigmoid
-    solver: EM()
+    solver: SOSRI()
     kwargs:
-        dt: 0.02
+        dt: 0.01
 
   obs_decoder:
     type: "MultiHeadLinearDecoder"
@@ -33,7 +33,7 @@ model:
 training:
   learning_rate: 0.002
   optimizer: AdamW(0.002) 
-  epochs: 200
+  epochs: 100
   log_freq: 10
   viz_freq: 10
   stop_patience: 20
@@ -43,10 +43,10 @@ training:
     step_every: 50  # Apply decay every epoch
   validation:
       latent_dim: *latentdim  
-      solver: EM()
-      mcmc_samples: 30
+      solver: SOSRI()
+      mcmc_samples: 50
       kwargs:
-          dt: 0.02
+          dt: 0.01
 experiment:
   name: "LatentSDE_PKPD_V0"
   description: "First experiment with a Latent SDE model using Rhythm on the PKPD model"

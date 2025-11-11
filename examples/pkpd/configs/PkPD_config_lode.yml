@@ -1,7 +1,7 @@
 model:
   type: "LatentODE"
   latent_dim: &latentdim 64
-  context_dim: 256
+  context_dim: 128
 
   obs_encoder:
     type: "Recurrent_Encoder"
@@ -36,7 +36,7 @@ training:
   validation:
       latent_dim: *latentdim
       solver: Euler()
-      mcmc_samples: 30
+      mcmc_samples: 50
       kwargs:
           dt: 0.01
 
