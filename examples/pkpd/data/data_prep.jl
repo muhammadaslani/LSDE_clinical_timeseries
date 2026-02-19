@@ -244,12 +244,12 @@ Generate a dataset of PKPD model simulations.
 """
 function generate_dataset(;
     n_samples::Int,
-    X₀_mean::Vector{Float64} = [50.0, 0.0, 0.0, 0.8, 0.9],
-    X₀_std::Vector{Float64} = [25.0, 0.0, 0.0, 0.3, 0.3],
-    tspan::Tuple{Float64,Float64} = (0.0, 365.0),
-    sample_rate::Int = 7,
-    params::ModelParameters = ModelParameters(),
-    seed::Union{Int,Nothing} = 1234
+    X₀_mean::Vector{Float64}=[50.0, 0.0, 0.0, 0.8, 0.9],
+    X₀_std::Vector{Float64}=[25.0, 0.0, 0.0, 0.3, 0.3],
+    tspan::Tuple{Float64,Float64}=(0.0, 365.0),
+    sample_rate::Int=7,
+    params::ModelParameters=ModelParameters(),
+    seed::Union{Int,Nothing}=1234
 )
     rng = seed === nothing ? Random.default_rng() : Random.MersenneTwister(seed)
 
@@ -266,7 +266,7 @@ function generate_dataset(;
 
     function prob_func(prob, i, repeat)
         patient_rng = Random.MersenneTwister(rand(rng, UInt))
-        new_params = ModelParameters(; ω_c = ω_cs[i], ω_r = ω_rs[i], rng = patient_rng)
+        new_params = ModelParameters(; ω_c=ω_cs[i], ω_r=ω_rs[i], rng=patient_rng)
         new_X₀ = [max(rand(patient_rng, Normal(X₀_mean[j], X₀_std[j])), 0.0) for j in eachindex(X₀_mean)]
         new_X₀[5] = min(new_X₀[5], 1.0)
         new_X₀[4] = min(new_X₀[4], 1.0)
@@ -278,23 +278,23 @@ function generate_dataset(;
             new_params.height,
             new_params.tumor_type == "SCLC" ? 1.0 : 0.0
         ]
-        remake(prob, u0 = new_X₀, p = new_params)
+        remake(prob, u0=new_X₀, p=new_params)
     end
 
-    ensemble_prob = EnsembleProblem(prob, prob_func = prob_func)
+    ensemble_prob = EnsembleProblem(prob, prob_func=prob_func)
     ensemble_sol = solve(
         ensemble_prob,
         SOSRI(),
         EnsembleThreads();
-        callback = cb,
-        saveat = 1.0,
-        trajectories = n_samples,
-        seed = seed
+        callback=cb,
+        saveat=1.0,
+        trajectories=n_samples,
+        seed=seed
     )
     X = [Array(sol) for sol in ensemble_sol]
 
     @info "Generating observations"
-    Y, T = generate_observations(ensemble_sol, sample_rate; rng = rng)
+    Y, T = generate_observations(ensemble_sol, sample_rate; rng=rng)
 
     # One-hot encode health status
     Y₁ = [Array(onehotbatch(y[1, :], 0:5)) for y in Y]
