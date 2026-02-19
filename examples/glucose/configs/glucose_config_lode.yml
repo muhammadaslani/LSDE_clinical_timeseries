@@ -1,0 +1,45 @@
+model:
+  type: "LatentODE"
+  latent_dim: &latentdim 32
+  context_dim: 32
+
+  obs_encoder:
+    type: "Recurrent_Encoder"
+    hidden_size: 32
+
+  ODE:
+    vector_field:
+      type: "MLP"
+      hidden_size: 32
+      depth: 1
+      activation: swish
+    solver: Euler()
+    kwargs:
+        dt: 0.01
+
+  obs_decoder:
+    type: "MultiHeadLinearDecoder"
+    dists: ["Gaussian"]
+
+training:
+  learning_rate: 0.002
+  optimizer: AdamW(0.002)
+  epochs: 200
+  log_freq: 10
+  viz_freq: 10
+  stop_patience: 20
+  lr_decay:
+    type: "exponential"
+    gamma: 0.9
+    step_every: 50
+  validation:
+      latent_dim: *latentdim
+      solver: Euler()
+      mcmc_samples: 50
+      kwargs:
+          dt: 0.01
+
+experiment:
+  name: "LatentODE_Glucose_V0"
+  description: "Latent ODE model for Bergman glucose forecasting"
+  path: "experiments/"

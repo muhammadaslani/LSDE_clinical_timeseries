@@ -224,7 +224,7 @@ Returns
 """
 function generate_dataset(;
     n_samples::Int,
-    tspan::Tuple{Float64,Float64} = (0.0, 1440.0),  # 1440 min = 24 hours
+    tspan::Tuple{Float64,Float64} = (0.0, 720.0),  # 1440 min = 24 hours
     sample_rate::Int = 5,                             # observe every 5 min (CGM-like)
     n_meals::Int = 3,
     seed::Union{Int,Nothing} = 1234
