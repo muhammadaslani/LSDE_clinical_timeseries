@@ -52,7 +52,7 @@ function kfold_train(data, dims, n_folds, rng, config_path, model_type, timepoin
             u_data_for[:, :, test_idx], covars_data_for[:, :, test_idx], x_data_for[:, :, test_idx], y_data_for[:, :, test_idx], mask_data_for[:, :, test_idx]
         )
 
-        batch_size = 16
+        batch_size = 32
         train_loader = DataLoader(train_data, batchsize=batch_size, shuffle=true)
         val_loader = DataLoader(val_data, batchsize=batch_size, shuffle=false)
         test_loader = DataLoader(test_data, batchsize=batch_size, shuffle=false)

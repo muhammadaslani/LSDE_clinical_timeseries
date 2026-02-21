@@ -1,6 +1,6 @@
 model:
   type: "LatentSDE"
-  latent_dim: &latentdim 32 
+  latent_dim: &latentdim 32
   context_dim: 32
 
   obs_encoder:
@@ -11,12 +11,12 @@ model:
     drift:
       type: "MLP"
       hidden_size: 32
-      depth: 1
+      depth: 2
       activation: swish
     drift_aug:
       type: "MLP"
       hidden_size: 32
-      depth: 1
+      depth: 2
       activation: swish
     diffusion:
       type: "SparseMLP"
@@ -30,7 +30,7 @@ model:
     dists: ["Gaussian"]
 
 training:
-  learning_rate: 0.002
+  learning_rate: 0.005
   optimizer: AdamW(0.002)
   epochs: 200
   log_freq: 10

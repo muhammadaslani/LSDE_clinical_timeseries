@@ -18,7 +18,7 @@ include("training/kfold_trainer.jl");
 
 # Load data
 data, train_loader, val_loader, test_loader, dims, ts_obs, ts_for, normalization_stats =
-    generate_dataloader(; n_samples=256, batchsize=16, split=(0.6, 0.2), obs_fraction=0.8, normalization=true, seed=123);
+    generate_dataloader(; n_samples=512, batchsize=32, split=(0.6, 0.2), obs_fraction=0.5, normalization=true, seed=123);
 variables_of_interest = ["Glucose"];
 k_folds = 2
 
@@ -30,7 +30,7 @@ lsde_models, lsde_params, lsde_states, lsde_performances =
 
 lsde_stats = assess_model_performance(lsde_performances, variables_of_interest;
     model_name="Latent SDE", forecast_fn=forecast_nde,
-    plot_sample=true, sample_n=5, viz_fn=viz_fn,
+    plot_sample=true, sample_n=3, viz_fn=viz_fn,
     models=lsde_models, params=lsde_params, states=lsde_states,
     data=data, normalization_stats=normalization_stats, timepoints=(ts_obs, ts_for),
     config=YAML.load_file(config_lsde_path)["training"]["validation"]);

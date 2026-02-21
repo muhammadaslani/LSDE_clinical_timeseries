@@ -13,7 +13,7 @@ function generate_dataloader(; n_samples=512, batchsize=16, split=(0.5, 0.3), ob
         Masks = copy(Masks)
         for i in 1:size(Y_padded, 3)
             for j in 1:size(Y_padded, 2)
-                if rand() > 0.8  # ~20% irregularity rate
+                if rand() > 1.0  # ~20% irregularity rate
                     Y_padded[:, j, i] .= 0
                     Masks[:, j, i] .= false
                 end
@@ -33,8 +33,26 @@ function generate_dataloader(; n_samples=512, batchsize=16, split=(0.5, 0.3), ob
         t_min, t_max = minimum(timepoints), maximum(timepoints)
         normalization_stats["T_stats"] = (min_val=t_min, max_val=t_max)
         timepoints = (timepoints .- t_min) ./ (t_max - t_min)
-        covars = repeat(reshape(covariates, 6, 1, size(covariates, 2)), 1, size(Y_padded, 2), 1)
+
+        # Normalize controls (U) per-channel to [0,1]
         U = cat(U..., dims=3)
+        if normalization
+            U_max = maximum(abs.(U), dims=(2, 3))  # (2, 1, 1) — per-channel max
+            U_max = max.(U_max, 1f-8)              # avoid division by zero
+            U = U ./ U_max
+            normalization_stats["U_stats"] = (max_vals=dropdims(U_max, dims=(2, 3)),)
+            @info "Controls normalized per-channel: meal max=$(U_max[1]), insulin max=$(U_max[2])"
+        end
+
+        # Normalize covariates to [0,1]
+        covars_min = minimum(covariates, dims=2)
+        covars_max = maximum(covariates, dims=2)
+        covariates_norm = (covariates .- covars_min) ./ (covars_max .- covars_min .+ 1e-8)
+        if normalization
+            normalization_stats["Covars_stats"] = (min_vals=covars_min, max_vals=covars_max)
+            @info "Covariates normalized to [0,1]"
+        end
+        covars = repeat(reshape(Float32.(covariates_norm), 6, 1, size(covariates, 2)), 1, size(Y_padded, 2), 1)
 
         U_obs, U_forecast = split_matrix(U, obs_fraction)
         X_obs, X_forecast = split_matrix(X_padded, obs_fraction)
