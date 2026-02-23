@@ -76,7 +76,7 @@ function Recurrent_Encoder(obs_dim, latent_dim, context_dim; hidden_size)
         ReverseSequence(dim=2),
         Recurrence(LSTMCell(hidden_size => hidden_size), return_sequence=true),
         Recurrence(LSTMCell(hidden_size => hidden_size)),
-        BranchLayer(Dense(hidden_size => latent_dim), Dense(hidden_size => latent_dim, softplus)))
+        BranchLayer(Dense(hidden_size => latent_dim), Dense(hidden_size => latent_dim)))
 
     context_net = Chain(
         Recurrence(LSTMCell(hidden_size => hidden_size); return_sequence=true),
@@ -140,7 +140,7 @@ function CDE_Encoder(encoder_path_dim::Int, latent_dim::Int, context_dim::Int=0;
     # 1. Project raw observations to hidden_size
     linear_net = Dense(encoder_path_dim => hidden_size)
 
-    # 2. Backward LSTM over projected history → deterministic initial condition for CDE
+    # 2. Backward LSTM over projected history → deterministic initial condition for the encoder CDE
     init_net = Chain(
         ReverseSequence(dim=2),
         Recurrence(LSTMCell(hidden_size => hidden_size); return_sequence=true),
@@ -153,7 +153,7 @@ function CDE_Encoder(encoder_path_dim::Int, latent_dim::Int, context_dim::Int=0;
     cde = CDE(encoder_vf)
 
     # 4. Project CDE terminal state to (μ, σ) for latent model
-    proj_net = BranchLayer(Dense(hidden_size => latent_dim), Dense(hidden_size => latent_dim, softplus))
+    proj_net = BranchLayer(Dense(hidden_size => latent_dim), Dense(hidden_size => latent_dim))
 
     return CDE_Encoder(linear_net, init_net, cde, proj_net, hidden_size)
 end

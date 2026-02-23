@@ -16,3 +16,4 @@ tmp/
 results/
 *.mp4.claude/
 .gitignore
+.claude/

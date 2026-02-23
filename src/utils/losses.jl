@@ -1,20 +1,20 @@
 """
-    kl_normal(μ, σ²)
+    kl_normal(μ, log_σ²)
 
 Compute the KL divergence between a normal distribution and a standard normal distribution.
 
 Arguments:
 
   - `μ`: Mean of the normal distribution.
-  - `σ²`: Variance of the normal distribution.
+  - `log_σ²`: Log variance of the normal distribution.
 
 returns: 
 
     - The KL divergence.
 
 """
-function kl_normal(μ, σ²)
-    kl = 0.5f0 * mean(σ² .+ μ .^ 2 .- 1 .- log.(σ²))
+function kl_normal(μ, log_σ²)
+    kl = 0.5f0 * mean(exp.(log_σ²) .+ μ .^ 2 .- 1 .- log_σ²)
     return kl
 end
 
@@ -42,7 +42,7 @@ function poisson_loglikelihood(λ::AbstractArray, y::AbstractArray)
     @assert size(λ) == size(y) "poisson_loglikelihood: Rates and spikes should be of the same shape"
     @assert !any(isnan.(λ)) "poisson_loglikelihood: NaN rate predictions found"
     @assert all(λ .>= 0) "poisson_loglikelihood: Negative rate predictions found"
-    
+
     λ = λ .+ 1f-4  # Add small constant to prevent log(0)
     ll = sum((y * log(λ) - λ - loggamma(y + 1)))
 
@@ -69,7 +69,7 @@ function poisson_loglikelihood(λ::AbstractArray, y::AbstractArray, mask::Abstra
     @assert size(λ) == size(y) "poisson_loglikelihood: Rates and spikes should be of the same shape"
     @assert !any(isnan.(λ)) "poisson_loglikelihood: NaN rate predictions found"
     @assert all(λ .>= 0) "poisson_loglikelihood: Negative rate predictions found"
-    
+
     λ = λ .+ 1f-4  # Add small constant to prevent log(0)
     ll = sum(@. mask * (y * log(λ) - λ - loggamma(y + 1)))
 
@@ -100,7 +100,7 @@ function poisson_loglikelihood_multiple_samples(λ::AbstractArray, y::AbstractAr
     for i in eachindex(size(λ, 4))
         ll += poisson_loglikelihood(λ[:, :, :, i], y[:, :, :], mask)
     end
-    
+
     if agg == mean
         num_valid = sum(mask)
         return ll / num_valid / size(λ, 4)
@@ -133,7 +133,7 @@ function poisson_loglikelihood_multiple_samples(λ::AbstractArray, y::AbstractAr
     for i in eachindex(size(λ, 4))
         ll += poisson_loglikelihood(λ[:, :, :, i], y[:, :, :])
     end
-    
+
     if agg == mean
         num_elements = prod(size(y))
         return ll / num_elements / size(λ, 4)
@@ -184,7 +184,7 @@ function normal_loglikelihood(μ, log_σ², y; ϵ=1e-8)
     # Clamp log_σ² to prevent extreme values
     log_σ² = clamp.(log_σ², -10.0f0, 10.0f0)
     # Compute log-likelihood in a numerically stable way
-    ll = -0.5 * sum(log_σ² .+ log(2π) .+ ((y .- μ).^2 ./ exp.(log_σ²) .+ ϵ))
+    ll = -0.5 * sum(log_σ² .+ log(2π) .+ ((y .- μ) .^ 2 ./ exp.(log_σ²) .+ ϵ))
     return -ll
 end
 
@@ -206,14 +206,14 @@ returns:
 
 """
 function mse(ŷ, y)
-    return mean((ŷ .- y).^2)
+    return mean((ŷ .- y) .^ 2)
 end
 
 function mse(ŷ, y, mask::AbstractArray{Bool})
     @assert size(ŷ) == size(y) "MSE: Predictions and targets must have the same shape"
     @assert size(ŷ) == size(mask) "MSE: Predictions and mask must have the same shape"
     num_valid = sum(mask)
-    return sum((ŷ .* mask .- y .* mask).^2)/num_valid
+    return sum((ŷ .* mask .- y .* mask) .^ 2) / num_valid
 end
 
 
@@ -235,7 +235,7 @@ Compute the cross-entropy loss between ground truth labels `y` and predicted lab
 - The computed cross-entropy loss.
 
 """
-CrossEntropy_Loss( ŷ, y, mask; agg=mean, logits=true, label_smoothing=0.1, epsilon=1e-10) =
+CrossEntropy_Loss(ŷ, y, mask; agg=mean, logits=true, label_smoothing=0.1, epsilon=1e-10) =
     CrossEntropyLoss(; agg=agg, logits=logits, label_smoothing=label_smoothing, epsilon=epsilon)(mask .* ŷ, mask .* y)
 
 
@@ -261,10 +261,10 @@ function bits_per_spike(rates, spikes)
     @assert size(rates) == size(spikes) "Rates and spikes must have the same shape"
     rates_ll = poisson_loglikelihood(rates, spikes)
     mean_spikes = mean(spikes, dims=(2, 3))
-    null_rates = repeat(mean_spikes, 1, size(spikes, 2), size(spikes, 3)) 
+    null_rates = repeat(mean_spikes, 1, size(spikes, 2), size(spikes, 3))
     null_ll = poisson_loglikelihood(null_rates, spikes)
     spike_sum = sum(spikes)
-    bps = (rates_ll/log(2) - null_ll/log(2)) / spike_sum
+    bps = (rates_ll / log(2) - null_ll / log(2)) / spike_sum
     return bps
 end
 
@@ -286,15 +286,15 @@ returns:
     - The linear schedule.
 
 """
-function frange_cycle_linear(n_iter, start::T=0.0f0, stop::T=1.0f0,  n_cycle=4, ratio=0.5) where T
+function frange_cycle_linear(n_iter, start::T=0.0f0, stop::T=1.0f0, n_cycle=4, ratio=0.5) where T
     L = ones(n_iter) * stop
-    period = n_iter/n_cycle
-    step = T((stop-start)/(period*ratio)) # linear schedule
+    period = n_iter / n_cycle
+    step = T((stop - start) / (period * ratio)) # linear schedule
 
     for c in 0:n_cycle-1
         v, i = start, 1
-        while (v ≤ stop) & (Int(round(i+c*period)) < n_iter)
-            L[Int(round(i+c*period))] = v
+        while (v ≤ stop) & (Int(round(i + c * period)) < n_iter)
+            L[Int(round(i + c * period))] = v
             v += step
             i += 1
         end
