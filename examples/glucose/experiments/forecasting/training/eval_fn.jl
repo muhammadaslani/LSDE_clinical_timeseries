@@ -2,13 +2,9 @@ function eval_fn(model, θ, st, ts, data, config)
     u_obs, covars_obs, x_obs, y_obs, mask_obs, u_forecast, covars_forecast, x_forecast, y_forecast, mask_forecast = data
     batch_size = size(x_forecast)[end]
 
-    if model isa LatentCDE
-        ts_obs, ts_for = ts
-        y_enc = vcat(covars_obs, y_obs, u_obs)
-        (ŷ_glucose,), _, _ = model(y_enc, u_forecast, (ts_obs, ts_for), θ, st)
-    else
-        (ŷ_glucose,), _, _ = model(vcat(covars_obs, y_obs), u_forecast, ts, θ, st)
-    end
+    ts_obs, ts_for = ts
+    y_enc = vcat(covars_obs, y_obs, u_obs)
+    (ŷ_glucose,), _, _ = model(y_enc, u_forecast, (ts_obs, ts_for), θ, st)
 
     μ, log_σ² = ŷ_glucose
     eval_loss = normal_loglikelihood(μ .* mask_forecast, log_σ² .* mask_forecast, y_forecast .* mask_forecast) / batch_size
@@ -34,7 +30,7 @@ function eval_forecast(true_data, forecasted_data)
 end
 
 function assess_model_performance(performances, variables_of_interest; model_name="Model",
-    forecast_fn=forecast_nde, plot_sample=false, sample_n=1, viz_fn=nothing,
+    forecast_fn=forecast, plot_sample=false, sample_n=1, viz_fn=nothing,
     models=nothing, params=nothing, states=nothing, data=nothing, normalization_stats=nothing,
     timepoints=nothing, config=nothing, best_fold_idx=nothing)
 
@@ -84,10 +80,8 @@ function assess_model_performance(performances, variables_of_interest; model_nam
             x_forecast[:, :, sample_n:sample_n], y_forecast[:, :, sample_n:sample_n], mask_forecast[:, :, sample_n:sample_n])
 
         timepoints_obs, timepoints_forecast = timepoints
-        # CDE models need (ts_obs, ts_for) tuple; others just ts_for
-        forecast_timepoints = best_model isa LatentCDE ? timepoints : timepoints_forecast
         sample_forecasted = forecast_fn(best_model, best_params, best_state, sample_data_obs,
-            u_forecast[:, :, sample_n:sample_n], forecast_timepoints, config)
+            u_forecast[:, :, sample_n:sample_n], timepoints, config)
 
         fig = viz_fn(timepoints_obs, timepoints_forecast,
             sample_data_obs, sample_future_true, sample_forecasted, normalization_stats)

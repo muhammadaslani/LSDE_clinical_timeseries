@@ -15,17 +15,17 @@ Arguments:
 
 """
 @with_kw struct LatentSDE <: LatentVariableModel
-    obs_encoder = Identity_Encoder()
-    ctrl_encoder = NoOpLayer()
-    init_map = NoOpLayer()
-    dynamics 
-    state_map = NoOpLayer()
-    obs_decoder = Identity_Decoder()
-    ctrl_decoder = NoOpLayer()
-end 
+  obs_encoder = Identity_Encoder()
+  ctrl_encoder = NoOpLayer()
+  init_map = NoOpLayer()
+  dynamics
+  state_map = NoOpLayer()
+  obs_decoder = Identity_Decoder()
+  ctrl_decoder = NoOpLayer()
+end
 
 """
-    (model::LatentSDE)(y::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple)
+    (model::LatentSDE)(y::AbstractArray, u::Union{Nothing, AbstractArray}, ts::Tuple, ps::ComponentArray, st::NamedTuple)
 
 The forward pass of the LatentSDE model. 
 Used for fitting the model to data.
@@ -45,20 +45,21 @@ Returns:
   - `x̂₀`: Encoded initial hidden state.
   - `kl_path`: KL divergence path. (Only for SDE dynamics, otherwise `nothing`)ƒ
 """
-function (model::LatentSDE)(y::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple)
-    px₀, context = model.obs_encoder(y, ps.obs_encoder, st.obs_encoder)[1]
-    x₀ = model.init_map(sample_rp(px₀), ps.init_map, st.init_map)[1]
-    x₀_aug = CRC.@ignore_derivatives fill!(similar(x₀, 1, size(x₀)[2]), 0.0f0)
-    x₀  = vcat(x₀, x₀_aug)
-    u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
-    x_sol = model.dynamics(x₀, u_enc, context, ts, ps.dynamics, st.dynamics)[1]
-    x_arr = cat(x_sol.u..., dims = 3)
-    x_ = permutedims(x_arr, (1, 3, 2))
-    x = x_[1:end-1, :, :]
-    kl_path = x_[end, :, :]
-    x = model.state_map(x, ps.state_map, st.state_map)[1]
-    ŷ = model.obs_decoder(x, ps.obs_decoder, st.obs_decoder)[1]
-    return ŷ, px₀, kl_path 
+function (model::LatentSDE)(y::AbstractArray, u::Union{Nothing,AbstractArray}, ts::Tuple, ps::ComponentArray, st::NamedTuple)
+  ts_obs, ts_for = ts
+  px₀, context = model.obs_encoder(y, ts_obs, ps.obs_encoder, st.obs_encoder)[1]
+  x₀ = model.init_map(sample_rp(px₀), ps.init_map, st.init_map)[1]
+  x₀_aug = CRC.@ignore_derivatives fill!(similar(x₀, 1, size(x₀)[2]), 0.0f0)
+  x₀ = vcat(x₀, x₀_aug)
+  u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
+  x_sol = model.dynamics(x₀, u_enc, context, ts_for, ps.dynamics, st.dynamics)[1]
+  x_arr = cat(x_sol.u..., dims=3)
+  x_ = permutedims(x_arr, (1, 3, 2))
+  x = x_[1:end-1, :, :]
+  kl_path = x_[end, :, :]
+  x = model.state_map(x, ps.state_map, st.state_map)[1]
+  ŷ = model.obs_decoder(x, ps.obs_decoder, st.obs_decoder)[1]
+  return ŷ, px₀, kl_path
 end
 
 
@@ -92,18 +93,19 @@ Returns:
   - `x_pred`: Predicted hidden states. ``x_{T:T+k}``
   - `y_pred`: Predicted observations. ``y_{T:T+k}``
 """
-function predict(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractArray, u::Union{Nothing, AbstractArray}, t_pred::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
-    pxₜ, _ = model.obs_encoder(y, ps.obs_encoder, st.obs_encoder)[1] 
-    u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
-    x_pred = sample_generative(model.dynamics, model.init_map, solver, pxₜ, u_enc, t_pred, ps, st, n_samples, dev; kwargs...)
-    x_pred_ = model.state_map(x_pred, ps.state_map, st.state_map)[1]
-    y_pred = model.obs_decoder(x_pred_, ps.obs_decoder, st.obs_decoder)[1]
-    return x_pred, y_pred
-end 
+function predict(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractArray, u::Union{Nothing,AbstractArray}, ts::Tuple, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
+  ts_obs, ts_for = ts
+  pxₜ, _ = model.obs_encoder(y, ts_obs, ps.obs_encoder, st.obs_encoder)[1]
+  u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
+  x_pred = sample_generative(model.dynamics, model.init_map, solver, pxₜ, u_enc, ts_for, ps, st, n_samples, dev; kwargs...)
+  x_pred_ = model.state_map(x_pred, ps.state_map, st.state_map)[1]
+  y_pred = model.obs_decoder(x_pred_, ps.obs_decoder, st.obs_decoder)[1]
+  return x_pred, y_pred
+end
 
 
 """ 
-    filter(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Device)
+    filter(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractArray, u::Union{Nothing, AbstractArray}, ts::Tuple, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Device)
 
     Estimates the hidden state of the system at time `t` given the observations from time `1` to `t` and control inputs from time `1` to `t`.
     Typically used for online tracking/monitoring.
@@ -128,18 +130,18 @@ Arguments:
 Returns:
   - `x̂`: Estimated hidden states. ``x_{t}``
 """
-function filter(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
-    px₀, context = model.obs_encoder(y, ps.obs_encoder, st.obs_encoder)[1]
-    u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
-    x_ = sample_augmented(model.dynamics, model.init_map, solver, px₀, u_enc, context, ts, ps, st, n_samples, dev; kwargs...)
-    x = model.state_map(x_, ps.state_map, st.state_map)[1]
-    return x[:,end, :, :]
+function filter(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractArray, u::Union{Nothing,AbstractArray}, ts::Tuple, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
+  px₀, context = model.obs_encoder(y, ts_obs, ps.obs_encoder, st.obs_encoder)[1]
+  u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
+  x_ = sample_augmented(model.dynamics, model.init_map, solver, px₀, u_enc, context, ts, ps, st, n_samples, dev; kwargs...)
+  x = model.state_map(x_, ps.state_map, st.state_map)[1]
+  return x[:, end, :, :]
 end
 
 
 
 """ 
-    smooth(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Device)
+    smooth(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractArray, u::Union{Nothing, AbstractArray}, ts::Tuple, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Device)
 
     Estimates the hidden states of the system at times `1` to `T` given the observations from time `1` to `T` and control inputs from time `1` to `T`.
     Typically used for offline applications. i.e. understanding system dynamics.
@@ -164,20 +166,20 @@ Returns:
   - `x̃`: Estimated hidden states. ``x_{1:T}``
   - `ỹ`: Reconstructed observations. ``y_{1:T}``
 """
-function smooth(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractArray, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
-    px₀, context = model.obs_encoder(y, ps.obs_encoder, st.obs_encoder)[1]
-    u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
-    x̃ = sample_augmented(model.dynamics, model.init_map, solver, px₀, u_enc, context, ts, ps, st, n_samples, dev; kwargs...)
-    x̃_ = model.state_map(x̃, ps.state_map, st.state_map)[1]
-    ỹ = model.obs_decoder(x̃_, ps.obs_decoder, st.obs_decoder)[1]
-    return x̃, ỹ
+function smooth(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, y::AbstractArray, u::Union{Nothing,AbstractArray}, ts::Tuple, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
+  px₀, context = model.obs_encoder(y, ts_obs, ps.obs_encoder, st.obs_encoder)[1]
+  u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
+  x̃ = sample_augmented(model.dynamics, model.init_map, solver, px₀, u_enc, context, ts, ps, st, n_samples, dev; kwargs...)
+  x̃_ = model.state_map(x̃, ps.state_map, st.state_map)[1]
+  ỹ = model.obs_decoder(x̃_, ps.obs_decoder, st.obs_decoder)[1]
+  return x̃, ỹ
 end
 
 
 
 
 """ 
-    generate(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, px₀::Tuple, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Device)
+    generate(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, px₀::Tuple, u::Union{Nothing, AbstractArray}, ts::Tuple, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Device)
 
     Generates new samples from the generative model (potentially conditioned on control inputs)
 
@@ -203,7 +205,7 @@ Returns:
   - `ŷ`: Generated observations. ``y_{1:T}``
 """
 
-function generate(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, px₀::Tuple, u::Union{Nothing, AbstractArray}, ts::AbstractArray, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
+function generate(model::LatentSDE, solver::DiffEqBase.DEAlgorithm, px₀::Tuple, u::Union{Nothing,AbstractArray}, ts::Tuple, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
   u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
   x̂ = sample_generative(model.dynamics, model.init_map, solver, px₀, u_enc, ts, ps, st, n_samples, dev; kwargs...)
   x̂_ = model.state_map(x̂, ps.state_map, st.state_map)[1]

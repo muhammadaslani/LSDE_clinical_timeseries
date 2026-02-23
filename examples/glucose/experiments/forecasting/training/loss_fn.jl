@@ -3,14 +3,9 @@ function loss_fn(model, θ, st, data)
         u_forecast, covars_forecast, x_forecast, y_forecast, mask_forecast), ts, λ = data
     batch_size = size(x_forecast)[end]
 
-    if model isa LatentCDE
-        # CDE encoder needs controls in input, and ts as (ts_obs, ts_for)
-        ts_obs, ts_for = ts
-        y_enc = vcat(covars_obs, y_obs, u_obs)
-        (ŷ_glucose,), px₀, kl_pq = model(y_enc, u_forecast, (ts_obs, ts_for), θ, st)
-    else
-        (ŷ_glucose,), px₀, kl_pq = model(vcat(covars_obs, y_obs), u_forecast, ts, θ, st)
-    end
+    ts_obs, ts_for = ts
+    y_enc = vcat(covars_obs, y_obs, u_obs)
+    (ŷ_glucose,), px₀, kl_pq = model(y_enc, u_forecast, (ts_obs, ts_for), θ, st)
 
     μ, log_σ² = ŷ_glucose
     recon_loss = normal_loglikelihood(μ .* mask_forecast, log_σ² .* mask_forecast, y_forecast .* mask_forecast) / batch_size
@@ -24,4 +19,3 @@ function loss_fn(model, θ, st, data)
     loss = recon_loss + λ * kl_loss
     return loss, st, (kl_loss, recon_loss, recon_loss, 0.0f0)
 end
-

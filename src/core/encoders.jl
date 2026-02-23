@@ -42,6 +42,11 @@ function (model::Encoder)(x, p, st)
     return (px₀, context), st
 end
 
+# Dispatch that accepts ts_obs for API compatibility with CDE_Encoder (ts_obs is ignored)
+function (model::Encoder)(x, ts_obs::AbstractVector, p, st)
+    return model(x, p, st)
+end
+
 
 """
     Identity_Encoder()

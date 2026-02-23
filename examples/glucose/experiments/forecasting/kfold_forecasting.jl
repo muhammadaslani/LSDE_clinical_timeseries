@@ -21,57 +21,58 @@ data, train_loader, val_loader, test_loader, dims, ts_obs, ts_for, normalization
     generate_dataloader(; n_samples=512, batchsize=32, split=(0.6, 0.2), obs_fraction=0.5, normalization=true, seed=123);
 variables_of_interest = ["Glucose"];
 k_folds = 2
+timepoints = (ts_obs, ts_for)
 
 # Latent SDE K-Fold Training
 config_lsde_path = joinpath(@__DIR__, "../../configs/glucose_config_lsde.yml");
 lsde_models, lsde_params, lsde_states, lsde_performances =
-    kfold_train(data, dims, k_folds, rng, config_lsde_path, "lsde", ts_for,
-        loss_fn, eval_fn, forecast_nde, viz_fn);
+    kfold_train(data, dims, k_folds, rng, config_lsde_path, "lsde", timepoints,
+        loss_fn, eval_fn, forecast, viz_fn);
 
 lsde_stats = assess_model_performance(lsde_performances, variables_of_interest;
-    model_name="Latent SDE", forecast_fn=forecast_nde,
+    model_name="Latent SDE", forecast_fn=forecast,
     plot_sample=true, sample_n=3, viz_fn=viz_fn,
     models=lsde_models, params=lsde_params, states=lsde_states,
-    data=data, normalization_stats=normalization_stats, timepoints=(ts_obs, ts_for),
+    data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=YAML.load_file(config_lsde_path)["training"]["validation"]);
 
 # Latent ODE K-Fold Training
 config_lode_path = joinpath(@__DIR__, "../../configs/glucose_config_lode.yml");
 lode_models, lode_params, lode_states, lode_performances =
-    kfold_train(data, dims, k_folds, rng, config_lode_path, "lode", ts_for,
-        loss_fn, eval_fn, forecast_nde, viz_fn);
+    kfold_train(data, dims, k_folds, rng, config_lode_path, "lode", timepoints,
+        loss_fn, eval_fn, forecast, viz_fn);
 
 lode_stats = assess_model_performance(lode_performances, variables_of_interest;
-    model_name="Latent ODE", forecast_fn=forecast_nde,
+    model_name="Latent ODE", forecast_fn=forecast,
     plot_sample=true, sample_n=1, viz_fn=viz_fn,
     models=lode_models, params=lode_params, states=lode_states,
-    data=data, normalization_stats=normalization_stats, timepoints=(ts_obs, ts_for),
+    data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=YAML.load_file(config_lode_path)["training"]["validation"]);
 
 # Latent LSTM K-Fold Training
 config_lstm_path = joinpath(@__DIR__, "../../configs/glucose_config_latent_lstm.yml");
 lstm_models, lstm_params, lstm_states, lstm_performances =
-    kfold_train(data, dims, k_folds, rng, config_lstm_path, "latent_lstm", ts_for,
-        loss_fn, eval_fn, forecast_lstm, viz_fn);
+    kfold_train(data, dims, k_folds, rng, config_lstm_path, "latent_lstm", timepoints,
+        loss_fn, eval_fn, forecast, viz_fn);
 
 lstm_stats = assess_model_performance(lstm_performances, variables_of_interest;
-    model_name="Latent LSTM", forecast_fn=forecast_lstm,
+    model_name="Latent LSTM", forecast_fn=forecast,
     plot_sample=true, sample_n=1, viz_fn=viz_fn,
     models=lstm_models, params=lstm_params, states=lstm_states,
-    data=data, normalization_stats=normalization_stats, timepoints=(ts_obs, ts_for),
+    data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=YAML.load_file(config_lstm_path)["training"]["validation"]);
 
 # Latent CDE K-Fold Training
 config_lcde_path = joinpath(@__DIR__, "../../configs/glucose_config_latent_cde.yml");
 lcde_models, lcde_params, lcde_states, lcde_performances =
-    kfold_train(data, dims, k_folds, rng, config_lcde_path, "latent_cde", ts_for,
-        loss_fn, eval_fn, forecast_cde, viz_fn; timepoints_obs=ts_obs);
+    kfold_train(data, dims, k_folds, rng, config_lcde_path, "latent_cde", timepoints,
+        loss_fn, eval_fn, forecast, viz_fn);
 
 lcde_stats = assess_model_performance(lcde_performances, variables_of_interest;
-    model_name="Latent CDE", forecast_fn=forecast_cde,
+    model_name="Latent CDE", forecast_fn=forecast,
     plot_sample=true, sample_n=1, viz_fn=viz_fn,
     models=lcde_models, params=lcde_params, states=lcde_states,
-    data=data, normalization_stats=normalization_stats, timepoints=(ts_obs, ts_for),
+    data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=YAML.load_file(config_lcde_path)["training"]["validation"]);
 
 # Compare all models
