@@ -14,4 +14,5 @@ tmp/
 .vscode/
 /experiments/
 results/
-*.mp4
+*.mp4.claude/
+.gitignore
