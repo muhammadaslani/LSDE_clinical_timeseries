@@ -90,7 +90,7 @@ Returns:
 """
 
 
-function predict(model::LatentLSTM, y::AbstractArray, u::Union{Nothing,AbstractArray}, ts::Tuple, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
+function predict(model::LatentLSTM, solver, y::AbstractArray, u::Union{Nothing,AbstractArray}, ts::Tuple, ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
   ts_obs, ts_for = ts
   x̂₀, _ = model.obs_encoder(y, ts_obs, ps.obs_encoder, st.obs_encoder)[1]
   u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]

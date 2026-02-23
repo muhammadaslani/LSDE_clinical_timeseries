@@ -90,7 +90,7 @@ Returns:
   - `x_pred`: Predicted latent states `(latent_dim, T_for, B, n_samples)`.
   - `y_pred`: Predicted observations `(obs_dim, T_for, B, n_samples)`.
 """
-function predict(model::LatentCDE, y::AbstractArray, u::AbstractArray, ts::Tuple,
+function predict(model::LatentCDE, solver, y::AbstractArray, u::AbstractArray, ts::Tuple,
   ps::ComponentArray, st::NamedTuple, n_samples::Int, dev::Any; kwargs...)
   ts_obs, ts_for = ts
 

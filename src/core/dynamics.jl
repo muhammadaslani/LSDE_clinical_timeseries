@@ -422,6 +422,12 @@ computes `dX/dt`, and integrates the CDE:
 """
 struct CDE <: AbstractLuxContainerLayer{(:vector_field,)}
     vector_field  # CDEField: z → (latent_dim, path_dim) matrix
+    solver
+    kwargs
+end
+
+function CDE(vector_field, solver=Tsit5(); kwargs...)
+    return CDE(vector_field, solver, kwargs)
 end
 
 
@@ -466,9 +472,10 @@ function (de::CDE)(x₀::AbstractArray{<:Real,2}, u::AbstractArray{<:Real,3},
 
     ff = ODEFunction{false}(dzdt)
     prob = ODEProblem{false}(ff, x₀, (ts[1], ts[end]), ps)
-    sol = solve(prob, Tsit5();
+    sol = solve(prob, de.solver;
         u0=x₀, p=ps, saveat=ts,
-        sensealg=InterpolatingAdjoint(autojacvec=ZygoteVJP()))
+        sensealg=InterpolatingAdjoint(autojacvec=ZygoteVJP()),
+        de.kwargs...)
 
     z_raw = Array(sol)                        # (latent_dim, B, T)
     z = permutedims(z_raw, (1, 3, 2))         # (latent_dim, T, B)

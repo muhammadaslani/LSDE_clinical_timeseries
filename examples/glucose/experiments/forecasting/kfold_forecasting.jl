@@ -21,7 +21,7 @@ data, train_loader, val_loader, test_loader, dims, ts_obs, ts_for, normalization
     generate_dataloader(; n_samples=512, batchsize=32, split=(0.6, 0.2), obs_fraction=0.5, normalization=true, seed=123);
 variables_of_interest = ["Glucose"];
 k_folds = 2
-timepoints = (ts_obs, ts_for)
+timepoints = (ts_obs, ts_for);
 
 # Latent SDE K-Fold Training
 config_lsde_path = joinpath(@__DIR__, "../../configs/glucose_config_lsde.yml");

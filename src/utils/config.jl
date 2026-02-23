@@ -121,7 +121,8 @@ function create_latent_cde(config::Dict, dims::Dict, rng::AbstractRNG)
 
     # Build CDE decoder dynamics (vector field constructed here, like ODE)
     cde_vector_field = CDEField(latent_dim, input_dim + 1; hidden_size, depth)
-    dynamics = CDE(cde_vector_field)
+    cde_kwargs = Dict{Symbol,Any}(Symbol(k) => Float32.(v) for (k, v) in config["CDE"]["kwargs"])
+    dynamics = CDE(cde_vector_field, eval(Meta.parse(config["CDE"]["solver"])); cde_kwargs...)
 
     # Build observation decoder (reuse existing factory)
     obs_decoder = create_object(config["obs_decoder"], latent_dim, output_dim)

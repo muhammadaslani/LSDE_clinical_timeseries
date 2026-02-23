@@ -10,6 +10,11 @@ model:
     hidden_size: 32
     depth: 1
 
+  CDE:
+    solver: Tsit5()
+    kwargs:
+        dt: 0.1
+
   obs_decoder:
     type: "MultiHeadLinearDecoder"
     dists: ["Gaussian"]
@@ -27,7 +32,10 @@ training:
     step_every: 50
   validation:
       latent_dim: *latentdim
+      solver: Tsit5()
       mcmc_samples: 50
+      kwargs:
+          dt: 0.1
 
 experiment:
   name: "LatentCDE_Glucose_V0"
