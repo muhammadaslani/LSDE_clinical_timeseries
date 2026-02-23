@@ -1,7 +1,7 @@
 function create_object(object_dict::Dict, args...)
     if haskey(TYPE_MAP, object_dict["type"])
         type = TYPE_MAP[object_dict["type"]]
-        symbol_params = Dict{Symbol, Any}()
+        symbol_params = Dict{Symbol,Any}()
         for (k, v) in object_dict
             if k != "type"
                 key = Symbol(k)
@@ -12,7 +12,7 @@ function create_object(object_dict::Dict, args...)
                 end
             end
         end
-        
+
         return type(args...; symbol_params...)
     else
         error("Unknown type: $(object_dict["type"])")
@@ -25,9 +25,9 @@ function create_latentsde(config::Dict, dims::Dict, rng::AbstractRNG)
     latent_dim = config["latent_dim"]::Int
     context_dim = config["context_dim"]::Int
     input_dim = dims["input_dim"]::Int
-    obs_dim= dims["obs_dim"]::Union{Int, Vector{Int}}
-    output_dim = dims["output_dim"]::Union{Int, Vector{Int}}
-    
+    obs_dim = dims["obs_dim"]::Union{Int,Vector{Int}}
+    output_dim = dims["output_dim"]::Union{Int,Vector{Int}}
+
     if output_dim isa Int
         state_map = NoOpLayer()
     else
@@ -39,18 +39,18 @@ function create_latentsde(config::Dict, dims::Dict, rng::AbstractRNG)
     drift_aug = create_object(config["SDE"]["drift_aug"], [latent_dim, context_dim, input_dim], latent_dim)
     diffusion = create_object(config["SDE"]["diffusion"], latent_dim, latent_dim)
 
-    sde_kwargs = Dict{Symbol, Any}(Symbol(k) => Float32.(v) for (k, v) in config["SDE"]["kwargs"])
+    sde_kwargs = Dict{Symbol,Any}(Symbol(k) => Float32.(v) for (k, v) in config["SDE"]["kwargs"])
     dynamics = SDE(drift, drift_aug, diffusion, eval(Meta.parse(config["SDE"]["solver"])), sde_kwargs)
 
     obs_decoder = create_object(config["obs_decoder"], latent_dim, output_dim)
 
-    model =  LatentSDE(;obs_encoder, dynamics, state_map, obs_decoder)
+    model = LatentSDE(; obs_encoder, dynamics, state_map, obs_decoder)
     #println(model)
-    θ, st = Lux.setup(rng, model);
-    θ = θ |> ComponentArray{Float32};
+    θ, st = Lux.setup(rng, model)
+    θ = θ |> ComponentArray{Float32}
     return model, θ, st
 
-end 
+end
 
 
 
@@ -58,9 +58,9 @@ function create_latentode(config::Dict, dims::Dict, rng::AbstractRNG)
     latent_dim = config["latent_dim"]::Int
     context_dim = config["context_dim"]::Int
     input_dim = dims["input_dim"]::Int
-    obs_dim= dims["obs_dim"]::Union{Int, Vector{Int}}
-    output_dim = dims["output_dim"]::Union{Int, Vector{Int}}
-    
+    obs_dim = dims["obs_dim"]::Union{Int,Vector{Int}}
+    output_dim = dims["output_dim"]::Union{Int,Vector{Int}}
+
     if output_dim isa Int
         state_map = NoOpLayer()
     else
@@ -68,26 +68,26 @@ function create_latentode(config::Dict, dims::Dict, rng::AbstractRNG)
     end
     obs_encoder = create_object(config["obs_encoder"], sum(obs_dim), latent_dim, context_dim)
     vector_field = create_object(config["ODE"]["vector_field"], [latent_dim, input_dim], latent_dim)
-    ode_kwargs = Dict{Symbol, Any}(Symbol(k) => Float32.(v) for (k, v) in config["ODE"]["kwargs"])
+    ode_kwargs = Dict{Symbol,Any}(Symbol(k) => Float32.(v) for (k, v) in config["ODE"]["kwargs"])
     dynamics = ODE(vector_field, eval(Meta.parse(config["ODE"]["solver"])), ode_kwargs)
 
     obs_decoder = create_object(config["obs_decoder"], latent_dim, output_dim)
 
     model = LatentODE(obs_encoder=obs_encoder, dynamics=dynamics, init_map=NoOpLayer(), state_map=state_map, obs_decoder=obs_decoder)
-    θ, st = Lux.setup(rng, model);
-    θ = θ |> ComponentArray{Float32};
+    θ, st = Lux.setup(rng, model)
+    θ = θ |> ComponentArray{Float32}
     return model, θ, st
 
-end 
+end
 
 
 function create_latent_lstm(config::Dict, dims::Dict, rng::AbstractRNG)
     latent_dim = config["latent_dim"]::Int
     context_dim = config["context_dim"]::Int
     input_dim = dims["input_dim"]::Int
-    obs_dim= dims["obs_dim"]::Union{Int, Vector{Int}}
-    output_dim = dims["output_dim"]::Union{Int, Vector{Int}}
-    
+    obs_dim = dims["obs_dim"]::Union{Int,Vector{Int}}
+    output_dim = dims["output_dim"]::Union{Int,Vector{Int}}
+
     if output_dim isa Int
         state_map = NoOpLayer()
     else
@@ -98,8 +98,37 @@ function create_latent_lstm(config::Dict, dims::Dict, rng::AbstractRNG)
     obs_decoder = create_object(config["obs_decoder"], latent_dim, output_dim)
 
     model = LatentLSTM(obs_encoder=obs_encoder, dynamics=dynamics, obs_decoder=obs_decoder)
-    θ, st = Lux.setup(rng, model);
-    θ = θ |> ComponentArray{Float32};
+    θ, st = Lux.setup(rng, model)
+    θ = θ |> ComponentArray{Float32}
+    return model, θ, st
+
+end
+
+
+function create_latent_cde(config::Dict, dims::Dict, rng::AbstractRNG)
+    latent_dim = config["latent_dim"]::Int
+    obs_dim = dims["obs_dim"]::Union{Int,Vector{Int}}
+    output_dim = dims["output_dim"]::Union{Int,Vector{Int}}
+    input_dim = dims["input_dim"]::Int
+    hidden_size = config["hidden_size"]::Int
+    depth = get(config, "depth", 1)::Int
+
+    # Build encoder from config dynamically (like LatentODE/LatentSDE)
+    # sum(obs_dim) already includes covariates
+    encoder_path_dim = sum(obs_dim) + input_dim
+    context_dim = get(config, "context_dim", 0)::Int
+    obs_encoder = create_object(config["obs_encoder"], encoder_path_dim, latent_dim, context_dim)
+
+    # Build CDE decoder dynamics (vector field constructed here, like ODE)
+    cde_vector_field = CDEField(latent_dim, input_dim + 1; hidden_size, depth)
+    dynamics = CDE(cde_vector_field)
+
+    # Build observation decoder (reuse existing factory)
+    obs_decoder = create_object(config["obs_decoder"], latent_dim, output_dim)
+
+    model = LatentCDE(obs_encoder=obs_encoder, dynamics=dynamics, obs_decoder=obs_decoder)
+    θ, st = Lux.setup(rng, model)
+    θ = θ |> ComponentArray{Float32}
     return model, θ, st
 
 end

@@ -1,5 +1,5 @@
 using Rhythm
-using DifferentialEquations, Random, Distributions, CairoMakie
+using DifferentialEquations, Random, Distributions, CairoMakie, MLUtils, Printf, Statistics
 
 include("examples/glucose/data/data_prep.jl")
 
@@ -66,3 +66,9 @@ for i in 1:n_plot
     fig = plot_sample(i; U, X, Y, T, covariates)
     display(fig)
 end
+
+
+
+include("examples/glucose/data/data_prep.jl")
+include("examples/glucose/data/data_utils.jl")
+data, train_loader, val_loader, test_loader, dims, ts_obs, ts_for, stats = generate_dataloader(n_samples=100);

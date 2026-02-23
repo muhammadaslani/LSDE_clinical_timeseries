@@ -1,0 +1,35 @@
+model:
+  type: "LatentCDE"
+  latent_dim: &latentdim 8
+  covars_dim: 2
+  hidden_size: 4
+  depth: 1
+
+  obs_encoder:
+    type: "CDE_Encoder"
+    hidden_size: 4
+    depth: 1
+
+  obs_decoder:
+    type: "MultiHeadLinearDecoder"
+    dists: ["Gaussian"]
+
+training:
+  learning_rate: 0.005
+  optimizer: AdamW(0.002)
+  epochs: 100
+  log_freq: 1
+  viz_freq: 10
+  stop_patience: 20
+  lr_decay:
+    type: "exponential"
+    gamma: 0.9
+    step_every: 50
+  validation:
+      latent_dim: *latentdim
+      mcmc_samples: 50
+
+experiment:
+  name: "LatentCDE_Glucose_V0"
+  description: "Latent CDE model for Bergman glucose forecasting"
+  path: "experiments/"

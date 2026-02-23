@@ -68,7 +68,7 @@ end
 # -----------------------------------------------------------------------
 lr0 = 5e-3
 lr_min = 1e-5
-n_epochs = 500
+n_epochs = 250
 opt = Adam(lr0)
 opt_st = Optimisers.setup(opt, θ);
 
@@ -156,4 +156,4 @@ function plot_predictions(model, θ, st, loader, ts_obs, ts_for, normalization_s
     return fig
 end
 
-plot_predictions(model, θ, st, test_loader, ts_obs, ts_for, normalization_stats; sample_idx=1)
+plot_predictions(model, θ, st, test_loader, ts_obs, ts_for, normalization_stats; sample_idx=2)

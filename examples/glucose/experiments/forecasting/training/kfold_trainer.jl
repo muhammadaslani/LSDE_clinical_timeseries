@@ -1,4 +1,4 @@
-function kfold_train(data, dims, n_folds, rng, config_path, model_type, timepoints_for, loss_fn, eval_fn, forecast_fn, viz_fn)
+function kfold_train(data, dims, n_folds, rng, config_path, model_type, timepoints_for, loss_fn, eval_fn, forecast_fn, viz_fn; timepoints_obs=nothing)
     start_time = time()
 
     config = YAML.load_file(config_path)
@@ -64,6 +64,8 @@ function kfold_train(data, dims, n_folds, rng, config_path, model_type, timepoin
             model, θ, st = create_latentode(config["model"], dims, rng)
         elseif model_type == "latent_lstm"
             model, θ, st = create_latent_lstm(config["model"], dims, rng)
+        elseif model_type == "latent_cde"
+            model, θ, st = create_latent_cde(config["model"], dims, rng)
         else
             error("Unsupported model type: $model_type")
         end
@@ -72,15 +74,18 @@ function kfold_train(data, dims, n_folds, rng, config_path, model_type, timepoin
         training_config = deepcopy(config["training"])
         warm_start_epochs = round(Int, training_config["epochs"] * 0.1)
         training_config["epochs"] = warm_start_epochs
+        # Determine ts for training: CDE needs (ts_obs, ts_for), others just ts_for
+        ts_train = isnothing(timepoints_obs) ? timepoints_for : (timepoints_obs, timepoints_for)
+
         @info "Fold $fold_idx: warm start for $warm_start_epochs epochs"
-        θ_warm = train(model, θ, st, timepoints_for, loss_fn, eval_fn, viz_fn,
+        θ_warm = train(model, θ, st, ts_train, loss_fn, eval_fn, viz_fn,
             train_loader, val_loader, training_config, exp_path)
 
         # Continue: remaining 90% epochs
         remaining_epochs = round(Int, config["training"]["epochs"] * 0.9)
         training_config["epochs"] = remaining_epochs
         @info "Fold $fold_idx: continuing for $remaining_epochs epochs"
-        θ_trained = train(model, θ_warm, st, timepoints_for, loss_fn, eval_fn, viz_fn,
+        θ_trained = train(model, θ_warm, st, ts_train, loss_fn, eval_fn, viz_fn,
             train_loader, val_loader, training_config, exp_path)
 
         # Evaluate on test set
@@ -90,7 +95,9 @@ function kfold_train(data, dims, n_folds, rng, config_path, model_type, timepoin
         data_obs = (u_obs_test, covars_obs_test, x_obs_test, y_obs_test, mask_obs_test)
         future_true = (u_for_test, covars_for_test, x_for_test, y_for_test, mask_for_test)
 
-        Ex, Ey_pred = forecast_fn(model, θ_trained, st, data_obs, u_for_test, timepoints_for, config["training"]["validation"])
+        # Determine forecast timepoints format
+        forecast_ts = isnothing(timepoints_obs) ? timepoints_for : (timepoints_obs, timepoints_for)
+        Ex, Ey_pred = forecast_fn(model, θ_trained, st, data_obs, u_for_test, forecast_ts, config["training"]["validation"])
         forecasted = (Ex, Ey_pred)
         perf = eval_forecast(future_true, forecasted)
 
