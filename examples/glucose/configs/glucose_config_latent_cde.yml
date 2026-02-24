@@ -1,16 +1,18 @@
 model:
   type: "LatentCDE"
-  latent_dim: &latentdim 8
+  latent_dim: &latentdim 32
   covars_dim: 2
-  hidden_size: 32
-  depth: 1
 
   obs_encoder:
-    type: "CDE_Encoder"
+    type: "Recurrent_Encoder"
     hidden_size: 32
-    depth: 1
 
   CDE:
+    vector_field:
+      type: "CDEField"
+      hidden_size: 32
+      depth: 1
+      activation: swish
     solver: Tsit5()
     kwargs:
         dt: 0.1
@@ -20,12 +22,12 @@ model:
     dists: ["Gaussian"]
 
 training:
-  learning_rate: 0.005
+  learning_rate: 0.002
   optimizer: AdamW(0.002)
-  epochs: 100
-  log_freq: 10
+  epochs: 10
+  log_freq: 1
   viz_freq: 10
-  stop_patience: 20
+  stop_patience: 10
   lr_decay:
     type: "exponential"
     gamma: 0.9

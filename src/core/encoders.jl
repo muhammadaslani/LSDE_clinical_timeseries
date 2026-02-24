@@ -83,10 +83,16 @@ function Recurrent_Encoder(obs_dim, latent_dim, context_dim; hidden_size)
         Recurrence(LSTMCell(hidden_size => hidden_size)),
         BranchLayer(Dense(hidden_size => latent_dim), Dense(hidden_size => latent_dim)))
 
-    context_net = Chain(
-        Recurrence(LSTMCell(hidden_size => hidden_size); return_sequence=true),
-        Recurrence(LSTMCell(hidden_size => context_dim); return_sequence=true),
-        x -> stack(x; dims=2))
+    # When context_dim == 0 (e.g. LatentCDE doesn't use context), skip the
+    # context LSTM entirely. A zero-output LSTMCell doesn't error — it hangs.
+    context_net = if context_dim == 0
+        NoOpLayer()
+    else
+        Chain(
+            Recurrence(LSTMCell(hidden_size => hidden_size); return_sequence=true),
+            Recurrence(LSTMCell(hidden_size => context_dim); return_sequence=true),
+            x -> stack(x; dims=2))
+    end
 
     return Encoder(linear_net, init_net, context_net)
 
@@ -100,28 +106,29 @@ end
 """
     CDE_Encoder
 
-An encoder that follows the same pattern as the standard `Encoder` and `Recurrent_Encoder`:
+An encoder that follows the same 3-network API as `Encoder` / `Recurrent_Encoder`:
 
 1. `linear_net`: Projects raw observations into `hidden_size`.
-2. `init_net`: Runs a LSTM backward over the projected history and returns a
-   **deterministic** initial condition for the encoder CDE.
-3. `cde`: A CDE that integrates forward over the observation window,
-   driven by the projected history as a control path.
-4. `proj_net`: A BranchLayer that maps the CDE's terminal state to
-   probabilistic initial conditions `(μ, σ)` for the latent model.
+2. `init_net`: Backward LSTM over projected history → deterministic z₀ for the encoder CDE.
+3. `cde`: Integrates forward over the observation window driven by the projected history.
+4. `proj_net`: Maps CDE terminal state → probabilistic initial conditions `(μ, σ)`.
+5. `context_net`: Projects the **full** CDE trajectory to context `(context_dim, T_obs, B)`.
+   `NoOpLayer` when `context_dim == 0` (model does not use context).
 
 # Fields
 
 - `linear_net`: Dense layer that projects observations to hidden size.
-- `init_net`: Chain with backward LSTM that produces deterministic CDE initial conditions.
+- `init_net`: Chain with backward LSTM that produces deterministic CDE initial condition.
 - `cde`: CDE dynamics that encodes the observation trajectory.
-- `proj_net`: BranchLayer that maps CDE output to `(μ, σ)`.
+- `proj_net`: BranchLayer that maps CDE terminal state to `(μ, σ)`.
+- `context_net`: Dense (or NoOpLayer) that projects CDE trajectory to context.
 """
-struct CDE_Encoder <: AbstractLuxContainerLayer{(:linear_net, :init_net, :cde, :proj_net)}
+struct CDE_Encoder <: AbstractLuxContainerLayer{(:linear_net, :init_net, :cde, :proj_net, :context_net)}
     linear_net    # Dense: obs_dim → hidden_size
     init_net      # Chain(ReverseSequence, LSTM backward) → deterministic z₀ for CDE
     cde           # CDE dynamics: encode trajectory
     proj_net      # BranchLayer: z_enc_final → (μ, σ)
+    context_net   # Dense(hidden_size → context_dim) or NoOpLayer
     hidden_size::Int
 end
 
@@ -129,13 +136,14 @@ end
 """
     CDE_Encoder(encoder_path_dim, latent_dim, context_dim=0; hidden_size=64, depth=1)
 
-Construct a CDE encoder following the standard encoder pattern.
+Construct a CDE encoder following the standard 3-network encoder API.
 
 Arguments:
 
 - `encoder_path_dim`: Total dimension of the encoder input (covars + obs + controls).
 - `latent_dim`: Dimension of the latent space.
-- `context_dim`: Dimension of context (ignored for now, provided for API compatibility).
+- `context_dim`: Dimension of context. When 0, `context_net` is a `NoOpLayer`
+  and the forward pass returns `nothing` as context.
 - `hidden_size`: Hidden layer size for the projection and CDE vector field.
 - `depth`: Number of hidden layers in the CDE vector field.
 """
@@ -160,7 +168,16 @@ function CDE_Encoder(encoder_path_dim::Int, latent_dim::Int, context_dim::Int=0;
     # 4. Project CDE terminal state to (μ, σ) for latent model
     proj_net = BranchLayer(Dense(hidden_size => latent_dim), Dense(hidden_size => latent_dim))
 
-    return CDE_Encoder(linear_net, init_net, cde, proj_net, hidden_size)
+    # 5. Project full CDE trajectory to context — mirrors Recurrent_Encoder's context_net.
+    #    Dense applied to (hidden_size, T_obs, B) → (context_dim, T_obs, B).
+    #    NoOpLayer when context_dim == 0 (model does not use context).
+    context_net = if context_dim == 0
+        NoOpLayer()
+    else
+        Dense(hidden_size => context_dim)
+    end
+
+    return CDE_Encoder(linear_net, init_net, cde, proj_net, context_net, hidden_size)
 end
 
 
@@ -178,7 +195,9 @@ Arguments:
 
 Returns:
 
-- `(px₀, nothing)`: where `px₀ = (μ, σ)` is the probabilistic initial condition.
+- `(px₀, context)`: where `px₀ = (μ, σ)` is the probabilistic initial condition and
+  `context` is the projected CDE trajectory `(context_dim, T_obs, B)`, or `nothing`
+  when `context_dim == 0`.
 - `st_new`: Updated states.
 """
 function (enc::CDE_Encoder)(y::AbstractArray{<:Real,3}, t_obs::AbstractVector,
@@ -201,7 +220,14 @@ function (enc::CDE_Encoder)(y::AbstractArray{<:Real,3}, t_obs::AbstractVector,
     z_enc_final = z_enc[:, end, :]   # (hidden_size, B)
     px₀, st_proj = enc.proj_net(z_enc_final, ps.proj_net, st.proj_net)
 
-    st_new = (linear_net=st_linear, init_net=st_init, cde=st_cde, proj_net=st_proj)
-    return (px₀, nothing), st_new
+    # 5. Project full CDE trajectory to context (context_dim, T_obs, B).
+    #    When context_dim == 0, context_net is NoOpLayer → returns y_proj unchanged,
+    #    but the model discards context anyway so we return nothing explicitly.
+    context, st_ctx = enc.context_net(z_enc, ps.context_net, st.context_net)
+    context_out = enc.context_net isa NoOpLayer ? nothing : context
+
+    st_new = (linear_net=st_linear, init_net=st_init, cde=st_cde,
+        proj_net=st_proj, context_net=st_ctx)
+    return (px₀, context_out), st_new
 end
 

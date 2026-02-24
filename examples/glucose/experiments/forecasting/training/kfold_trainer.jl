@@ -52,7 +52,7 @@ function kfold_train(data, dims, n_folds, rng, config_path, model_type, timepoin
             u_data_for[:, :, test_idx], covars_data_for[:, :, test_idx], x_data_for[:, :, test_idx], y_data_for[:, :, test_idx], mask_data_for[:, :, test_idx]
         )
 
-        batch_size = 32
+        batch_size = 16
         train_loader = DataLoader(train_data, batchsize=batch_size, shuffle=true)
         val_loader = DataLoader(val_data, batchsize=batch_size, shuffle=false)
         test_loader = DataLoader(test_data, batchsize=batch_size, shuffle=false)
@@ -103,14 +103,14 @@ function kfold_train(data, dims, n_folds, rng, config_path, model_type, timepoin
         push!(performances, perf)
 
         ŷ_rmse, ŷ_crps = perf
-        @info "Fold $fold_idx completed: RMSE=$ŷ_rmse, CRPS=$ŷ_crps"
+        @info @sprintf("Fold %d completed: RMSE=%.4e, CRPS=%.4e", fold_idx, ŷ_rmse, ŷ_crps)
     end
 
     avg_rmse = mean([p[1] for p in performances])
     avg_crps = mean([p[2] for p in performances])
 
     elapsed = time() - start_time
-    @info "K-Fold Results: avg RMSE=$avg_rmse, avg CRPS=$avg_crps"
+    @info @sprintf("K-Fold Results: avg RMSE=%.4e, avg CRPS=%.4e", avg_rmse, avg_crps)
     @info "Total training time: $(round(elapsed, digits=2))s ($(round(elapsed/60, digits=2)) min)"
 
     return models, trained_params, states, performances

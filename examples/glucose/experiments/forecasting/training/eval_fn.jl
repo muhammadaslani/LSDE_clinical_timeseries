@@ -7,8 +7,9 @@ function eval_fn(model, θ, st, ts, data, config)
     (ŷ_glucose,), _, _ = model(y_enc, u_forecast, (ts_obs, ts_for), θ, st)
 
     μ, log_σ² = ŷ_glucose
-    eval_loss = normal_loglikelihood(μ .* mask_forecast, log_σ² .* mask_forecast, y_forecast .* mask_forecast) / batch_size
-    return (eval_loss, eval_loss, 0.0f0)
+    eval_loss = normal_loglikelihood(μ .* mask_forecast, log_σ² .* mask_forecast, y_forecast .* mask_forecast)
+    eval_rmse = sqrt.(mse(μ .* mask_forecast, y_forecast .* mask_forecast))
+    return (eval_loss, eval_loss, eval_rmse)
 end
 
 function eval_forecast(true_data, forecasted_data)
@@ -48,15 +49,15 @@ function assess_model_performance(performances, variables_of_interest; model_nam
 
     println("\nPerformance Metrics:")
     println("-"^40)
-    @printf("Glucose RMSE:  %.4f ± %.4f\n", rmse_mean, rmse_std)
-    @printf("Glucose CRPS:  %.4f ± %.4f\n", crps_mean, crps_std)
+    @printf("Glucose RMSE:  %.4e ± %.4e\n", rmse_mean, rmse_std)
+    @printf("Glucose CRPS:  %.4e ± %.4e\n", crps_mean, crps_std)
 
     overall_mean = mean([rmse_mean, crps_mean])
     overall_std = sqrt(mean([rmse_std^2, crps_std^2]))
 
     println("\nOverall Performance:")
     println("-"^40)
-    @printf("Average: %.4f ± %.4f\n", overall_mean, overall_std)
+    @printf("Average: %.4e ± %.4e\n", overall_mean, overall_std)
 
     if isnothing(best_fold_idx)
         best_fold_idx = argmin(rmse_values)
@@ -89,7 +90,7 @@ function assess_model_performance(performances, variables_of_interest; model_nam
         sample_metrics = eval_forecast(sample_future_true, sample_forecasted)
         display(fig)
 
-        @printf("\nSample #%d Forecast: RMSE=%.4f, CRPS=%.4f\n", sample_n, sample_metrics[1], sample_metrics[2])
+        @printf("\nSample #%d Forecast: RMSE=%.4e, CRPS=%.4e\n", sample_n, sample_metrics[1], sample_metrics[2])
     end
 
     return (rmse_mean=rmse_mean, rmse_std=rmse_std,
@@ -128,7 +129,7 @@ function compare_glucose_models(model_stats_dict; sort_by="overall", ascending=t
     @printf("%-15s  %12s  %12s  %12s\n", "Model", "RMSE", "CRPS", "Overall")
     println("-"^70)
     for (name, s) in zip(sorted_names, sorted_stats)
-        @printf("%-15s  %5.4f±%.4f  %5.4f±%.4f  %5.4f±%.4f\n",
+        @printf("%-15s  %.4e±%.4e  %.4e±%.4e  %.4e±%.4e\n",
             name, s.rmse_mean, s.rmse_std, s.crps_mean, s.crps_std, s.overall_mean, s.overall_std)
     end
     println("="^70)

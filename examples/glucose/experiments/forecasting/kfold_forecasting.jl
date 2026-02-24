@@ -3,7 +3,7 @@ using Revise
 using Rhythm
 using Lux, DifferentialEquations, Random, SciMLSensitivity, ComponentArrays, Optimisers, OptimizationOptimisers, Statistics
 using MLUtils, Printf, CairoMakie, Distributions
-using YAML
+using YAML, NNlib
 
 rng = Random.MersenneTwister(124);
 
@@ -18,7 +18,7 @@ include("training/kfold_trainer.jl");
 
 # Load data
 data, train_loader, val_loader, test_loader, dims, ts_obs, ts_for, normalization_stats =
-    generate_dataloader(; n_samples=512, batchsize=32, split=(0.6, 0.2), obs_fraction=0.5, normalization=true, seed=123);
+    generate_dataloader(; n_samples=256, batchsize=16, split=(0.6, 0.2), obs_fraction=0.5, normalization=true, seed=123);
 variables_of_interest = ["Glucose"];
 k_folds = 2
 timepoints = (ts_obs, ts_for);
@@ -44,7 +44,7 @@ lode_models, lode_params, lode_states, lode_performances =
 
 lode_stats = assess_model_performance(lode_performances, variables_of_interest;
     model_name="Latent ODE", forecast_fn=forecast,
-    plot_sample=true, sample_n=1, viz_fn=viz_fn,
+    plot_sample=true, sample_n=3, viz_fn=viz_fn,
     models=lode_models, params=lode_params, states=lode_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=YAML.load_file(config_lode_path)["training"]["validation"]);
@@ -70,7 +70,7 @@ lcde_models, lcde_params, lcde_states, lcde_performances =
 
 lcde_stats = assess_model_performance(lcde_performances, variables_of_interest;
     model_name="Latent CDE", forecast_fn=forecast,
-    plot_sample=true, sample_n=1, viz_fn=viz_fn,
+    plot_sample=true, sample_n=5, viz_fn=viz_fn,
     models=lcde_models, params=lcde_params, states=lcde_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=YAML.load_file(config_lcde_path)["training"]["validation"]);

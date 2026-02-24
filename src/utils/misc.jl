@@ -421,9 +421,9 @@ function animate_oscillators(z, latent_dims)
 
     fig = Figure(size=(800, 600))
     ax = CairoMakie.Axis(fig[1, 1],
-              xlabel = "Re(z)", 
-              ylabel = "Im(z)", 
-              title = "Oscillator Animation")
+        xlabel="Re(z)",
+        ylabel="Im(z)",
+        title="Oscillator Animation")
 
     limits!(ax, -10, 10, -10, 10)
 
@@ -431,11 +431,11 @@ function animate_oscillators(z, latent_dims)
     scatter_obs = Observable(Point2f[])
 
     for i in 1:N
-        lines!(ax, lines_obs[i], color = :blue, linewidth = 1.5, alpha = 0.8)
+        lines!(ax, lines_obs[i], color=:blue, linewidth=1.5, alpha=0.8)
     end
-    scatter!(ax, scatter_obs, color = :red, markersize = 10)
+    scatter!(ax, scatter_obs, color=:red, markersize=10)
 
-    CairoMakie.record(fig, "oscillators_animation.mp4", 1:size(x, 2); framerate = 30) do frame
+    CairoMakie.record(fig, "oscillators_animation.mp4", 1:size(x, 2); framerate=30) do frame
         for i in 1:N
             lines_obs[i][] = Point2f[(x[i, t], y[i, t]) for t in 1:frame]
         end
@@ -456,11 +456,11 @@ function animate_oscillators(z, dims, group_names, ts)
     @assert sum(dims) == N "The sum of dims must equal N"
     @assert length(dims) == length(group_names) "The number of dims must match the number of group names"
 
-    fig = Figure(size = (1000, 600))
+    fig = Figure(size=(1000, 600))
     ax = CairoMakie.Axis(fig[1, 1],
-              xlabel = "Re(z)", 
-              ylabel = "Im(z)", 
-              title = "Oscillator Animation")
+        xlabel="Re(z)",
+        ylabel="Im(z)",
+        title="Oscillator Animation")
 
     limits!(ax, -5, 5, -5, 5)
 
@@ -479,15 +479,15 @@ function animate_oscillators(z, dims, group_names, ts)
         group_scatter_obs = Observable(Point2f[])
 
         for i in 1:dim
-            lines!(ax, group_lines_obs[i], color = colors[group], linewidth = 2.5, alpha = 0.8)
+            lines!(ax, group_lines_obs[i], color=colors[group], linewidth=2.5, alpha=0.8)
         end
-        scatter_plot = scatter!(ax, group_scatter_obs, color = colors[group], markersize = 15)
+        scatter_plot = scatter!(ax, group_scatter_obs, color=colors[group], markersize=15)
 
         push!(lines_obs, group_lines_obs)
         push!(scatter_obs, group_scatter_obs)
 
         # Add to legend elements
-        push!(legend_elements, MarkerElement(color = colors[group], marker = :circle, markersize = 15))
+        push!(legend_elements, MarkerElement(color=colors[group], marker=:circle, markersize=15))
 
         start_idx += dim
     end
@@ -499,20 +499,20 @@ function animate_oscillators(z, dims, group_names, ts)
         legend_elements,
         group_names,
         "Regions",
-           orientation = :vertical,
-           nbanks = 1,
-           tellheight = false,
-           tellwidth = true,
-           margin = (10, 10, 10, 10),
-           halign = :left,
-           valign = :top)
+        orientation=:vertical,
+        nbanks=1,
+        tellheight=false,
+        tellwidth=true,
+        margin=(10, 10, 10, 10),
+        halign=:left,
+        valign=:top)
 
     # Adjust the layout to give more space to the plot and less to the legend
     colsize!(fig.layout, 1, Relative(0.85))
     colsize!(fig.layout, 2, Relative(0.15))
 
 
-    CairoMakie.record(fig, "oscillators_animation.mp4", 1:size(x, 2); framerate = 20) do frame
+    CairoMakie.record(fig, "oscillators_animation.mp4", 1:size(x, 2); framerate=20) do frame
         start_idx = 1
         for (group, dim) in enumerate(dims)
             end_idx = start_idx + dim - 1
@@ -544,10 +544,10 @@ function create_hand_tracking_animation(b, ts, b̂_m, b̂_sd; output_file="hand_
     # Set up the figure
     fig = Figure(size=(1000, 600))
     ax = CairoMakie.Axis(fig[1, 1],
-              xlabel = "X position", 
-              ylabel = "Y position", 
-              title = "Hand Tracking Animation",
-              aspect = DataAspect())
+        xlabel="X position",
+        ylabel="Y position",
+        title="Hand Tracking Animation",
+        aspect=DataAspect())
 
     limits!(ax, -10, 10, -10, 10)
 
@@ -561,18 +561,18 @@ function create_hand_tracking_animation(b, ts, b̂_m, b̂_sd; output_file="hand_
     ellipse_obs = Observable(Point2f[])
 
     # Plot observables
-    lines!(ax, gt_trail_obs, color = (:blue, 0.8), linewidth = 3)
-    scatter!(ax, current_gt_obs, color = :blue, markersize = 15, label = "Ground Truth")
+    lines!(ax, gt_trail_obs, color=(:blue, 0.8), linewidth=3)
+    scatter!(ax, current_gt_obs, color=:blue, markersize=15, label="Ground Truth")
 
-    lines!(ax, prediction_trail_obs, color = (:red, 0.8), linewidth = 3)
-    poly!(ax, ellipse_obs, color = (:red, 0.3), strokewidth = 0)
-    scatter!(ax, current_prediction_obs, color = :red, markersize = 15, label = "Prediction")
+    lines!(ax, prediction_trail_obs, color=(:red, 0.8), linewidth=3)
+    poly!(ax, ellipse_obs, color=(:red, 0.3), strokewidth=0)
+    scatter!(ax, current_prediction_obs, color=:red, markersize=15, label="Prediction")
 
     # Add legend
     axislegend(ax)
 
     # Record the animation
-    record(fig, output_file, 1:T; framerate = framerate) do frame
+    record(fig, output_file, 1:T; framerate=framerate) do frame
         # Update ground truth trail
         gt_trail_obs[] = [Point2f(b[1, t], b[2, t]) for t in 1:frame]
 
@@ -625,7 +625,7 @@ in the model's predictions. Higher NPE values indicate higher confidence (lower 
 This is the negative of prediction_entropy, making it a reward rather than a penalty.
 """
 function npe(y_pred::AbstractArray{T,4},
-             mask::AbstractArray{Bool,3}) where T <: Number
+    mask::AbstractArray{Bool,3}) where T<:Number
 
     n_features, n_timepoints, n_samples = size(mask)
     total_npe = zero(T)
@@ -662,7 +662,7 @@ Calculate negative predictive entropy for probabilistic predictions without a ma
 # Returns
 - Mean negative predictive entropy over all points.
     """
-function npe(y_pred::AbstractArray{T,3}) where T <: Number
+function npe(y_pred::AbstractArray{T,3}) where T<:Number
     total_npe = zero(T)
     count = 0
 
@@ -700,7 +700,7 @@ Computes the negative Shannon entropy of predictions for each time point and sam
 averaged over features at each position. The entropy is calculated over the MC samples 
 dimension for each prediction point.
 """
-function npe_per_timepoint(y_pred::AbstractArray{T,4}, mask::AbstractArray{Bool,3}) where T <: Number
+function npe_per_timepoint(y_pred::AbstractArray{T,4}, mask::AbstractArray{Bool,3}) where T<:Number
     n_features, n_timepoints, n_samples, n_mc_samples = size(y_pred)
     npe_per_t_s = zeros(T, n_timepoints, n_samples)
 
@@ -722,7 +722,7 @@ function npe_per_timepoint(y_pred::AbstractArray{T,4}, mask::AbstractArray{Bool,
     return npe_per_t_s
 end
 
-function npe_per_timepoint(y_pred::AbstractArray{T,4}) where T <: Number
+function npe_per_timepoint(y_pred::AbstractArray{T,4}) where T<:Number
     n_features, n_timepoints, n_samples, n_mc_samples = size(y_pred)
     npe_per_t_s = zeros(T, n_timepoints, n_samples)
 
@@ -761,7 +761,7 @@ indicated by the mask. For 3D predictions, it directly compares the values.
 """
 function acc(y_true::AbstractArray{T,3},
     y_pred::AbstractArray{T,3},
-             mask::AbstractArray{Bool,3}) where T <: Number
+    mask::AbstractArray{Bool,3}) where T<:Number
 
     n_features, n_timepoints, n_samples = size(y_true)
     correct = 0
@@ -882,4 +882,42 @@ function empirical_crps(y_true::AbstractArray{T1,3},
     end
 
     return total_crps / count
+end
+
+
+
+
+# -----------------------------------------------------------------------
+# Control path construction
+# -----------------------------------------------------------------------
+
+"""
+    build_control_path(Y, ts)
+
+Build a control path from data using cubic spline interpolation.
+
+- `Y`:  (path_dim, T, B) — data to interpolate (observations, controls, or concatenation)
+- `ts`: (T,)             — corresponding time points
+
+Returns `(splines, dXdt)`:
+- `splines`: matrix of cubic splines, shape (path_dim, B)
+- `dXdt`:    callable `(t) → (path_dim, B)` returning the linear interpolation derivative at time `t`,
+             ready to pass directly to `NeuralCDE`
+"""
+function build_control_path(Y::AbstractArray{<:Real,3}, ts::AbstractVector)
+    path_dim, T, B = size(Y)
+    # Pre-compute the derivative of the control path (finite differences) — O(T) once
+    # This mirrors how ODE/SDE use interp!(ts, u, t, Val(:linear)) in their dxdt closures,
+    # but for CDE we need dX/dt (the derivative), not X(t) itself.
+    dt = Float32.(diff(ts))
+    dY = diff(Y, dims=2)  # (path_dim, T-1, B)
+    dYdt = dY ./ reshape(dt, 1, T - 1, 1)  # (path_dim, T-1, B)
+
+    # Closure captures the pre-computed slopes; called at every ODE step, same as interp!
+    function dXdt(t)
+        idx = max(1, min(T - 1, searchsortedlast(ts, t)))
+        return dYdt[:, idx, :]   # (path_dim, B)
+    end
+
+    return nothing, dXdt
 end

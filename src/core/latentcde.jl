@@ -54,14 +54,11 @@ function (model::LatentCDE)(y::AbstractArray, u::AbstractArray, ts::Tuple, ps::C
 
   # 1. Encode history → probabilistic initial conditions
   px₀, _ = model.obs_encoder(y, ts_obs, ps.obs_encoder, st.obs_encoder)[1]
-
   # 2. Sample initial latent state
   x₀ = sample_rp(px₀)
-
   # 3. Decode: evolve latent state forward using CDE dynamics
   z_dec, st_dyn = model.dynamics(x₀, u, ts_for, ps.dynamics, st.dynamics)
   # z_dec: (latent_dim, T_for, B) — already in correct shape
-
   # 4. Map latent states to observations
   ŷ = model.obs_decoder(z_dec, ps.obs_decoder, st.obs_decoder)[1]
 

@@ -463,11 +463,12 @@ function (de::CDE)(x₀::AbstractArray{<:Real,2}, u::AbstractArray{<:Real,3},
 
     # Solve the CDE: dz/dt = F_θ(z) · dX/dt
     function dzdt(z, p, t)
-        dX = CRC.@ignore_derivatives dXdt(t)
-        F3, _ = de.vector_field(z, p.vector_field, st.vector_field)
-        dz = reshape(sum(F3 .* reshape(dX, 1, size(dX, 1), size(dX, 2)), dims=2),
-            size(F3, 1), size(F3, 3))
-        return dz
+        dX = CRC.@ignore_derivatives dXdt(t)            # (path_dim, B)
+        F3, _ = de.vector_field(z, p.vector_field, st.vector_field)  # (latent_dim, path_dim, B)
+        # Batched matrix-vector multiply: dz = F_θ(z) · dX/dt
+        # F3: (latent_dim, path_dim, B), dX: (path_dim, 1, B) → dz: (latent_dim, 1, B) → squeeze
+        dz = dropdims(NNlib.batched_mul(F3, reshape(dX, size(dX, 1), 1, size(dX, 2))), dims=2)
+        return dz  # (latent_dim, B)
     end
 
     ff = ODEFunction{false}(dzdt)

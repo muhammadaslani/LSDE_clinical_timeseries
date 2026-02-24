@@ -182,9 +182,10 @@ returns:
 """
 function normal_loglikelihood(μ, log_σ², y; ϵ=1e-8)
     # Clamp log_σ² to prevent extreme values
-    log_σ² = clamp.(log_σ², -10.0f0, 10.0f0)
+    log_σ² = clamp.(log_σ², -3.0f0, 3.0f0)
     # Compute log-likelihood in a numerically stable way
-    ll = -0.5 * sum(log_σ² .+ log(2π) .+ ((y .- μ) .^ 2 ./ exp.(log_σ²) .+ ϵ))
+    # Using mean instead of sum to stabilize loss magnitude across sequences
+    ll = -0.5 * mean(log_σ² .+ log(2π) .+ ((y .- μ) .^ 2 ./ exp.(log_σ²) .+ ϵ))
     return -ll
 end
 
