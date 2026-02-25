@@ -50,14 +50,14 @@ Returns:
   - `kl_path`: Always `nothing` (CDE has no path-wise KL).
 """
 function (model::LatentCDE)(y::AbstractArray, u::AbstractArray, ts::Tuple, ps::ComponentArray, st::NamedTuple)
-  ts_obs, ts_for = ts
+  ts_obs, _ = ts
 
   # 1. Encode history → probabilistic initial conditions
   px₀, _ = model.obs_encoder(y, ts_obs, ps.obs_encoder, st.obs_encoder)[1]
   # 2. Sample initial latent state
   x₀ = sample_rp(px₀)
-  # 3. Decode: evolve latent state forward using CDE dynamics
-  z_dec, st_dyn = model.dynamics(x₀, u, ts_for, ps.dynamics, st.dynamics)
+  # 3. Reconstruct: evolve latent state over observation window
+  z_dec, st_dyn = model.dynamics(x₀, u, ts_obs, ps.dynamics, st.dynamics)
   # z_dec: (latent_dim, T_for, B) — already in correct shape
   # 4. Map latent states to observations
   ŷ = model.obs_decoder(z_dec, ps.obs_decoder, st.obs_decoder)[1]

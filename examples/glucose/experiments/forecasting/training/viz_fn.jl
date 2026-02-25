@@ -18,8 +18,8 @@ function viz_fn(obs_timepoints, for_timepoints, obs_data, future_true_data, fore
     u_o, _, x_o, y_o, mask_o = obs_data
     u_t, _, x_t, y_t, mask_t = future_true_data
     Ex, Ey_p = forecasted_data
-    ŷ_glucose_mc = Ey_p[1]
-    μ_mc, log_σ²_mc = ŷ_glucose_mc
+    ŷ_mc = Ey_p
+    μ_mc, log_σ²_mc = ŷ_mc
 
     # Denormalize if needed
     if normalization_stats !== nothing && haskey(normalization_stats, "Y_stats")
@@ -89,9 +89,14 @@ function viz_fn(obs_timepoints, for_timepoints, obs_data, future_true_data, fore
 
     # Predictions
     lines!(ax1, t_p, μ_m[1, :, 1], color=GLUCOSE_COLORS.predicted, linewidth=3, label="Predicted (mean)")
+    if !isempty(t_p_valid)
+        scatter!(ax1, t_p_valid, μ_m_valid, color="#3CB371", markersize=10, label="Predicted (points)")
+    end
     xlims!(ax1, 0, x_max)
     ylims!(ax1, y_min, y_max_val)
-    axislegend(ax1; position=:rt, labelsize=12)
+
+    # Add legend outside the plot
+    Legend(fig[1, 2], ax1, tellheight=false, tellwidth=true, labelsize=12)
 
     # Row 2: Meals
     ax2 = CairoMakie.Axis(fig[2, 1],

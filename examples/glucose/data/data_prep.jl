@@ -66,7 +66,7 @@ Base.@kwdef struct ModelParameters
     insulin_doses::Vector{Float64} = Float64[]  # total insulin per injection [μU/mL·min]
 
     # Process noise level (SDE diffusion coefficient)
-    σ_process::Float64 = 5e-3
+    σ_process::Float64 = 5e-1
 end
 
 # ── Input functions ──────────────────────────────────────────────────────────
@@ -197,7 +197,7 @@ function generate_observations(
     sol,
     sample_rate::Int;
     rng::Random.AbstractRNG = Random.GLOBAL_RNG,
-    σ_obs::Float64 = 0.1
+    σ_obs::Float64 = 5.0
 )::Tuple{Vector{Float64},Vector{Float64}}
     G_true = sol[2, :][1:sample_rate:end]
     G_obs  = G_true .+ rand(rng, Normal(0.0, σ_obs), length(G_true))
@@ -224,8 +224,8 @@ Returns
 """
 function generate_dataset(;
     n_samples::Int,
-    tspan::Tuple{Float64,Float64} = (0.0, 1440.0),  # 720 min = 12 hours
-    sample_rate::Int = 5,                             # observe every 5 min (CGM-like)
+    tspan::Tuple{Float64,Float64} = (0.0, 720.0),  # 720 min = 12 hours
+    sample_rate::Int = 10,                             # observe every 5 min (CGM-like)
     n_meals::Int = 6,
     seed::Union{Int,Nothing} = 1234
 )

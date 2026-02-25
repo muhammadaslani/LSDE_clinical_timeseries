@@ -1,7 +1,7 @@
 function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_loader, config, exp_path)
     opt = eval(Meta.parse(config["optimizer"]))
     tstate = Training.TrainState(model, θ, st, opt)
-    λ_schedule = frange_cycle_linear(config["epochs"] + 1, 0.0f0, 1.0f0, 5, 0.3f0)
+    λ_schedule = frange_cycle_linear(config["epochs"] + 1, 0.0001f0, 0.001f0, 5, 0.3f0)
 
     # Initialize exponential learning rate schedule
     initial_lr = config["learning_rate"]
@@ -24,30 +24,31 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
         Optimisers.adjust!(tstate.optimizer_state, current_lr)
 
         train_loss = 0.f0
-        kl_term = 0.f0
-        recon_loss = 0.f0
-        recon_loss1 = 0.f0
-        recon_loss2 = 0.f0
-
+        kl_path = 0.f0
+        kl_init = 0.f0
+        recon_losses = nothing
 
         for batch in train_loader
-            _, loss, (kl_loss, r_loss, r_loss1, r_loss2), tstate = Training.single_train_step!(AutoZygote(), loss_fn, (batch, ts, λ_schedule[epoch]), tstate)
+            _, loss, metrics, tstate = Training.single_train_step!(AutoZygote(), loss_fn, (batch, ts, λ_schedule[epoch]), tstate)
             train_loss += loss
-            kl_term += kl_loss
-            recon_loss += r_loss
-            recon_loss1 += r_loss1
-            recon_loss2 += r_loss2
-
+            kl_path += metrics[1]
+            kl_init += metrics[2]
+            r_losses = metrics[3:end]
+            if recon_losses === nothing
+                recon_losses = collect(Float32.(r_losses))
+            else
+                recon_losses .+= collect(Float32.(r_losses))
+            end
         end
 
         θ = tstate.parameters
         st = tstate.states
 
         if epoch % config["log_freq"] == 0
-
-            @printf("Epoch %d/%d: \t Training loss: %.4e \t λ: %.3f \t LR: %.4e \t Kl_term: %.4e \t recon_loss: %.4e \t recon_loss1: %.4e \t recon_loss2: %.4e \n",
-                epoch, config["epochs"], train_loss / n_batches, λ_schedule[epoch], current_lr, kl_term / n_batches,
-                recon_loss / n_batches, recon_loss1 / n_batches, recon_loss2 / n_batches)
+            recon_str = join([@sprintf("recon_%d: %.4e", i, recon_losses[i] / n_batches) for i in 1:length(recon_losses)], " \t ")
+            @printf("Epoch %d/%d: \t loss: %.4e \t λ: %.3f \t LR: %.4e \t kl_path: %.4e \t kl_init: %.4e \t %s\n",
+                epoch, config["epochs"], train_loss / n_batches, λ_schedule[epoch], current_lr, kl_path / n_batches,
+                kl_init / n_batches, recon_str)
 
             (val_metric, val_metric1, val_metric2) = validate(model, θ, st, ts, val_loader, eval_fn, config["validation"])
             @printf("Validation metric: %.4e \t val_metric1: %.4e \t val_metric2: %.4e \n", val_metric, val_metric1, val_metric2)

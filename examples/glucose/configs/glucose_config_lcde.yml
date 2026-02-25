@@ -1,10 +1,9 @@
 model:
-  type: "LatentODE"
-  context_dim: 32
+  type: "LatentCDE"
 
-  ODE:
+  CDE:
     vector_field:
-      type: "MLP"
+      type: "CDEField"
       hidden_size: 32
       depth: 1
       activation: swish
@@ -18,6 +17,6 @@ model:
       dt: 0.01
 
 experiment:
-  name: "LatentODE_Glucose_V0"
-  description: "Latent ODE model for Bergman glucose forecasting"
+  name: "LatentCDE_Glucose_V0"
+  description: "Latent CDE model for Bergman glucose forecasting"
   path: "experiments/"

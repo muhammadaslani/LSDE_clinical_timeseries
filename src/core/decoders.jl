@@ -59,7 +59,7 @@ returns:
     - The decoder.
         
 """
-function Linear_Decoder(latent_dim, obs_dim, dist="Gaussian")
+function Linear_Decoder(latent_dim, obs_dim; dist="Gaussian")
     if dist == "Gaussian"
         # Assumption: the output is a Gaussian distribution with mean and log variance
         output_net = BranchLayer(Dense(latent_dim, obs_dim), Dense(latent_dim, obs_dim))
@@ -158,7 +158,7 @@ returns:
         
 """
 function MultiHeadLinearDecoder(latent_dim, output_dims; dists)
-    decoders = [Linear_Decoder(latent_dim, output_dims[i], dists[i]) for i in eachindex(dists)]
+    decoders = [Linear_Decoder(latent_dim, output_dims[i]; dist=dists[i]) for i in eachindex(dists)]
     return Decoder(Parallel(nothing, decoders...))
 end
 

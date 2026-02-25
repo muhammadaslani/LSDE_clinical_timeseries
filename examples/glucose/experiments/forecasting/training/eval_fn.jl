@@ -1,26 +1,22 @@
 function eval_fn(model, θ, st, ts, data, config)
     u_obs, covars_obs, x_obs, y_obs, mask_obs, u_forecast, covars_forecast, x_forecast, y_forecast, mask_forecast = data
-    batch_size = size(x_forecast)[end]
 
     ts_obs, ts_for = ts
-    y_enc = vcat(covars_obs, y_obs, u_obs)
-    (ŷ_glucose,), _, _ = model(y_enc, u_forecast, (ts_obs, ts_for), θ, st)
+    y_enc = vcat(covars_obs, y_obs, u_obs, mask_obs)
+    ŷ, _, _ = model(y_enc, u_obs, (ts_obs, ts_for), θ, st)
 
-    μ, log_σ² = ŷ_glucose
-    eval_loss = normal_loglikelihood(μ .* mask_forecast, log_σ² .* mask_forecast, y_forecast .* mask_forecast)
-    eval_rmse = sqrt.(mse(μ .* mask_forecast, y_forecast .* mask_forecast))
+    μ, log_σ² = ŷ
+    eval_loss = normal_loglikelihood(μ .* mask_obs, log_σ² .* mask_obs, y_obs .* mask_obs)
+    eval_rmse = sqrt.(mse(μ .* mask_obs, y_obs .* mask_obs))
     return (eval_loss, eval_loss, eval_rmse)
 end
 
 function eval_forecast(true_data, forecasted_data)
     _, _, _, y_f, mask_f = true_data
     x̂_mc, ŷ_mc = forecasted_data
-    ŷ_glucose_mc = ŷ_mc[1]  # single head
-    μ_mc, log_σ²_mc = ŷ_glucose_mc
-
+    μ_mc, log_σ²_mc = ŷ_mc
     # Mean prediction across MC samples
     μ_m = dropmean(μ_mc, dims=4)
-
     # RMSE
     ŷ_rmse = sqrt.(mse(μ_m, y_f, mask_f))
 

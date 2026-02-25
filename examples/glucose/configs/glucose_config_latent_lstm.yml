@@ -1,34 +1,16 @@
 model:
   type: "LatentLSTM"
-  latent_dim: 32
   context_dim: 32
-
-  obs_encoder:
-    type: "Recurrent_Encoder"
-    hidden_size: 32
 
   dynamics:
     type: "LSTM"
     hidden_size: 32
     depth: 1
 
-  obs_decoder:
-    type: "MultiHeadLinearDecoder"
-    dists: ["Gaussian"]
-
-training:
-  learning_rate: 0.002
-  optimizer: AdamW(0.002)
-  epochs: 200
-  log_freq: 10
-  viz_freq: 10
-  stop_patience: 20
-  lr_decay:
-    type: "exponential"
-    gamma: 0.9
-    step_every: 50
   validation:
-    mcmc_samples: 50
+    solver: Tsit5()
+    kwargs:
+      dt: 0.1
 
 experiment:
   name: "LatentLSTM_Glucose_V0"

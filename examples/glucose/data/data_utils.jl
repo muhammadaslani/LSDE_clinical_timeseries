@@ -1,5 +1,5 @@
 function generate_dataloader(; n_samples=512, batchsize=16, split=(0.5, 0.3), obs_fraction=0.5,
-                             normalization=true, seed::Union{Int,Nothing}=1234)
+    normalization=true, seed::Union{Int,Nothing}=1234)
     if n_samples <= 512
         U, X, Y, T, covariates = generate_dataset(n_samples=n_samples, seed=seed)
 
@@ -11,9 +11,9 @@ function generate_dataloader(; n_samples=512, batchsize=16, split=(0.5, 0.3), ob
 
         # Irregularize: randomly zero out observations to simulate missing data
         Masks = copy(Masks)
-        for i in 1:size(Y_padded, 3)
-            for j in 1:size(Y_padded, 2)
-                if rand() > 1.0  # ~20% irregularity rate
+        for i in axes(Y_padded, 3)
+            for j in axes(Y_padded, 2)
+                if rand() > 0.5  # ~20% irregularity rate
                     Y_padded[:, j, i] .= 0
                     Masks[:, j, i] .= false
                 end
@@ -62,12 +62,12 @@ function generate_dataloader(; n_samples=512, batchsize=16, split=(0.5, 0.3), ob
         ts_obs, ts_for = split_matrix(timepoints, obs_fraction)
 
         data = (U_obs, Covars_obs, X_obs, Y_obs, Masks_obs,
-                U_forecast, Covars_forecast, X_forecast, Y_forecast, Masks_forecast)
+            U_forecast, Covars_forecast, X_forecast, Y_forecast, Masks_forecast)
     else
         @warn "n_samples is too large, using chunked data generation"
         data, train_loader, val_loader, test_loader, dims, ts_obs, ts_for, normalization_stats =
             generate_dataloader_in_chunks(; n_samples=n_samples, batchsize=batchsize, split=split,
-                                          obs_fraction=obs_fraction, normalization=normalization, seed=seed)
+                obs_fraction=obs_fraction, normalization=normalization, seed=seed)
     end
 
     (train_data, val_data, test_data,) = splitobs((data), at=split)
@@ -76,18 +76,18 @@ function generate_dataloader(; n_samples=512, batchsize=16, split=(0.5, 0.3), ob
     test_loader = DataLoader(test_data, batchsize=batchsize, shuffle=false)
 
     dims = Dict(
-        "obs_dim" => size(data[2], 1) + size(data[4], 1),
+        "obs_dim" => size(data[2], 1) + size(data[4], 1) + size(data[5], 1),
         "input_dim" => size(data[1], 1),
         "state_dim" => size(data[3], 1),
-        "output_dim" => [size(data[4], 1)]
+        "output_dim" => size(data[4], 1)
     )
 
-    return data, train_loader, val_loader, test_loader, dims, ts_obs, ts_for, normalization_stats
+    return map(x -> Float32.(x), data), train_loader, val_loader, test_loader, dims, ts_obs, ts_for, normalization_stats
 end
 
 function generate_dataloader_in_chunks(; n_samples=512, batchsize=64, split=(0.5, 0.3),
-                                      obs_fraction=0.5, chunk_size=256, normalization=true,
-                                      seed::Union{Int,Nothing}=1234)
+    obs_fraction=0.5, chunk_size=256, normalization=true,
+    seed::Union{Int,Nothing}=1234)
     n_chunks = ceil(Int, n_samples / chunk_size)
     all_data = []
     ts_obs, ts_for = nothing, nothing
@@ -99,7 +99,7 @@ function generate_dataloader_in_chunks(; n_samples=512, batchsize=64, split=(0.5
         chunk_seed = isnothing(seed) ? nothing : seed + (i - 1)
         data, train_loader, val_loader, test_loader, dims, ts_obs, ts_for, normalization_stats =
             generate_dataloader(n_samples=current_samples, batchsize=batchsize, split=split,
-                                obs_fraction=obs_fraction, normalization=normalization, seed=chunk_seed)
+                obs_fraction=obs_fraction, normalization=normalization, seed=chunk_seed)
         push!(all_data, data)
         GC.gc()
     end
@@ -112,10 +112,10 @@ function generate_dataloader_in_chunks(; n_samples=512, batchsize=64, split=(0.5
     val_loader = DataLoader(val_data, batchsize=batchsize, shuffle=true)
     test_loader = DataLoader(test_data, batchsize=batchsize, shuffle=false)
     dims = Dict(
-        "obs_dim" => size(data[2], 1) + size(data[4], 1),
+        "obs_dim" => size(data[2], 1) + size(data[4], 1) + size(data[5], 1),
         "input_dim" => size(data[1], 1),
         "state_dim" => size(data[3], 1),
-        "output_dim" => [size(data[4], 1)]
+        "output_dim" => size(data[4], 1)
     )
 
     return data, train_loader, val_loader, test_loader, dims, ts_obs, ts_for, normalization_stats

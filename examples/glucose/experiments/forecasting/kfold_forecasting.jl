@@ -18,7 +18,7 @@ include("training/kfold_trainer.jl");
 
 # Load data
 data, train_loader, val_loader, test_loader, dims, ts_obs, ts_for, normalization_stats =
-    generate_dataloader(; n_samples=256, batchsize=16, split=(0.6, 0.2), obs_fraction=0.5, normalization=true, seed=123);
+    generate_dataloader(; n_samples=512, batchsize=32, split=(0.6, 0.2), obs_fraction=0.5, normalization=true, seed=123);
 variables_of_interest = ["Glucose"];
 k_folds = 2
 timepoints = (ts_obs, ts_for);
@@ -29,12 +29,13 @@ lsde_models, lsde_params, lsde_states, lsde_performances =
     kfold_train(data, dims, k_folds, rng, config_lsde_path, "lsde", timepoints,
         loss_fn, eval_fn, forecast, viz_fn);
 
+lsde_cfg = load_config(config_lsde_path);
 lsde_stats = assess_model_performance(lsde_performances, variables_of_interest;
     model_name="Latent SDE", forecast_fn=forecast,
     plot_sample=true, sample_n=3, viz_fn=viz_fn,
     models=lsde_models, params=lsde_params, states=lsde_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
-    config=YAML.load_file(config_lsde_path)["training"]["validation"]);
+    config=merge(lsde_cfg["model"]["validation"], lsde_cfg["training"]["validation"]));
 
 # Latent ODE K-Fold Training
 config_lode_path = joinpath(@__DIR__, "../../configs/glucose_config_lode.yml");
@@ -42,12 +43,13 @@ lode_models, lode_params, lode_states, lode_performances =
     kfold_train(data, dims, k_folds, rng, config_lode_path, "lode", timepoints,
         loss_fn, eval_fn, forecast, viz_fn);
 
+lode_cfg = load_config(config_lode_path);
 lode_stats = assess_model_performance(lode_performances, variables_of_interest;
     model_name="Latent ODE", forecast_fn=forecast,
     plot_sample=true, sample_n=3, viz_fn=viz_fn,
     models=lode_models, params=lode_params, states=lode_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
-    config=YAML.load_file(config_lode_path)["training"]["validation"]);
+    config=merge(lode_cfg["model"]["validation"], lode_cfg["training"]["validation"]));
 
 # Latent LSTM K-Fold Training
 config_lstm_path = joinpath(@__DIR__, "../../configs/glucose_config_latent_lstm.yml");
@@ -55,27 +57,30 @@ lstm_models, lstm_params, lstm_states, lstm_performances =
     kfold_train(data, dims, k_folds, rng, config_lstm_path, "latent_lstm", timepoints,
         loss_fn, eval_fn, forecast, viz_fn);
 
+lstm_cfg = load_config(config_lstm_path);
 lstm_stats = assess_model_performance(lstm_performances, variables_of_interest;
     model_name="Latent LSTM", forecast_fn=forecast,
-    plot_sample=true, sample_n=1, viz_fn=viz_fn,
+    plot_sample=true, sample_n=3, viz_fn=viz_fn,
     models=lstm_models, params=lstm_params, states=lstm_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
-    config=YAML.load_file(config_lstm_path)["training"]["validation"]);
+    config=merge(lstm_cfg["model"]["validation"], lstm_cfg["training"]["validation"]));
 
 # Latent CDE K-Fold Training
-config_lcde_path = joinpath(@__DIR__, "../../configs/glucose_config_latent_cde.yml");
+config_lcde_path = joinpath(@__DIR__, "../../configs/glucose_config_lcde.yml");
 lcde_models, lcde_params, lcde_states, lcde_performances =
     kfold_train(data, dims, k_folds, rng, config_lcde_path, "latent_cde", timepoints,
         loss_fn, eval_fn, forecast, viz_fn);
 
+lcde_cfg = load_config(config_lcde_path);
 lcde_stats = assess_model_performance(lcde_performances, variables_of_interest;
     model_name="Latent CDE", forecast_fn=forecast,
-    plot_sample=true, sample_n=5, viz_fn=viz_fn,
+    plot_sample=true, sample_n=3, viz_fn=viz_fn,
     models=lcde_models, params=lcde_params, states=lcde_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
-    config=YAML.load_file(config_lcde_path)["training"]["validation"]);
+    config=merge(lcde_cfg["model"]["validation"], lcde_cfg["training"]["validation"]));
 
 # Compare all models
 model_comparison = compare_glucose_models(
-    Dict("Latent SDE" => lsde_stats, "Latent ODE" => lode_stats, "Latent LSTM" => lstm_stats, "Latent CDE" => lcde_stats),
+    Dict("Latent SDE" => lsde_stats, "Latent ODE" => lode_stats, "Latent LSTM" => lstm_stats,
+       "Latent CDE" => lcde_stats),
     sort_by="overall");

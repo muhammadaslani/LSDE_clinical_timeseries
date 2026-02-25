@@ -608,13 +608,13 @@ end
 # Models evaluatiion metrics 
 ############################################
 """
-    npe(y_pred::AbstractArray, mask::AbstractArray{Bool})
+    npe(y_pred::AbstractArray, mask::AbstractArray)
 
 Calculate negative predictive entropy for probabilistic predictions.
 
 # Arguments
 - `y_pred::AbstractArray`: Predicted probability distributions or logits
-- `mask::AbstractArray{Bool}`: Boolean mask indicating valid entries
+- `mask::AbstractArray`: Boolean mask indicating valid entries
 
 # Returns
 - Mean negative predictive entropy over all valid points
@@ -625,7 +625,7 @@ in the model's predictions. Higher NPE values indicate higher confidence (lower 
 This is the negative of prediction_entropy, making it a reward rather than a penalty.
 """
 function npe(y_pred::AbstractArray{T,4},
-    mask::AbstractArray{Bool,3}) where T<:Number
+    mask::AbstractArray) where T<:Number
 
     n_features, n_timepoints, n_samples = size(mask)
     total_npe = zero(T)
@@ -634,7 +634,7 @@ function npe(y_pred::AbstractArray{T,4},
     for f in 1:n_features
         for i in 1:n_samples
             for t in 1:n_timepoints
-                if mask[f, t, i]
+                if mask[f, t, i] > 0.5f0
                     # Get prediction distribution for this point
                     pred_dist = y_pred[f, t, i, :]
 
@@ -682,14 +682,14 @@ end
 
 
 """
-    npe_per_timepoint(y_pred::AbstractArray{T,4}, mask::AbstractArray{Bool,3}) where T <: Number
+    npe_per_timepoint(y_pred::AbstractArray{T,4}, mask::AbstractArray) where T <: Number
 
 Calculate negative predictive entropy for each time point and each sample over MC samples.
 
 # Arguments
 - `y_pred::AbstractArray{T,4}`: Predicted probability distributions or logits, 
   shape (n_features, n_timepoints, n_samples, n_mc_samples)
-- `mask::AbstractArray{Bool,3}`: Boolean mask indicating valid entries,
+- `mask::AbstractArray`: Boolean mask indicating valid entries,
   shape (n_features, n_timepoints, n_samples)
 
 # Returns
@@ -700,13 +700,13 @@ Computes the negative Shannon entropy of predictions for each time point and sam
 averaged over features at each position. The entropy is calculated over the MC samples 
 dimension for each prediction point.
 """
-function npe_per_timepoint(y_pred::AbstractArray{T,4}, mask::AbstractArray{Bool,3}) where T<:Number
+function npe_per_timepoint(y_pred::AbstractArray{T,4}, mask::AbstractArray) where T<:Number
     n_features, n_timepoints, n_samples, n_mc_samples = size(y_pred)
     npe_per_t_s = zeros(T, n_timepoints, n_samples)
 
     for t in 1:n_timepoints
         for s in 1:n_samples
-            if mask[1, t, s] == true
+            if mask[1, t, s] > 0.5f0
                 # Get MC samples for this prediction point
                 pred_dist = y_pred[:, t, s, :]
                 # Calculate negative entropy over MC samples
@@ -743,14 +743,14 @@ function npe_per_timepoint(y_pred::AbstractArray{T,4}) where T<:Number
 end
 
 """
-    acc(y_true::AbstractArray{T,3}, y_pred::AbstractArray{T,3}, mask::AbstractArray{Bool,3})
+    acc(y_true::AbstractArray{T,3}, y_pred::AbstractArray{T,3}, mask::AbstractArray)
 
 Calculate classification accuracy for 3D data with 3D mask.
 
 # Arguments
 - `y_true::AbstractArray{T,3}`: Ground truth labels, shape (n_features, n_timepoints, n_samples)
 - `y_pred::AbstractArray{T,3}`: Predicted labels, shape (n_features, n_timepoints, n_samples)
-- `mask::AbstractArray{Bool,3}`: Boolean mask indicating valid entries
+- `mask::AbstractArray`: Boolean mask indicating valid entries
 
 # Returns
 - Classification accuracy as a float between 0 and 1
@@ -761,7 +761,7 @@ indicated by the mask. For 3D predictions, it directly compares the values.
 """
 function acc(y_true::AbstractArray{T,3},
     y_pred::AbstractArray{T,3},
-    mask::AbstractArray{Bool,3}) where T<:Number
+    mask::AbstractArray) where T<:Number
 
     n_features, n_timepoints, n_samples = size(y_true)
     correct = 0
@@ -770,7 +770,7 @@ function acc(y_true::AbstractArray{T,3},
     for f in 1:n_features
         for i in 1:n_samples
             for t in 1:n_timepoints
-                if mask[f, t, i]
+                if mask[f, t, i] > 0.5f0
                     # For 3D predictions, directly compare values
                     pred_class = round(Int, y_pred[f, t, i])
                     true_class = round(Int, y_true[f, t, i])
@@ -788,14 +788,14 @@ function acc(y_true::AbstractArray{T,3},
 end
 
 """
-    acc(y_true::AbstractArray, y_pred::AbstractArray, mask::AbstractArray{Bool})
+    acc(y_true::AbstractArray, y_pred::AbstractArray, mask::AbstractArray)
 
 Calculate classification accuracy for masked data.
 
 # Arguments
 - `y_true::AbstractArray`: Ground truth labels
 - `y_pred::AbstractArray`: Predicted labels or probabilities
-- `mask::AbstractArray{Bool}`: Boolean mask indicating valid entries
+- `mask::AbstractArray`: Boolean mask indicating valid entries
 
 # Returns
 - Classification accuracy as a float between 0 and 1
@@ -807,7 +807,7 @@ predicted class labels.
 """
 function acc(y_true::AbstractArray{T,3},
     y_pred::AbstractArray{T,4},
-    mask::AbstractArray{Bool,3}) where T<:Number
+    mask::AbstractArray) where T<:Number
 
     n_features, n_timepoints, n_samples = size(y_true)
     correct = 0
@@ -816,7 +816,7 @@ function acc(y_true::AbstractArray{T,3},
     for f in 1:n_features
         for i in 1:n_samples
             for t in 1:n_timepoints
-                if mask[f, t, i]
+                if mask[f, t, i] > 0.5f0
                     # Convert predictions to class labels (argmax for probabilities)
                     if size(y_pred, 4) > 1
                         pred_class = argmax(y_pred[f, t, i, :])
@@ -841,21 +841,21 @@ end
 """
     empirical_crps(y_true::AbstractArray, 
                   y_pred_samples::AbstractArray, 
-                  mask::AbstractArray{Bool,3})
+                  mask::AbstractArray)
 
 Compute the empirical Continuous Ranked Probability Score (CRPS) for probabilistic forecasts.
 
 # Arguments
 - `y_true::AbstractArray{T1,3}`: Ground truth values, shape (n_features, n_timepoints, n_samples).
 - `y_pred_samples::AbstractArray{T2,4}`: Predicted samples, shape (n_features, n_timepoints, n_samples, n_draws).
-- `mask::AbstractArray{Bool,3}`: Boolean mask indicating valid entries, shape (n_features, n_timepoints, n_samples).
+- `mask::AbstractArray`: Boolean mask indicating valid entries, shape (n_features, n_timepoints, n_samples).
 
 # Returns
 - Mean empirical CRPS over all valid points.
 """
 function empirical_crps(y_true::AbstractArray{T1,3},
     y_pred_samples::AbstractArray{T2,4},
-    mask::AbstractArray{Bool,3}) where {T1<:Number,T2<:Number}
+    mask::AbstractArray) where {T1<:Number,T2<:Number}
 
     n_features, n_timepoints, n_samples = size(y_true)
 
@@ -867,7 +867,7 @@ function empirical_crps(y_true::AbstractArray{T1,3},
     for f in 1:n_features
         for i in 1:n_samples
             for t in 1:n_timepoints
-                if mask[f, t, i]
+                if mask[f, t, i] > 0.5f0
                     y_obs = CommonType(y_true[f, t, i])
                     preds = CommonType.(y_pred_samples[f, t, i, :])
 

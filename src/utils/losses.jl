@@ -65,7 +65,7 @@ Calculate the Poisson log-likelihood of observed counts `y` given rates `λ`.
 - A small constant (1e-4) is added to λ to prevent log(0)
 - NaN or negative values in λ will raise an error
 """
-function poisson_loglikelihood(λ::AbstractArray, y::AbstractArray, mask::AbstractArray{Bool})
+function poisson_loglikelihood(λ::AbstractArray, y::AbstractArray, mask::AbstractArray)
     @assert size(λ) == size(y) "poisson_loglikelihood: Rates and spikes should be of the same shape"
     @assert !any(isnan.(λ)) "poisson_loglikelihood: NaN rate predictions found"
     @assert all(λ .>= 0) "poisson_loglikelihood: Negative rate predictions found"
@@ -95,7 +95,7 @@ Calculate the Poisson log-likelihood across multiple Monte Carlo samples with ma
 Computes the Poisson log-likelihood for each Monte Carlo sample in the 4th dimension
 and returns the aggregated result based on the `agg` parameter.
 """
-function poisson_loglikelihood_multiple_samples(λ::AbstractArray, y::AbstractArray, mask::AbstractArray{Bool}; agg=mean)
+function poisson_loglikelihood_multiple_samples(λ::AbstractArray, y::AbstractArray, mask::AbstractArray; agg=mean)
     ll = 0.0f0
     for i in eachindex(size(λ, 4))
         ll += poisson_loglikelihood(λ[:, :, :, i], y[:, :, :], mask)
@@ -210,7 +210,7 @@ function mse(ŷ, y)
     return mean((ŷ .- y) .^ 2)
 end
 
-function mse(ŷ, y, mask::AbstractArray{Bool})
+function mse(ŷ, y, mask::AbstractArray)
     @assert size(ŷ) == size(y) "MSE: Predictions and targets must have the same shape"
     @assert size(ŷ) == size(mask) "MSE: Predictions and mask must have the same shape"
     num_valid = sum(mask)
