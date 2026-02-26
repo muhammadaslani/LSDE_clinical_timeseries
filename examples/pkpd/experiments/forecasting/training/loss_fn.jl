@@ -1,19 +1,23 @@
-function loss_fn(model, θ, st, data)
-    (_, covars_obs, _, y₁_obs, y₂_obs, _, _,
-        u_forecast, _, x_forecast, y₁_forecast, y₂_forecast, mask₁_forecast, mask₂_forecast), ts, λ = data
+function loss_fn(model, θ, st, data; β=1.0f0)
+    (u_obs, covars_obs, _, y₁_obs, y₂_obs, mask₁_obs, mask₂_obs,
+        _, _, x_forecast, _, _, _, _), ts, λ = data
     batch_size = size(x_forecast)[end]
-    (ŷ₁, ŷ₂), px₀, kl_pq = model(vcat(covars_obs, y₁_obs, y₂_obs),  u_forecast, ts, θ, st)
-    recon_loss1 = CrossEntropy_Loss(ŷ₁, y₁_forecast, mask₁_forecast; agg=sum) / batch_size
-    recon_loss2 = -poisson_loglikelihood(ŷ₂, y₂_forecast, mask₂_forecast) / batch_size
-    recon_loss = recon_loss1 + recon_loss2
+
+    y_enc = vcat(covars_obs, y₁_obs, y₂_obs)
+    (ŷ₁, ŷ₂), px₀, kl_pq = model(y_enc, u_obs, ts, θ, st)
+
+    recon_loss1 = CrossEntropy_Loss(ŷ₁, y₁_obs, mask₁_obs; agg=sum) / batch_size
+    recon_loss2 = -poisson_loglikelihood(ŷ₂, y₂_obs, mask₂_obs) / batch_size
+
+    kl_init = kl_normal(px₀...) / batch_size
     if kl_pq === nothing
-        # For ODE models, only use the initial state KL divergence
-        kl_loss = kl_normal(px₀...) / batch_size
+        kl_path = 0.0f0
+        kl_loss = kl_init
     else
-        # For SDE models, include both initial state and path KL divergences
-        kl_loss = kl_normal(px₀...) / batch_size + mean(kl_pq[end, :])
+        kl_path = mean(kl_pq[end, :])
+        kl_loss = kl_init + β * kl_path
     end
-    
-    loss = recon_loss + λ * kl_loss
-    return loss, st, (kl_loss, recon_loss, recon_loss1, recon_loss2)
+
+    loss = recon_loss1 + recon_loss2 + λ * kl_loss
+    return loss, st, (kl_path, kl_init, recon_loss1, recon_loss2)
 end

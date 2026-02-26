@@ -1,9 +1,9 @@
 model:
-  type: "LatentODE"
+  type: "LatentCDE"
 
-  ODE:
+  CDE:
     vector_field:
-      type: "MLP"
+      type: "CDEField"
       hidden_size: 64
       depth: 1
       activation: swish
@@ -17,6 +17,6 @@ model:
       dt: 0.01
 
 experiment:
-  name: "LatentODE_PKPD_V0"
-  description: "Latent ODE model for PKPD forecasting"
+  name: "LatentCDE_PKPD_V0"
+  description: "Latent CDE model for PKPD forecasting"
   path: "experiments/"

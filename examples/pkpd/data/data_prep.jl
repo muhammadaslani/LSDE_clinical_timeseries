@@ -95,7 +95,7 @@ Base.@kwdef struct ModelParameters
     λ_S::Float64 = abs(rand(rng, Normal(200.0, 20))) *
                    (gender == 0 ? 1.04 : 0.96)
 
-    σ_process::Float64 = 1e-1 # Patient-specific noise level
+    σ_process::Float64 = 1e-3 # Patient-specific noise level
 end
 
 """

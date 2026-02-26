@@ -1,10 +1,12 @@
 # Evaluation functions for PKPD forecasting models
 function eval_fn(model, θ, st, ts, data, config)
-    _, covars_obs, _, y₁_obs, y₂_obs, _, _, u_forecast, _, x_forecast, y₁_forecast, y₂_forecast, mask₁_forecast, mask₂_forecast = data
-    batch_size = size(x_forecast)[end]
-    (ŷ₁, ŷ₂), _, _ = model(vcat(covars_obs, y₁_obs, y₂_obs), u_forecast, ts, θ, st)
-    eval_loss_1 = CrossEntropy_Loss(ŷ₁, y₁_forecast, mask₁_forecast; agg=sum) / batch_size
-    eval_loss_2 = -poisson_loglikelihood(ŷ₂, y₂_forecast, mask₂_forecast) / batch_size
+    u_obs, covars_obs, _, y₁_obs, y₂_obs, mask₁_obs, mask₂_obs, _, _, _, _, _, _, _ = data
+    batch_size = size(y₁_obs)[end]
+
+    ts_obs, ts_for = ts
+    (ŷ₁, ŷ₂), _, _ = model(vcat(covars_obs, y₁_obs, y₂_obs), u_obs, (ts_obs, ts_for), θ, st)
+    eval_loss_1 = CrossEntropy_Loss(ŷ₁, y₁_obs, mask₁_obs; agg=sum) / batch_size
+    eval_loss_2 = -poisson_loglikelihood(ŷ₂, y₂_obs, mask₂_obs) / batch_size
     eval_loss = eval_loss_1 + eval_loss_2
     return (eval_loss, eval_loss_1, eval_loss_2)
 end
@@ -37,7 +39,7 @@ end
 
 # Performance assessment function for k-fold validation
 function assess_model_performance(performances, variables_of_interest; model_name="Model",
-    forecast_fn=forecast_nde, plot_sample=false, sample_n=3, viz_fn=viz_fn_nde,
+    forecast_fn=forecast, plot_sample=false, sample_n=3, viz_fn=viz_fn_nde,
     models=nothing, params=nothing, states=nothing, data=nothing, normalization_stats, timepoints=nothing,
     config=nothing, best_fold_idx=nothing)
     """
@@ -155,7 +157,7 @@ function assess_model_performance(performances, variables_of_interest; model_nam
 
             # Generate forecast
             sample_forecasted_data = forecast_fn(best_model, best_params, best_state, sample_data_obs,
-                u_forecast[:, :, sample_n:sample_n], timepoints_forecast, config)
+                u_forecast[:, :, sample_n:sample_n], timepoints, config)
 
             # Create visualization and get sample metrics
             fig = viz_fn(timepoints_obs, timepoints_forecast,
