@@ -4,7 +4,7 @@ function loss_fn(model, θ, st, data; β=1.0f0)
     batch_size = size(x_forecast)[end]
 
     ts_obs, ts_for = ts
-    y_enc = vcat(covars_obs, y_obs, u_obs, mask_obs)
+    y_enc = vcat(covars_obs, y_obs, mask_obs)
     ŷ, px₀, kl_pq = model(y_enc, u_obs, (ts_obs, ts_for), θ, st)
 
     μ, log_σ² = ŷ
@@ -17,6 +17,7 @@ function loss_fn(model, θ, st, data; β=1.0f0)
     else
         kl_path = mean(kl_pq[end, :])
         kl_loss = kl_init + β *  kl_path
+        #kl_loss = kl_path 
     end
 
     loss = recon_loss + λ * kl_loss

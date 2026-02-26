@@ -242,7 +242,7 @@ function (de::ODE)(x::AbstractArray, u::Union{Nothing,AbstractArray}, ts::Abstra
     dxdt(x, p, t) = dxdt_u(de.vector_field, x, u_cont(t), t, p.vector_field, st.vector_field)
     ff = ODEFunction{false}(dxdt; tgrad=basic_tgrad)
     prob = ODEProblem{false}(ff, x, (ts[1], ts[end]), p)
-    return solve(prob, de.solver; u0=x, p, sensealg=InterpolatingAdjoint(autojacvec=ZygoteVJP()), saveat=ts, de.kwargs...), st
+    return solve(prob, de.solver; u0=x, p, sensealg=TrackerAdjoint(), saveat=ts, de.kwargs...), st
 end
 
 """
@@ -475,7 +475,7 @@ function (de::CDE)(x₀::AbstractArray{<:Real,2}, u::AbstractArray{<:Real,3},
     prob = ODEProblem{false}(ff, x₀, (ts[1], ts[end]), ps)
     sol = solve(prob, de.solver;
         u0=x₀, p=ps, saveat=ts,
-        sensealg=InterpolatingAdjoint(autojacvec=ZygoteVJP()),
+        sensealg=TrackerAdjoint(),
         de.kwargs...)
 
     z_raw = Array(sol)                        # (latent_dim, B, T)

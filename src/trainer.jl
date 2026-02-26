@@ -1,7 +1,7 @@
 function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_loader, config, exp_path)
     opt = eval(Meta.parse(config["optimizer"]))
     tstate = Training.TrainState(model, θ, st, opt)
-    λ_schedule = frange_cycle_linear(config["epochs"] + 1, 0.0001f0, 0.001f0, 5, 0.3f0)
+    λ_schedule = frange_cycle_linear(config["epochs"] + 1, 0.0001f0, 0.01f0, 5, 0.7f0)
 
     # Initialize exponential learning rate schedule
     initial_lr = config["learning_rate"]

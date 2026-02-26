@@ -7,12 +7,12 @@ model:
       hidden_size: 32
       depth: 1
       activation: swish
-    solver: Euler()
+    solver: Tsit5()
     kwargs:
       dt: 0.01
 
   validation:
-    solver: Euler()
+    solver: Tsit5()
     kwargs:
       dt: 0.01
 

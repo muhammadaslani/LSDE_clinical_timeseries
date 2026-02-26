@@ -2,7 +2,7 @@ function eval_fn(model, θ, st, ts, data, config)
     u_obs, covars_obs, x_obs, y_obs, mask_obs, u_forecast, covars_forecast, x_forecast, y_forecast, mask_forecast = data
 
     ts_obs, ts_for = ts
-    y_enc = vcat(covars_obs, y_obs, u_obs, mask_obs)
+    y_enc = vcat(covars_obs, y_obs, mask_obs)
     ŷ, _, _ = model(y_enc, u_obs, (ts_obs, ts_for), θ, st)
 
     μ, log_σ² = ŷ

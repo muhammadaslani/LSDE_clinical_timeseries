@@ -34,7 +34,7 @@ function create_latentsde(config::Dict, dims::Dict, rng::AbstractRNG)
         #state_map = Parallel(nothing, [NoOpLayer() for _ in output_dim]...)
         state_map = NoOpLayer()
     end
-    obs_encoder = create_object(config["obs_encoder"], sum(obs_dim) + input_dim, latent_dim, context_dim)
+    obs_encoder = create_object(config["obs_encoder"], sum(obs_dim), latent_dim, context_dim)
     drift = create_object(config["SDE"]["drift"], [latent_dim, input_dim], latent_dim)
     drift_aug = create_object(config["SDE"]["drift_aug"], [latent_dim, context_dim, input_dim], latent_dim)
     diffusion = create_object(config["SDE"]["diffusion"], latent_dim, latent_dim)
@@ -66,7 +66,7 @@ function create_latentode(config::Dict, dims::Dict, rng::AbstractRNG)
     else
         state_map = NoOpLayer()
     end
-    obs_encoder = create_object(config["obs_encoder"], sum(obs_dim) + input_dim, latent_dim, context_dim)
+    obs_encoder = create_object(config["obs_encoder"], sum(obs_dim), latent_dim, context_dim)
     vector_field = create_object(config["ODE"]["vector_field"], [latent_dim, input_dim], latent_dim)
     ode_kwargs = Dict{Symbol,Any}(Symbol(k) => Float32.(v) for (k, v) in config["ODE"]["kwargs"])
     dynamics = ODE(vector_field, eval(Meta.parse(config["ODE"]["solver"])), ode_kwargs)
@@ -93,7 +93,7 @@ function create_latent_lstm(config::Dict, dims::Dict, rng::AbstractRNG)
     else
         state_map = NoOpLayer()
     end
-    obs_encoder = create_object(config["obs_encoder"], sum(obs_dim) + input_dim, latent_dim, context_dim)
+    obs_encoder = create_object(config["obs_encoder"], sum(obs_dim), latent_dim, context_dim)
     dynamics = LSTM(latent_dim, input_dim)
     obs_decoder = create_object(config["obs_decoder"], latent_dim, output_dim)
 
@@ -113,7 +113,7 @@ function create_latent_cde(config::Dict, dims::Dict, rng::AbstractRNG)
 
     # Build encoder from config dynamically (like LatentODE/LatentSDE)
     # sum(obs_dim) already includes covariates
-    encoder_path_dim = sum(obs_dim) + input_dim
+    encoder_path_dim = sum(obs_dim)
     context_dim = get(config, "context_dim", 0)::Int
     obs_encoder = create_object(config["obs_encoder"], encoder_path_dim, latent_dim, context_dim)
 

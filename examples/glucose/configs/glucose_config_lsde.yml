@@ -16,12 +16,12 @@ model:
     diffusion:
       type: "SparseMLP"
       activation: sigmoid
-    solver: EM()
+    solver: LambaEM()
     kwargs:
       dt: 0.01
 
   validation:
-    solver: EM()
+    solver: LambaEM()
     kwargs:
       dt: 0.01
 

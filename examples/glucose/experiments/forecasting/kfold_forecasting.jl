@@ -81,6 +81,4 @@ lcde_stats = assess_model_performance(lcde_performances, variables_of_interest;
 
 # Compare all models
 model_comparison = compare_glucose_models(
-    Dict("Latent SDE" => lsde_stats, "Latent ODE" => lode_stats, "Latent LSTM" => lstm_stats,
-       "Latent CDE" => lcde_stats),
-    sort_by="overall");
+    Dict("Latent SDE" => lsde_stats, "Latent ODE" => lode_stats, "Latent LSTM" => lstm_stats, "Latent CDE" => lcde_stats), sort_by="overall");
