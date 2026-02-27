@@ -4,12 +4,12 @@
 
 shared:
   model:
-    latent_dim: 32
-    context_dim: 32
+    latent_dim: 16
+    context_dim: 64
 
     obs_encoder:
       type: "Recurrent_Encoder"
-      hidden_size: 32
+      hidden_size: 128
 
     obs_decoder:
       type: "MultiHeadLinearDecoder"
@@ -18,7 +18,7 @@ shared:
   training:
     learning_rate: 0.002
     optimizer: AdamW()
-    epochs: 100
+    epochs: 300
     log_freq: 10
     viz_freq: 10
     stop_patience: 40

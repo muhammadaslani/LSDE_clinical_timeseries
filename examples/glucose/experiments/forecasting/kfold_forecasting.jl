@@ -32,7 +32,7 @@ lsde_models, lsde_params, lsde_states, lsde_performances =
 lsde_cfg = load_config(config_lsde_path);
 lsde_stats = assess_model_performance(lsde_performances, variables_of_interest;
     model_name="Latent SDE", forecast_fn=forecast,
-    plot_sample=true, sample_n=3, viz_fn=viz_fn,
+    plot_sample=true, sample_n=4, viz_fn=viz_fn,
     models=lsde_models, params=lsde_params, states=lsde_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=merge(lsde_cfg["model"]["validation"], lsde_cfg["training"]["validation"]));

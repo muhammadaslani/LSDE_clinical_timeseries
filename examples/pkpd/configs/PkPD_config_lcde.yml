@@ -4,7 +4,7 @@ model:
   CDE:
     vector_field:
       type: "CDEField"
-      hidden_size: 64
+      hidden_size: 32
       depth: 1
       activation: swish
     solver: Tsit5()

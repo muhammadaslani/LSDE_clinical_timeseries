@@ -4,7 +4,7 @@ model:
   ODE:
     vector_field:
       type: "MLP"
-      hidden_size: 64
+      hidden_size: 32
       depth: 1
       activation: swish
     solver: Tsit5()

@@ -3,11 +3,11 @@ function loss_fn(model, θ, st, data; β=1.0f0)
         _, _, x_forecast, _, _, _, _), ts, λ = data
     batch_size = size(x_forecast)[end]
 
-    y_enc = vcat(covars_obs, y₁_obs, y₂_obs)
+    y_enc = vcat(covars_obs, y₁_obs, log.(y₂_obs .+ 1))
     (ŷ₁, ŷ₂), px₀, kl_pq = model(y_enc, u_obs, ts, θ, st)
 
     recon_loss1 = CrossEntropy_Loss(ŷ₁, y₁_obs, mask₁_obs; agg=sum) / batch_size
-    recon_loss2 = -poisson_loglikelihood(ŷ₂, y₂_obs, mask₂_obs) / batch_size
+    recon_loss2 = -0.1*poisson_loglikelihood(ŷ₂, y₂_obs, mask₂_obs) / batch_size
 
     kl_init = kl_normal(px₀...) / batch_size
     if kl_pq === nothing

@@ -4,9 +4,9 @@ function eval_fn(model, θ, st, ts, data, config)
     batch_size = size(y₁_obs)[end]
 
     ts_obs, ts_for = ts
-    (ŷ₁, ŷ₂), _, _ = model(vcat(covars_obs, y₁_obs, y₂_obs), u_obs, (ts_obs, ts_for), θ, st)
+    (ŷ₁, ŷ₂), _, _ = model(vcat(covars_obs, y₁_obs, log.(y₂_obs .+ 1)), u_obs, (ts_obs, ts_for), θ, st)
     eval_loss_1 = CrossEntropy_Loss(ŷ₁, y₁_obs, mask₁_obs; agg=sum) / batch_size
-    eval_loss_2 = -poisson_loglikelihood(ŷ₂, y₂_obs, mask₂_obs) / batch_size
+    eval_loss_2 = -0.1*poisson_loglikelihood(ŷ₂, y₂_obs, mask₂_obs) / batch_size
     eval_loss = eval_loss_1 + eval_loss_2
     return (eval_loss, eval_loss_1, eval_loss_2)
 end
@@ -14,7 +14,7 @@ end
 function eval_forecast(true_data, forecasted_data)
     _, _, _, y₁_f, y₂_f, mask₁_f, mask₂_f = true_data
     x̂_mc, ŷ_mc = forecasted_data
-    
+
     y₁_f_class = onecold(y₁_f, Array(0:5))
     y₁_f_class = reshape(y₁_f_class, 1, size(y₁_f_class)...)
     ŷ₁_mc, ŷ₂_mc = ŷ_mc[1], ŷ_mc[2]
@@ -32,7 +32,7 @@ function eval_forecast(true_data, forecasted_data)
     ŷ₂_count_m = dropmean(ŷ₂_count, dims=4)
     ŷ₂_count_rmse = sqrt.(mse(ŷ₂_count_m, y₂_f, mask₂_f))
     ŷ₂_count_nll = -poisson_loglikelihood_multiple_samples(ŷ₂_mc, y₂_f, mask₂_f; agg=mean)
-    return (y₁_acc, y₁_npe),(ŷ₂_rmse, ŷ₂_crps) ,(ŷ₂_count_rmse, ŷ₂_count_nll)
+    return (y₁_acc, y₁_npe), (ŷ₂_rmse, ŷ₂_crps), (ŷ₂_count_rmse, ŷ₂_count_nll)
 end
 
 
@@ -113,7 +113,7 @@ function assess_model_performance(performances, variables_of_interest; model_nam
     if isnothing(best_fold_idx)
         fold_scores = []
         for perf in performances
-            acc, npe  = perf[1]
+            acc, npe = perf[1]
             y2_rmse, y2_crps = perf[2]
             y2_count_rmse, y2_count_nll = perf[3]
             score = mean([acc, npe, y2_rmse, y2_crps, y2_count_rmse, y2_count_nll])  # Simple average
@@ -146,13 +146,13 @@ function assess_model_performance(performances, variables_of_interest; model_nam
 
             # Prepare data for plotting
             sample_data_obs = (u_obs[:, :, sample_n:sample_n], covars_obs[:, :, sample_n:sample_n], x_obs[:, :, sample_n:sample_n],
-                                 y₁_obs[:, :, sample_n:sample_n], y₂_obs[:, :, sample_n:sample_n],
-                                  mask₁_obs[:, :, sample_n:sample_n], mask₂_obs[:, :, sample_n:sample_n])
+                y₁_obs[:, :, sample_n:sample_n], y₂_obs[:, :, sample_n:sample_n],
+                mask₁_obs[:, :, sample_n:sample_n], mask₂_obs[:, :, sample_n:sample_n])
             sample_future_true_data = (u_forecast[:, :, sample_n:sample_n], covars_forecast[:, :, sample_n:sample_n], x_forecast[:, :, sample_n:sample_n],
-                                y₁_forecast[:, :, sample_n:sample_n], y₂_forecast[:, :, sample_n:sample_n],
-                                 mask₁_forecast[:, :, sample_n:sample_n], mask₂_forecast[:, :, sample_n:sample_n])
+                y₁_forecast[:, :, sample_n:sample_n], y₂_forecast[:, :, sample_n:sample_n],
+                mask₁_forecast[:, :, sample_n:sample_n], mask₂_forecast[:, :, sample_n:sample_n])
 
-                                 
+
             timepoints_obs, timepoints_forecast = timepoints
 
             # Generate forecast

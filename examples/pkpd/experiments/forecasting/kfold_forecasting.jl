@@ -18,8 +18,10 @@ include("training/kfold_trainer.jl");
 
 # Load data
 data, train_loader, val_loader, test_loader, dims, ts_obs, ts_for, normalization_stats =
-    generate_dataloader(; n_samples=512, batchsize=32, split=(0.6, 0.2), obs_fraction=0.5, normalization=true, seed=123);
+    generate_dataloader(; n_samples=512, batchsize=32, split=(0.6, 0.1), obs_fraction=0.5, normalization=false, seed=123);
+plot_tumor_and_treatment(data, ts_obs, patients=1:9);
 variables_of_interest = ["Health Score", "Tumor Volume", "Cancer cell count"];
+
 k_folds = 2
 timepoints = (ts_obs, ts_for);
 
@@ -32,7 +34,7 @@ lsde_models, lsde_params, lsde_states, lsde_performances =
 lsde_cfg = load_config(config_lsde_path);
 lsde_stats = assess_model_performance(lsde_performances, variables_of_interest;
     model_name="Latent SDE", forecast_fn=forecast,
-    plot_sample=true, sample_n=7, viz_fn=viz_fn,
+    plot_sample=true, sample_n=1, viz_fn=vis_fn,
     models=lsde_models, params=lsde_params, states=lsde_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=merge(lsde_cfg["model"]["validation"], lsde_cfg["training"]["validation"]));
@@ -46,7 +48,7 @@ lode_models, lode_params, lode_states, lode_performances =
 lode_cfg = load_config(config_lode_path);
 lode_stats = assess_model_performance(lode_performances, variables_of_interest;
     model_name="Latent ODE", forecast_fn=forecast,
-    plot_sample=true, sample_n=4, viz_fn=viz_fn,
+    plot_sample=true, sample_n=2, viz_fn=vis_fn,
     models=lode_models, params=lode_params, states=lode_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=merge(lode_cfg["model"]["validation"], lode_cfg["training"]["validation"]));
@@ -60,7 +62,7 @@ lstm_models, lstm_params, lstm_states, lstm_performances =
 lstm_cfg = load_config(config_lstm_path);
 lstm_stats = assess_model_performance(lstm_performances, variables_of_interest;
     model_name="Latent LSTM", forecast_fn=forecast,
-    plot_sample=true, sample_n=3, viz_fn=viz_fn,
+    plot_sample=true, sample_n=4, viz_fn=viz_fn,
     models=lstm_models, params=lstm_params, states=lstm_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=merge(lstm_cfg["model"]["validation"], lstm_cfg["training"]["validation"]));
@@ -74,7 +76,7 @@ lcde_models, lcde_params, lcde_states, lcde_performances =
 lcde_cfg = load_config(config_lcde_path);
 lcde_stats = assess_model_performance(lcde_performances, variables_of_interest;
     model_name="Latent CDE", forecast_fn=forecast,
-    plot_sample=true, sample_n=3, viz_fn=viz_fn,
+    plot_sample=true, sample_n=4, viz_fn=viz_fn,
     models=lcde_models, params=lcde_params, states=lcde_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=merge(lcde_cfg["model"]["validation"], lcde_cfg["training"]["validation"]));

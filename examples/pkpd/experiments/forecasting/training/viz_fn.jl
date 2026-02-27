@@ -31,7 +31,7 @@ function viz_fn(obs_timepoints, for_timepoints, obs_data, future_true_data, fore
     Ex, Ey_p = forecasted_data
     ŷ₁_mc, ŷ₂_mc = softmax(Ey_p[1], dims=1), Ey_p[2]
 
-    if normalization_stats !== nothing && haskey(normalization_stats, "Y₂_stats")
+    if normalization_stats !== nothing && haskey(normalization_stats, "Y₂_stats") && get(normalization_stats, "normalized", false)
         y_max = normalization_stats["Y₂_stats"].max_val
         ŷ₂_mc = ŷ₂_mc .* y_max
         y₂_o = y₂_o .* y_max
@@ -62,11 +62,11 @@ function viz_fn(obs_timepoints, for_timepoints, obs_data, future_true_data, fore
     t_x_t = Float32.(range(t_boundary, maximum(t_p), length=n_x_t))
 
     # Find valid (mask==1) time points for each output
-    t_o_valid₁ = t_o[mask₁_o[1, :, 1] .== 1]
-    t_p_valid₁ = t_p[mask₁_t[1, :, 1] .== 1]
+    t_o_valid₁ = t_o[mask₁_o[1, :, 1].==1]
+    t_p_valid₁ = t_p[mask₁_t[1, :, 1].==1]
 
-    t_o_valid₂ = t_o[mask₂_o[1, :, 1] .== 1]
-    t_p_valid₂ = t_p[mask₂_t[1, :, 1] .== 1]
+    t_o_valid₂ = t_o[mask₂_o[1, :, 1].==1]
+    t_p_valid₂ = t_p[mask₂_t[1, :, 1].==1]
 
     # Extract valid observed data points (filtered by mask)
     y₁_o_class_valid = Float32.(y₁_o_class[findall(i -> mask₁_o[1, i, 1] == 1, 1:length(t_o)), 1])
@@ -262,14 +262,14 @@ function viz_fn(obs_timepoints, for_timepoints, obs_data, future_true_data, fore
         color=(PKPD_COLORS.truth, 0.8), linewidth=3.5, linestyle=:dash,
         label="Ground Truth")
 
-    # Plot model prediction confidence band
-    band!(ax2, t_p, ŷ₂_CI_low, ŷ₂_CI_up,
-        color=(PKPD_COLORS.confidence, 0.25))
-
-    # Plot model prediction mean
-    lines!(ax2, t_p, ŷ₂_m[1, :, 1],
-        color=PKPD_COLORS.predicted, linewidth=3.5, linestyle=:dash,
-        label="Model Predictions")
+    # Plot model prediction with confidence band (using valid timepoints only)
+    if !isempty(t_p_valid₂) && !isempty(ŷ₂_m_valid)
+        band!(ax2, t_p_valid₂, ŷ₂_m_valid .- ŷ₂_s_valid, ŷ₂_m_valid .+ ŷ₂_s_valid,
+            color=(PKPD_COLORS.confidence, 0.25))
+        lines!(ax2, t_p_valid₂, ŷ₂_m_valid,
+            color=PKPD_COLORS.predicted, linewidth=3.5, linestyle=:dash,
+            label="Model Predictions")
+    end
 
     # --- Panel 3: Cell count ---
     if !isempty(t_o_valid₂) && !isempty(y₂_o_valid)
@@ -340,6 +340,169 @@ function viz_fn(obs_timepoints, for_timepoints, obs_data, future_true_data, fore
     # Add spacing
     rowgap!(fig.layout, 15)
     colgap!(fig.layout, 10)
+
+    return fig
+end
+
+function vis_fn(timepoints_obs, timepoints_forecast, sample_data_obs, sample_future_true_data, sample_forecasted_data, normalization_stats)
+    # 1. Denormalize timepoints
+    if normalization_stats !== nothing && haskey(normalization_stats, "T_stats")
+        t_min = normalization_stats["T_stats"].min_val
+        t_max = normalization_stats["T_stats"].max_val
+        t_obs = Float32.(timepoints_obs .* (t_max - t_min) .+ t_min)
+        t_for = Float32.(timepoints_forecast .* (t_max - t_min) .+ t_min)
+    else
+        t_obs = Float32.(timepoints_obs)
+        t_for = Float32.(timepoints_forecast)
+    end
+    t_boundary = maximum(t_obs)
+
+    # 2. Unpack data
+    _, _, x_o, y1_o, y2_o, mask1_o, mask2_o = sample_data_obs
+    _, _, x_t, y1_t, y2_t, mask1_t, mask2_t = sample_future_true_data
+    Ex, Ey_p = sample_forecasted_data
+
+    y1_mc_pred = Ey_p[1]
+    y2_mc_pred = Ey_p[2]
+
+    # 3. Denormalize Y2 data if applicable
+    if normalization_stats !== nothing && haskey(normalization_stats, "Y₂_stats") && get(normalization_stats, "normalized", false)
+        y2_max = normalization_stats["Y₂_stats"].max_val
+        y2_o = y2_o .* y2_max
+        y2_t = y2_t .* y2_max
+        y2_mc_pred = y2_mc_pred .* y2_max
+    end
+
+    # 4. Handle MC Sampling
+    classes = Array(0:5)
+
+    y1_o_class = onecold(softmax(y1_o, dims=1), classes)
+    y1_t_class = onecold(softmax(y1_t, dims=1), classes)
+
+    # Take mean over MC dimension (assumed to be 4th dimension)
+    y1_pred_probs = dropdims(mean(softmax(y1_mc_pred, dims=1), dims=4), dims=4)
+    y1_pred_class = onecold(y1_pred_probs, classes)
+
+    y2_pred_mean = dropdims(mean(y2_mc_pred, dims=4), dims=4)
+    y2_pred_std = dropdims(std(y2_mc_pred, dims=4), dims=4)
+
+    if ndims(Ex) == 4
+        x_pred_mean = dropdims(mean(Ex, dims=4), dims=4)
+        x_pred_std = dropdims(std(Ex, dims=4), dims=4)
+    else
+        x_pred_mean = Ex
+        x_pred_std = zeros(eltype(Ex), size(Ex))
+    end
+
+    # 5. Extract valid items
+    valid_o1 = findall(>(0.5), mask1_o[1, :, 1])
+    valid_t1 = findall(>(0.5), mask1_t[1, :, 1])
+
+    t1_o_valid = t_obs[valid_o1]
+    y1_o_valid = y1_o_class[valid_o1, 1]
+
+    t1_t_valid = t_for[valid_t1]
+    y1_t_valid = y1_t_class[valid_t1, 1]
+    y1_p_valid = y1_pred_class[valid_t1, 1]
+
+    valid_o2 = findall(>(0.5), mask2_o[1, :, 1])
+    valid_t2 = findall(>(0.5), mask2_t[1, :, 1])
+
+    t2_o_valid = t_obs[valid_o2]
+    y2_o_valid = y2_o[1, valid_o2, 1]
+
+    t2_t_valid = t_for[valid_t2]
+    y2_t_valid = y2_t[1, valid_t2, 1]
+
+    y2_p_valid = y2_pred_mean[1, valid_t2, 1]
+    y2_p_std = y2_pred_std[1, valid_t2, 1]
+
+    x_o_traj = x_o[1, :, 1]
+    x_t_traj = x_t[1, :, 1]
+    x_p_traj = x_pred_mean[1, :, 1]
+    x_p_std = x_pred_std[1, :, 1]
+
+    # Time grids for continuous trajectories
+    x_min, x_max = minimum(t_obs), maximum(t_for)
+    t_xo = range(x_min, t_boundary, length=size(x_o, 2))
+    t_xt = range(t_boundary, x_max, length=size(x_t, 2))
+    t_xp = range(t_boundary, x_max, length=size(Ex, 2))
+
+    # 6. Build Figure
+    fig = Figure(size=(1200, 800), fontsize=20, backgroundcolor=:white)
+
+    ax1 = CairoMakie.Axis(fig[1, 1], ylabel="Performance score", xticklabelsvisible=false, bottomspinevisible=false)
+    ax2 = CairoMakie.Axis(fig[2, 1], ylabel="Tumor Size (Unobserved)", xticklabelsvisible=false, bottomspinevisible=false)
+    ax3 = CairoMakie.Axis(fig[3, 1], ylabel="Cell Count", xlabel="Time (days)")
+
+    for ax in [ax1, ax2, ax3]
+        vspan!(ax, x_min, t_boundary, color=(PKPD_COLORS.obs_period, 0.3))
+        vspan!(ax, t_boundary, x_max, color=(PKPD_COLORS.forecast_period, 0.3))
+        vlines!(ax, [t_boundary], color=("#666666", 0.8), linestyle=:dash, linewidth=3)
+    end
+
+    # Panel 1: Performance score
+    if !isempty(t1_o_valid)
+        scatter!(ax1, t1_o_valid, y1_o_valid, color=PKPD_COLORS.observed, markersize=16)
+        lines!(ax1, t1_o_valid, y1_o_valid, color=(PKPD_COLORS.observed, 0.5), linewidth=3, linestyle=:dash)
+    end
+
+    if !isempty(t1_t_valid)
+        scatter!(ax1, t1_t_valid, y1_t_valid, color=PKPD_COLORS.truth, markersize=16)
+        lines!(ax1, t1_t_valid, y1_t_valid, color=(PKPD_COLORS.truth, 0.5), linewidth=3, linestyle=:dash)
+
+        scatter!(ax1, t1_t_valid, y1_p_valid, color=PKPD_COLORS.predicted, markersize=16)
+        lines!(ax1, t1_t_valid, y1_p_valid, color=PKPD_COLORS.predicted, linewidth=3, linestyle=:dash)
+    end
+    ylims!(ax1, -0.5, 5.5)
+
+    # Panel 2: Tumor Size (Ey_p[2] = Poisson rate ≈ tumor volume)
+    if !isempty(t_xo)
+        lines!(ax2, t_xo, x_o_traj, color=(PKPD_COLORS.observed, 0.8), linewidth=3.5, linestyle=:dash)
+    end
+    if !isempty(t_xt)
+        lines!(ax2, t_xt, x_t_traj, color=(PKPD_COLORS.truth, 0.8), linewidth=3.5, linestyle=:dash)
+    end
+    if !isempty(t2_t_valid)
+        lines!(ax2, t2_t_valid, y2_p_valid, color=PKPD_COLORS.predicted, linewidth=3.5, linestyle=:dash)
+        band!(ax2, t2_t_valid, y2_p_valid .- y2_p_std, y2_p_valid .+ y2_p_std, color=(PKPD_COLORS.confidence, 0.3))
+    end
+
+    # Panel 3: Cell Count
+    if !isempty(t2_o_valid)
+        scatter!(ax3, t2_o_valid, y2_o_valid, color=PKPD_COLORS.observed, markersize=16)
+        lines!(ax3, t2_o_valid, y2_o_valid, color=(PKPD_COLORS.observed, 0.8), linewidth=3, linestyle=:dash)
+    end
+
+    if !isempty(t2_t_valid)
+        scatter!(ax3, t2_t_valid, y2_t_valid, color=PKPD_COLORS.truth, markersize=16)
+        lines!(ax3, t2_t_valid, y2_t_valid, color=(PKPD_COLORS.truth, 0.8), linewidth=3, linestyle=:dash)
+
+        scatter!(ax3, t2_t_valid, y2_p_valid, color=PKPD_COLORS.predicted, markersize=16)
+        lines!(ax3, t2_t_valid, y2_p_valid, color=PKPD_COLORS.predicted, linewidth=3, linestyle=:dash)
+        band!(ax3, t2_t_valid, y2_p_valid .- y2_p_std, y2_p_valid .+ y2_p_std, color=(PKPD_COLORS.confidence, 0.3))
+    end
+
+    # Link x-limits for alignment
+    x_pad = 0.05 * (x_max - x_min)
+    for ax in [ax1, ax2, ax3]
+        xlims!(ax, x_min, x_max + x_pad)
+    end
+
+    # Legend
+    elements = [
+        PolyElement(color=(PKPD_COLORS.obs_period, 0.3)), MarkerElement(color=PKPD_COLORS.observed, marker=:circle, markersize=16),
+        PolyElement(color=(PKPD_COLORS.forecast_period, 0.3)), MarkerElement(color=PKPD_COLORS.truth, marker=:circle, markersize=16),
+        PolyElement(color=(PKPD_COLORS.confidence, 0.3)), MarkerElement(color=PKPD_COLORS.predicted, marker=:circle, markersize=16)
+    ]
+    labels = ["Observation Period", "Historical Observations",
+        "Forecasting Period", "Ground Truth",
+        "Prediction Uncertainty", "Model Predictions"]
+
+    Legend(fig[4, 1], elements, labels, orientation=:horizontal, framevisible=false, nbanks=2, halign=:center)
+
+    rowgap!(fig.layout, 10)
+    colsize!(fig.layout, 1, Relative(1.0))
 
     return fig
 end
