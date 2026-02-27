@@ -48,7 +48,7 @@ lode_models, lode_params, lode_states, lode_performances =
 lode_cfg = load_config(config_lode_path);
 lode_stats = assess_model_performance(lode_performances, variables_of_interest;
     model_name="Latent ODE", forecast_fn=forecast,
-    plot_sample=true, sample_n=2, viz_fn=vis_fn,
+    plot_sample=true, sample_n=3, viz_fn=vis_fn,
     models=lode_models, params=lode_params, states=lode_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=merge(lode_cfg["model"]["validation"], lode_cfg["training"]["validation"]));

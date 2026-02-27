@@ -17,98 +17,98 @@ Base.@kwdef struct ModelParameters
     BMI::Float64 = weight / ((height / 100)^2)    # Body mass index
 
     # Base parameters — LogNormal distributions (standard in population PK/PD)
-    # LogNormal(log(median), σ_log): σ_log ≈ 0.15 gives ~15% CV
+    # LogNormal(log(median), σ_log): σ_log ≈ 0.08 gives ~8% CV
 
     # Tumor growth rate: affected by age, gender, tumor type
-    ρ::Float64 = rand(rng, LogNormal(log(0.015), 0.15)) *
+    ρ::Float64 = rand(rng, LogNormal(log(0.015), 0.08)) *
                  (1 + 0.001 * (age - 50) / 30) *
-                 (gender == 0 ? 1.02 : 0.98) *
-                 (tumor_type == "SCLC" ? 1.03 : 0.97)
+                 (gender == 0 ? 1.01 : 0.99) *
+                 (tumor_type == "SCLC" ? 1.02 : 0.98)
 
     # Tumor carrying capacity: affected by gender and tumor type
-    K::Float64 = rand(rng, LogNormal(log(100.0), 0.15)) *
-                 (gender == 0 ? 1.02 : 0.98) *
-                 (tumor_type == "SCLC" ? 0.97 : 1.03)
+    K::Float64 = rand(rng, LogNormal(log(100.0), 0.08)) *
+                 (gender == 0 ? 1.01 : 0.99) *
+                 (tumor_type == "SCLC" ? 0.98 : 1.02)
 
     # Chemotherapy efficacy: affected by age, BSA, tumor type
-    β_c::Float64 = rand(rng, LogNormal(log(0.4), 0.15)) *
-                   (1 - 0.0005 * (age - 50)) *
+    β_c::Float64 = rand(rng, LogNormal(log(0.4), 0.08)) *
+                   (1 - 0.0003 * (age - 50)) *
                    (1 / (BSA / 1.7)) *
-                   (tumor_type == "SCLC" ? 1.03 : 0.97)
+                   (tumor_type == "SCLC" ? 1.02 : 0.98)
 
     ω_c::Float64 = 1.0   # Chemotherapy sessions frequency (every X weeks)
 
-    λ_c::Float64 = rand(rng, LogNormal(log(0.7), 0.1))  # Chemo decay rate
+    λ_c::Float64 = rand(rng, LogNormal(log(0.7), 0.05))  # Chemo decay rate
 
     # Radiotherapy linear effect: affected by age and tumor type
-    α_r::Float64 = rand(rng, LogNormal(log(1.2), 0.15)) *
-                   (1 - 0.0005 * (age - 50)) *
-                   (tumor_type == "SCLC" ? 1.03 : 0.97)
+    α_r::Float64 = rand(rng, LogNormal(log(1.2), 0.08)) *
+                   (1 - 0.0003 * (age - 50)) *
+                   (tumor_type == "SCLC" ? 1.02 : 0.98)
 
     # Radiotherapy quadratic effect: affected by tumor type
-    β_r::Float64 = rand(rng, LogNormal(log(0.5), 0.15)) *
-                   (tumor_type == "SCLC" ? 1.02 : 0.98)
+    β_r::Float64 = rand(rng, LogNormal(log(0.5), 0.08)) *
+                   (tumor_type == "SCLC" ? 1.01 : 0.99)
 
     ω_r::Float64 = 1.0   # Radiotherapy sessions frequency (every X days)
 
-    λ_r::Float64 = rand(rng, LogNormal(log(4.0), 0.1))  # Radio decay rate (DNA repair)
+    λ_r::Float64 = rand(rng, LogNormal(log(4.0), 0.05))  # Radio decay rate (DNA repair)
 
     # Immune growth rate: affected by age and BMI
-    δ::Float64 = rand(rng, LogNormal(log(0.05), 0.15)) *
-                 (1 - 0.001 * (age - 50) / 30) *
-                 (BMI > 30 ? 0.98 : 1.02)
+    δ::Float64 = rand(rng, LogNormal(log(0.05), 0.08)) *
+                 (1 - 0.0005 * (age - 50) / 30) *
+                 (BMI > 30 ? 0.99 : 1.01)
 
     # Chemo-induced immune suppression: affected by age and BMI
-    β_I::Float64 = rand(rng, LogNormal(log(0.05), 0.15)) *
-                   (1 + 0.0005 * (age - 50)) *
-                   (BMI > 30 ? 1.02 : 0.98)
+    β_I::Float64 = rand(rng, LogNormal(log(0.05), 0.08)) *
+                   (1 + 0.0003 * (age - 50)) *
+                   (BMI > 30 ? 1.01 : 0.99)
 
     # Radio-induced immune suppression: affected by BMI
-    α_I::Float64 = rand(rng, LogNormal(log(0.03), 0.15)) *
-                   (BMI > 30 ? 1.02 : 0.98)
+    α_I::Float64 = rand(rng, LogNormal(log(0.03), 0.08)) *
+                   (BMI > 30 ? 1.01 : 0.99)
 
     # Immune stimulation by tumor: affected by tumor type
-    θ_I::Float64 = rand(rng, LogNormal(log(0.1), 0.15)) *
-                   (tumor_type == "SCLC" ? 0.97 : 1.03)
+    θ_I::Float64 = rand(rng, LogNormal(log(0.1), 0.08)) *
+                   (tumor_type == "SCLC" ? 0.98 : 1.02)
 
     # Immune suppression by large tumors: affected by age
-    λ_I::Float64 = rand(rng, LogNormal(log(0.01), 0.15)) *
-                   (1 + 0.0003 * (age - 50))
+    λ_I::Float64 = rand(rng, LogNormal(log(0.01), 0.08)) *
+                   (1 + 0.0002 * (age - 50))
 
     # Immune decay rate: affected by age
-    ω_I::Float64 = rand(rng, LogNormal(log(0.1), 0.15)) *
-                   (1 + 0.001 * (age - 50) / 30)
+    ω_I::Float64 = rand(rng, LogNormal(log(0.1), 0.08)) *
+                   (1 + 0.0005 * (age - 50) / 30)
 
     # Maximum immune response: affected by BMI and age
-    I_max::Float64 = rand(rng, LogNormal(log(1.0), 0.1)) *
-                     (BMI > 30 ? 0.98 : 1.02) *
-                     (1 - 0.0005 * (age - 50) / 30)
+    I_max::Float64 = rand(rng, LogNormal(log(1.0), 0.05)) *
+                     (BMI > 30 ? 0.99 : 1.01) *
+                     (1 - 0.0003 * (age - 50) / 30)
 
     # Immune effect on health: affected by age
-    γ_S::Float64 = rand(rng, LogNormal(log(0.02), 0.15)) *
-                   (1 - 0.001 * (age - 50) / 30)
+    γ_S::Float64 = rand(rng, LogNormal(log(0.02), 0.08)) *
+                   (1 - 0.0005 * (age - 50) / 30)
 
     # Health recovery rate: affected by age and BMI
-    θ_S::Float64 = rand(rng, LogNormal(log(0.5), 0.15)) *
-                   (1 - 0.001 * (age - 50) / 30) *
-                   (BMI > 30 ? 0.98 : 1.02)
+    θ_S::Float64 = rand(rng, LogNormal(log(0.5), 0.08)) *
+                   (1 - 0.0005 * (age - 50) / 30) *
+                   (BMI > 30 ? 0.99 : 1.01)
 
     # Health impact of tumor: affected by gender
-    λ_S::Float64 = rand(rng, LogNormal(log(0.5), 0.15)) *
-                   (gender == 0 ? 1.02 : 0.98)
+    λ_S::Float64 = rand(rng, LogNormal(log(0.5), 0.08)) *
+                   (gender == 0 ? 1.01 : 0.99)
 
     # Tumor burden effect on health
-    η_x::Float64 = rand(rng, LogNormal(log(0.5), 0.15))
+    η_x::Float64 = rand(rng, LogNormal(log(0.5), 0.08))
 
     # Chemo toxicity on health
-    η_c::Float64 = rand(rng, LogNormal(log(0.5), 0.15))
+    η_c::Float64 = rand(rng, LogNormal(log(0.5), 0.08))
 
     # Radio toxicity on health
-    η_r::Float64 = rand(rng, LogNormal(log(0.3), 0.15))
+    η_r::Float64 = rand(rng, LogNormal(log(0.3), 0.08))
 
-    σ_tumor::Float64 = 0.05    # Tumor growth noise (moderate biological uncertainty)
-    σ_immune::Float64 = 0.05    # Immune response noise (moderate uncertainty)
-    σ_health::Float64 = 0.05    # Health status noise (low uncertainty)
+    σ_tumor::Float64 = 0.02    # Tumor growth noise (low)
+    σ_immune::Float64 = 0.02   # Immune response noise (low)
+    σ_health::Float64 = 0.02   # Health status noise (low)
 end
 
 """
@@ -283,7 +283,7 @@ Generate a dataset of PKPD model simulations.
 function generate_dataset(;
     n_samples::Int,
     X₀_mean::Vector{Float64}=[20.0, 0.0, 0.0, 0.8, 0.9],
-    X₀_std::Vector{Float64}=[3.0, 0.0, 0.0, 0.3, 0.3],
+    X₀_std::Vector{Float64}=[2.0, 0.0, 0.0, 0.2, 0.2],
     tspan::Tuple{Float64,Float64}=(0.0, 90.0),
     sample_rate::Int=3,
     params::ModelParameters=ModelParameters(),
@@ -308,11 +308,11 @@ function generate_dataset(;
         patient_rng = Random.MersenneTwister(rand(rng, UInt))
         new_params = ModelParameters(; ω_c=ω_cs[i], ω_r=ω_rs[i], rng=patient_rng)
         new_X₀ = [
-            max(rand(patient_rng, Normal(X₀_mean[1], X₀_std[1])), 8.0),   # tumor: min size 8
+            max(rand(patient_rng, Normal(X₀_mean[1], X₀_std[1])), 12.0),  # tumor: min size 12
             0.0,                                                            # chemo: no drug at start
             0.0,                                                            # radio: no drug at start
-            rand(patient_rng, Beta(12, 3)),                                 # immune: mean ≈ 0.8, tighter
-            rand(patient_rng, Beta(9, 2))                                   # health: mean ≈ 0.82, tighter
+            rand(patient_rng, Beta(20, 5)),                                 # immune: mean ≈ 0.8, very tight
+            rand(patient_rng, Beta(15, 3))                                  # health: mean ≈ 0.83, very tight
         ]
 
         covariates[:, i] .= [
