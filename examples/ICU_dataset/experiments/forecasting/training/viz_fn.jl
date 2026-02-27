@@ -14,14 +14,13 @@ const MEDICAL_COLORS = (
 function viz_fn(t_obs, t_for, obs_data, future_true_data, forecasted_data; sample_n=1, plot=true, confidence_level=0.9, normalization_stats=nothing)
     _, _, y_obs, masks_obs = obs_data
     _, _, y_for, masks_for = future_true_data
-    μ, σ² = forecasted_data
+    _, Ey = forecasted_data   # discard latent trajectories; Ey[i] = (μ_i, log_σ²_i)
 
-    dt = t_for[2] - t_for[1] # Assuming uniform time steps
+    dt = t_for[2] - t_for[1]
     t_obs = t_obs / dt
     t_for = t_for / dt
     y_labels = ["MAP (mmHg)", "HR (bpm)", "Temperature (°C)"]
-    #y_labels = ["Temperature (°C)"] # For single feature visualization
-    n_mc_samples= size(μ[1], 4) # Number of Monte Carlo samples
+    n_mc_samples = size(Ey[1][1], 4)
     rmse = []
     crps = []
     n_features = length(y_labels)
@@ -47,16 +46,17 @@ function viz_fn(t_obs, t_for, obs_data, future_true_data, forecasted_data; sampl
             y_stats = normalization_stats["y_stats"]
             
             # Denormalize predictions
-            μ_denorm = μ[i] .* y_stats.σ[i] .+ y_stats.μ[i]
-            # For variance: Var(aX + b) = a²Var(X), so σ²_denorm = σ²_norm * σ_original²
-            σ²_denorm = σ²[i] .* (y_stats.σ[i])^2
+            μ_i    = Ey[i][1]
+            σ²_i   = exp.(Ey[i][2])
+            μ_denorm  = μ_i  .* y_stats.σ[i] .+ y_stats.μ[i]
+            σ²_denorm = σ²_i .* (y_stats.σ[i])^2
             dists = Normal.(μ_denorm, sqrt.(σ²_denorm))
             
             # Create denormalized copies (don't modify originals)
             y_obs_denorm = y_obs[i, :, :] .* y_stats.σ[i] .+ y_stats.μ[i]
             y_for_denorm = y_for[i, :, :] .* y_stats.σ[i] .+ y_stats.μ[i]
         else
-            dists = Normal.(μ[i], sqrt.(σ²[i]))
+            dists = Normal.(Ey[i][1], sqrt.(exp.(Ey[i][2])))
             # Use original data as is
             y_obs_denorm = y_obs[i, :, :]
             y_for_denorm = y_for[i, :, :]

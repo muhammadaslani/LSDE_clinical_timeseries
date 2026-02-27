@@ -1,175 +1,101 @@
-"""
-    kfold_train(
-        data, n_folds, rng, 
-        config_path, model, 
-        timepoints,
-        loss_fn, eval_fn, viz_fn
-    )
+function load_config(config_path)
+    shared_path = joinpath(dirname(config_path), "shared.yml")
+    shared = isfile(shared_path) ? get(YAML.load_file(shared_path), "shared", Dict()) : Dict()
+    model_cfg = YAML.load_file(config_path)
+    return deep_merge(shared, model_cfg)
+end
 
-Performs k-fold cross-validation training on a model with warm start initialization.
-
-The warm start strategy works as follows:
-- Each fold independently trains for 10% of the total epochs first, then continues 
-  for the remaining 90% using the same fold's 10% trained parameters as initialization
-
-# Arguments
-- `data`: The dataset, typically from load_data function.
-- `n_folds`: Number of folds for cross-validation.
-- `rng`: Random number generator for reproducibility.
-- `config_path`: Path to the YAML configuration file.
-- `model`: Type of model to train, e.g., "lsde", "lode", or "rnn".
-- `timepoints`: Array of timepoints for the model.
-- `loss_fn`: Loss function for training.
-- `eval_fn`: Evaluation function.
-- `forecast_fn`: Forecast function.
-- `viz_fn`: Visualization function.
-
-# Returns
-- A tuple containing (models, parameters, states, performances)
-"""
-function kfold_train(data, n_folds, rng, config_path, model_type, timepoints, loss_fn, eval_fn, forecast_fn, viz_fn)
-    # Start timing the entire k-fold training process
-    start_time = time()
-    
-    # Load configuration
-    config = YAML.load_file(config_path)
-    exp_path = joinpath(config["experiment"]["path"], config["experiment"]["name"])
-    
-    # Extract the complete dataset
-    inputs_data_obs, obs_data_obs, output_data_obs, masks_obs, 
-    inputs_data_for, obs_data_for, output_data_for, masks_for = data
-    
-    # Prepare for k-fold splitting
-    n_samples = size(inputs_data_obs, 3)
-    sample_indices = collect(1:n_samples)
-    fold_size = div(n_samples, n_folds)
-    
-    # Initialize storage for models, parameters, states, and performance metrics
-    models = []
-    trained_params = []
-    states = []
-    performances = []
-    
-    # Shuffle sample indices for randomization
-    shuffle!(rng, sample_indices)
-    
-    # Create folds
-    folds = []
-    for i in 1:n_folds
-        start_idx = (i-1) * fold_size + 1
-        end_idx = i == n_folds ? n_samples : i * fold_size
-        test_indices = sample_indices[start_idx:end_idx]
-        train_indices = setdiff(sample_indices, test_indices)
-        
-        # Split train indices further into train and validation
-        n_train = length(train_indices)
-        val_size = round(Int, n_train * 0.2) # 20% for validation
-        val_indices = train_indices[1:val_size]
-        train_indices = train_indices[val_size+1:end]
-        
-        push!(folds, (train_indices, val_indices, test_indices))
+function deep_merge(base::Dict, override::Dict)
+    result = copy(base)
+    for (k, v) in override
+        if haskey(result, k) && isa(result[k], Dict) && isa(v, Dict)
+            result[k] = deep_merge(result[k], v)
+        else
+            result[k] = v
+        end
     end
-    
-    # Define model dimensions
-    dims = Dict(
-        "input_dim" => size(inputs_data_obs, 1),
-        "obs_dim" => size(obs_data_obs, 1),
-        "output_dim" => ones(Int, size(output_data_for, 1)),
-    )
-    
-    # Split timepoints for observation and forecasting
-    timepoints_obs = timepoints[1:size(obs_data_obs, 2)]
-    timepoints_for = timepoints[size(obs_data_obs, 2)+1:end]
-    
-    # Perform k-fold training with independent warm start for each fold
+    return result
+end
+
+const MODEL_FACTORIES = Dict(
+    "lsde"        => create_latentsde,
+    "lode"        => create_latentode,
+    "latent_lstm" => create_latent_lstm,
+    "latent_cde"  => create_latent_cde,
+)
+
+function slice_data(data::Tuple, indices)
+    return Tuple(x[:, :, indices] for x in data)
+end
+
+function kfold_train(data, dims, n_folds, rng, config_path, model_type, timepoints, loss_fn, eval_fn, forecast_fn, viz_fn)
+    start_time = time()
+
+    config     = load_config(config_path)
+    exp_path   = joinpath(config["experiment"]["path"], config["experiment"]["name"])
+    train_cfg  = config["training"]
+    model_cfg  = config["model"]
+    val_config = merge(get(model_cfg, "validation", Dict()), train_cfg["validation"])
+    batch_size = get(train_cfg, "batch_size", 32)
+
+    factory = get(MODEL_FACTORIES, model_type) do
+        error("Unsupported model type: $model_type")
+    end
+
+    n_samples      = size(data[1], 3)
+    sample_indices = shuffle!(rng, collect(1:n_samples))
+    fold_size      = div(n_samples, n_folds)
+
+    folds = map(1:n_folds) do i
+        start_idx = (i - 1) * fold_size + 1
+        end_idx   = i == n_folds ? n_samples : i * fold_size
+        test_idx  = sample_indices[start_idx:end_idx]
+        remaining = setdiff(sample_indices, test_idx)
+        val_size  = round(Int, length(remaining) * 0.2)
+        (remaining[val_size+1:end], remaining[1:val_size], test_idx)
+    end
+
+    models         = Vector{Any}(undef, n_folds)
+    trained_params = Vector{Any}(undef, n_folds)
+    states         = Vector{Any}(undef, n_folds)
+    performances   = Vector{Any}(undef, n_folds)
+
     for fold_idx in 1:n_folds
         @info "Training fold $fold_idx/$n_folds"
-        train_indices, val_indices, test_indices = folds[fold_idx]
-        
-        # Create data loaders for this fold
-         train_data = (
-            inputs_data_obs[:,:,train_indices], obs_data_obs[:,:,train_indices], output_data_obs[:,:,train_indices], masks_obs[:,:,train_indices],
-            inputs_data_for[:,:,train_indices], obs_data_for[:,:,train_indices], output_data_for[:,:,train_indices], masks_for[:,:,train_indices]
-        )
-        
-        val_data = (
-            inputs_data_obs[:,:,val_indices], obs_data_obs[:,:,val_indices], output_data_obs[:,:,val_indices], masks_obs[:,:,val_indices],
-            inputs_data_for[:,:,val_indices], obs_data_for[:,:,val_indices], output_data_for[:,:,val_indices], masks_for[:,:,val_indices]
-        )
-        
-        test_data = (
-            inputs_data_obs[:,:,test_indices], obs_data_obs[:,:,test_indices], output_data_obs[:,:,test_indices], masks_obs[:,:,test_indices],
-            inputs_data_for[:,:,test_indices], obs_data_for[:,:,test_indices], output_data_for[:,:,test_indices], masks_for[:,:,test_indices]
-        )
-        
-        batch_size = 32
-        train_loader = DataLoader(train_data, batchsize=batch_size, shuffle=true)
-        val_loader = DataLoader(val_data, batchsize=batch_size, shuffle=false)
-        test_loader = DataLoader(test_data, batchsize=batch_size, shuffle=false)
-        
-        # Initialize model for this fold
-        if model_type == "lsde"
-            model, θ, st = create_latentsde(config["model"], dims, rng)
-        elseif model_type == "lode"
-            model, θ, st = create_latentode(config["model"], dims, rng)
-        elseif model_type == "latent_lstm"
-            model, θ, st = create_latent_lstm(config["model"], dims, rng)    
-        else
-            error("Unsupported model type: $model_type")
-        end
-        # Prepare training configuration for warm start
-        training_config = deepcopy(config["training"])
-        
-        # Step 1: Train for 10% of epochs (warm start phase)
-        warm_start_epochs = round(Int, training_config["epochs"] * 0.1)
-        training_config["epochs"] = warm_start_epochs
-        @info "Fold $fold_idx: warm start training for $warm_start_epochs epochs (10% of total)"
-        
-        # Train the model for warm start
-        θ_warm_start = train(model, θ, st, timepoints_for, loss_fn, eval_fn, viz_fn, 
-                           train_loader, val_loader, training_config, exp_path)
-        
-        # Step 2: Continue training for remaining 90% of epochs using warm start parameters
-        remaining_epochs = round(Int, config["training"]["epochs"] * 0.9)
-        training_config["epochs"] = remaining_epochs
-        @info "Fold $fold_idx: continuing training for $remaining_epochs epochs (90% of total) using warm start parameters"
-        
-        # Train for the remaining epochs using warm start parameters as initialization
-        θ_trained = train(model, θ_warm_start, st, timepoints_for, loss_fn, eval_fn, viz_fn, 
-                         train_loader, val_loader, training_config, exp_path)
-        
-        # Evaluate on test data
-        u_obs, x_obs, y_obs, masks_obs_test, u_for, x_for, y_for, masks_for_test = test_loader.data
-        data_obs = (u_obs, x_obs, y_obs, masks_obs_test)
-        future_true_data = (u_for, x_for, y_for, masks_for_test)
+        train_idx, val_idx, test_idx = folds[fold_idx]
 
-        # Make predictions
-        μ, σ = forecast_fn(model, θ_trained, st, data_obs, u_for, timepoints_for, config["training"]["validation"])
-        forecasted_data = (μ, σ)
-        rmse, crps = eval_forecast(future_true_data, forecasted_data)
-        
-        # Store model, parameters, state, and performance
-        push!(models, model)
-        push!(trained_params, θ_trained)
-        push!(states, st)
-        push!(performances, (rmse, crps))
-        
-        @info "Fold $fold_idx completed"
-        @info "Fold $fold_idx completed: rmse=$rmse, CRPS=$crps"
+        train_loader = DataLoader(slice_data(data, train_idx), batchsize=batch_size, shuffle=true)
+        val_loader   = DataLoader(slice_data(data, val_idx),   batchsize=batch_size, shuffle=false)
+        test_data    = slice_data(data, test_idx)
+
+        model, θ, st = factory(model_cfg, dims, rng)
+
+        θ_trained = train(model, θ, st, timepoints, loss_fn, eval_fn, viz_fn,
+            train_loader, val_loader, train_cfg, exp_path)
+
+        # Evaluate on test set
+        data_obs    = test_data[1:4]
+        future_true = test_data[5:8]
+        u_for_test  = test_data[5]
+        Ex, Ey      = forecast_fn(model, θ_trained, st, data_obs, u_for_test, timepoints, val_config)
+        perf        = eval_forecast(future_true, (Ex, Ey))
+
+        models[fold_idx]         = model
+        trained_params[fold_idx] = θ_trained
+        states[fold_idx]         = st
+        performances[fold_idx]   = perf
+
+        rmse, crps = perf
+        @info @sprintf("Fold %d completed: RMSE=%s, CRPS=%s",
+            fold_idx, string(round.(rmse, digits=4)), string(round.(crps, digits=4)))
     end
-    
-    # Compute average performance across folds
-    avg_rmse = mean([perf[1] for perf in performances])
-    avg_crps = mean([perf[2] for perf in performances])
 
-    # Calculate total training time
-    end_time = time()
-    total_training_time = end_time - start_time
-    
-    @info "K-Fold Cross-Validation Results:"
-    @info "Average RMSE across $n_folds folds: $avg_rmse"
-    @info "Average CRPS across $n_folds folds: $avg_crps"
-    @info "Total training time: $(round(total_training_time, digits=2)) seconds ($(round(total_training_time/60, digits=2)) minutes)"
-    
+    avg_rmse = mean(mean(p[1]) for p in performances)
+    avg_crps = mean(mean(p[2]) for p in performances)
+    elapsed  = time() - start_time
+
+    @info @sprintf("K-Fold Results: Avg RMSE=%.4e, Avg CRPS=%.4e", avg_rmse, avg_crps)
+    @info "Total training time: $(round(elapsed, digits=2))s ($(round(elapsed/60, digits=2)) min)"
+
     return models, trained_params, states, performances
 end

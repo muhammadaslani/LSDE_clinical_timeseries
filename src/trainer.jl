@@ -1,7 +1,7 @@
 function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_loader, config, exp_path)
     opt = eval(Meta.parse(config["optimizer"]))
     tstate = Training.TrainState(model, θ, st, opt)
-    λ_schedule = frange_cycle_linear(config["epochs"] + 1, 0.0f0, 0.01f0, 5, 0.7f0)
+    λ_schedule = frange_cycle_linear(config["epochs"] + 1, 0.001f0, 0.1f0, 5, 0.7f0)
 
     # Initialize exponential learning rate schedule
     initial_lr = config["learning_rate"]
@@ -50,8 +50,10 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
                 epoch, config["epochs"], train_loss / n_batches, λ_schedule[epoch], current_lr, kl_path / n_batches,
                 kl_init / n_batches, recon_str)
 
-            (val_metric, val_metric1, val_metric2) = validate(model, θ, st, ts, val_loader, eval_fn, config["validation"])
-            @printf("Validation metric: %.4e \t val_metric1: %.4e \t val_metric2: %.4e \n", val_metric, val_metric1, val_metric2)
+            val_metrics = validate(model, θ, st, ts, val_loader, eval_fn, config["validation"])
+            val_metric = val_metrics[1]
+            val_str = join([@sprintf("val_%d: %.4e", i, val_metrics[i+1]) for i in 1:(length(val_metrics)-1)], " \t ")
+            @printf("Validation metric: %.4e \t %s\n", val_metric, val_str)
 
             if epoch % config["viz_freq"] == 0
                 #viz_fn(model, θ, st, ts, first(train_loader), config["validation"]; sample_n=1)
@@ -80,14 +82,14 @@ function train(model, θ, st, ts, loss_fn, eval_fn, viz_fn, train_loader, val_lo
 end
 
 function validate(model, θ, st, ts, val_loader, eval_fn, config)
-    val_metric = 0.0f0
-    val_metric1 = 0.0f0
-    val_metric2 = 0.0f0
+    val_metrics = nothing
     for batch in val_loader
-        (val_m, val_m1, val_m2) = eval_fn(model, θ, st, ts, batch, config)
-        val_metric += val_m
-        val_metric1 += val_m1
-        val_metric2 += val_m2
+        metrics = eval_fn(model, θ, st, ts, batch, config)
+        if val_metrics === nothing
+            val_metrics = collect(Float32.(metrics))
+        else
+            val_metrics .+= collect(Float32.(metrics))
+        end
     end
-    return (val_metric / length(val_loader), val_metric1 / length(val_loader), val_metric2 / length(val_loader))
+    return Tuple(val_metrics ./ length(val_loader))
 end

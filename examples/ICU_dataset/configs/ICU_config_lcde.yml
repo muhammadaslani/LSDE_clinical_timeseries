@@ -1,9 +1,9 @@
 model:
-  type: "LatentODE"
+  type: "LatentCDE"
 
-  ODE:
+  CDE:
     vector_field:
-      type: "MLP"
+      type: "CDEField"
       hidden_size: 32
       depth: 1
       activation: swish
@@ -17,6 +17,6 @@ model:
       dt: 0.01
 
 experiment:
-  name: "LatentODE_ICU_V0"
-  description: "Latent ODE model for ICU forecasting"
+  name: "LatentCDE_ICU_V0"
+  description: "Latent CDE model for ICU forecasting"
   path: "experiments/"

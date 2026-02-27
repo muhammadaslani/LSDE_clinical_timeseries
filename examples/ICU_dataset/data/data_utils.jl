@@ -46,13 +46,19 @@ of the elements along the last dimension of `X`.
 """
 
 function z_normalize(input_tensor)
+    n_features = size(input_tensor, 1)
     normalized_tensor = similar(input_tensor)
-    for i in axes(input_tensor)[1]
-                μ=mean(input_tensor[i,:,:])
-                σ=std(input_tensor[i,:,:])
-                normalized_tensor[i, :,:] = (input_tensor[i,:,:] .- μ) ./ σ
+    μ_vec = Vector{Float64}(undef, n_features)
+    σ_vec = Vector{Float64}(undef, n_features)
+    for i in 1:n_features
+        μ = mean(input_tensor[i,:,:])
+        σ = std(input_tensor[i,:,:])
+        σ = σ ≈ 0 ? 1.0 : σ   # avoid divide-by-zero for constant features
+        normalized_tensor[i,:,:] = (input_tensor[i,:,:] .- μ) ./ σ
+        μ_vec[i] = μ
+        σ_vec[i] = σ
     end
-    return normalized_tensor
+    return normalized_tensor, μ_vec, σ_vec
 end
 
 """
