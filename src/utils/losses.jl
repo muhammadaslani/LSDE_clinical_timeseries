@@ -189,6 +189,39 @@ function normal_loglikelihood(μ, log_σ², y; ϵ=1e-8)
     return -ll
 end
 
+"""
+    normal_loglikelihood(μ, log_σ², y, mask; ϵ=1e-8)
+
+Masked negative log-likelihood for a Gaussian distribution.
+Only the entries where `mask == true` are included in the computation.
+
+The result is normalised by the number of valid entries so its magnitude
+is comparable to the unmasked version and stays scale-invariant w.r.t.
+the density of observations.
+
+# Arguments
+- `μ`      : Predicted means (same shape as `y`)
+- `log_σ²` : Predicted log-variances (same shape as `y`)
+- `y`      : Observations (same shape as `μ`)
+- `mask`   : Boolean mask — `true` where the observation is real, `false` where it is missing/imputed
+- `ϵ`      : Small constant for numerical stability (default `1e-8`)
+
+# Returns
+- Negative masked Gaussian log-likelihood, as a scalar
+"""
+function normal_loglikelihood(μ, log_σ², y, mask::AbstractArray{Bool}; ϵ=1e-8)
+    log_σ² = clamp.(log_σ², -3.0f0, 3.0f0)
+    # Zero out invalid positions before computing NLL terms
+    μ_m = μ .* mask
+    log_σ²_m = log_σ² .* mask
+    y_m = y .* mask
+    # Pointwise NLL (invalid positions contribute 0 since all inputs are 0 there)
+    nll_terms = 0.5f0 .* (log_σ²_m .+ log(2π) .+ ((y_m .- μ_m) .^ 2 ./ (exp.(log_σ²_m) .+ ϵ)))
+    # Average over observed entries only
+    n_valid = max(sum(mask), 1)
+    return sum(nll_terms .* mask) / n_valid
+end
+
 
 
 """

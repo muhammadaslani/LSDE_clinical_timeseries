@@ -1,16 +1,25 @@
 function loss_fn(model, θ, st, data; β=1.0f0)
-    (u_obs, x_obs, y_obs, masks_obs, _, _, _, _), ts, λ = data
+    (x_obs, u_obs, y_obs, y_masks_obs, x_masks_obs, _, _, _, _, _), ts, λ = data
     batch_size = size(y_obs)[end]
 
-    # Reconstruct history: encoder sees full obs, driven by obs-period inputs
-    ŷ, px₀, kl_pq = model(x_obs, u_obs, ts, θ, st)
+    # Augment x_obs with its observation mask so the encoder can distinguish
+    # real measurements from mean-imputed values.
+    # x_masks_obs covers only the dynamic rows; pad static rows with ones.
+    n_static = size(x_obs, 1) - size(x_masks_obs, 1)
+    static_ones = ones(Float32, n_static, size(x_obs, 2), batch_size)
+    x_mask_full = vcat(static_ones, Float32.(x_masks_obs))   # [obs_dim, T, N]
+    x_aug = vcat(x_obs, x_mask_full)                   # [2*obs_dim, T, N]
+
+    # Reconstruct history: encoder sees augmented obs, driven by obs-period controls
+    ŷ, px₀, kl_pq = model(x_aug, u_obs, ts, θ, st)
 
     recon_losses = map(eachindex(ŷ)) do i
         μ, log_σ² = ŷ[i][1], ŷ[i][2]
         normal_loglikelihood(
-            μ[1, :, :] .* masks_obs[i, :, :],
-            log_σ²[1, :, :] .* masks_obs[i, :, :],
-            y_obs[i, :, :] .* masks_obs[i, :, :]
+            μ[1, :, :],
+            log_σ²[1, :, :],
+            y_obs[i, :, :],
+            y_masks_obs[i, :, :]
         ) / batch_size
     end
     recon_loss = sum(recon_losses)

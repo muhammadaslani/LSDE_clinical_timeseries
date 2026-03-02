@@ -98,14 +98,6 @@ for (s, name) in enumerate(state_names)
 end
 
 # Trajectory spread: range of final tumor values
-
-
-
-
-
-
-
-
 tumor_final = x_full[1, end, :];
 println("\nTumor at end: min=$(round(minimum(tumor_final), digits=1)), " *
         "median=$(round(median(tumor_final), digits=1)), " *

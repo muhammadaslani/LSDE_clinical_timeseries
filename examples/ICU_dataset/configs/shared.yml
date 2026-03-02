@@ -18,7 +18,7 @@ shared:
   training:
     learning_rate: 0.002
     optimizer: AdamW()
-    epochs: 500
+    epochs: 200
     log_freq: 10
     viz_freq: 10
     stop_patience: 40

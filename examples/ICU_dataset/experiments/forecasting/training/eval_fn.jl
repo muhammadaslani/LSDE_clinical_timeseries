@@ -1,16 +1,22 @@
 # Validation loss — mirrors loss_fn but without KL, computed on history reconstruction
 function eval_fn(model, θ, st, ts, data, config)
-    u_obs, x_obs, y_obs, masks_obs, _, _, _, _ = data
+    x_obs, u_obs, y_obs, y_masks_obs, x_masks_obs, _, _, _, _, _ = data
     batch_size = size(y_obs)[end]
 
-    ŷ, _, _ = model(x_obs, u_obs, ts, θ, st)
+    n_static = size(x_obs, 1) - size(x_masks_obs, 1)
+    static_ones = ones(Float32, n_static, size(x_obs, 2), batch_size)
+    x_mask_full = vcat(static_ones, Float32.(x_masks_obs))
+    x_aug = vcat(x_obs, x_mask_full)
+
+    ŷ, _, _ = model(x_aug, u_obs, ts, θ, st)
 
     eval_losses = map(eachindex(ŷ)) do i
         μ, log_σ² = ŷ[i][1], ŷ[i][2]
         normal_loglikelihood(
-            μ[1, :, :] .* masks_obs[i, :, :],
-            log_σ²[1, :, :] .* masks_obs[i, :, :],
-            y_obs[i, :, :] .* masks_obs[i, :, :]
+            μ[1, :, :],
+            log_σ²[1, :, :],
+            y_obs[i, :, :],
+            y_masks_obs[i, :, :]
         ) / batch_size
     end
     eval_loss = sum(eval_losses)
@@ -21,7 +27,7 @@ end
 
 # Forecast evaluation — assesses future predictions against held-out targets
 function eval_forecast(true_data, forecasted_data)
-    _, _, y_for, masks_for = true_data
+    _, _, y_for, y_masks_for, _ = true_data
     _, Ey = forecasted_data
 
     rmse = Float64[]
@@ -33,11 +39,11 @@ function eval_forecast(true_data, forecasted_data)
 
         # RMSE: mean prediction across MC (E[y] = μ for Gaussian)
         μ_bar = sum(μ_i, dims=4) ./ size(μ_i, 4)         # [1, T, N, 1]
-        push!(rmse, sqrt(mse(μ_bar[1, :, :, 1], y_for[i, :, :], masks_for[i, :, :])))
+        push!(rmse, sqrt(mse(μ_bar[1, :, :, 1], y_for[i, :, :], y_masks_for[i, :, :])))
 
         # CRPS: sample from predictive distribution
         ŷ_i = μ_i .+ σ_i .* randn!(similar(σ_i))          # [1, T, N, mc]
-        push!(crps, empirical_crps(y_for[i:i, :, :], ŷ_i, masks_for[i:i, :, :]))
+        push!(crps, empirical_crps(y_for[i:i, :, :], ŷ_i, y_masks_for[i:i, :, :]))
     end
 
     return rmse, crps
@@ -100,13 +106,15 @@ function assess_model_performance(performances, variables_of_interest; model_nam
         best_params = params[best_fold_idx]
         best_state = states[best_fold_idx]
 
-        u_obs, x_obs, y_obs, masks_obs, u_for, x_for, y_for, masks_for = data
+        x_obs, u_obs, y_obs, y_masks_obs, x_masks_obs, x_for, u_for, y_for, y_masks_for, x_fut_masks = data
         timepoints_obs, timepoints_for = timepoints
 
-        sample_data_obs = (u_obs[:, :, sample_n:sample_n], x_obs[:, :, sample_n:sample_n],
-            y_obs[:, :, sample_n:sample_n], masks_obs[:, :, sample_n:sample_n])
-        sample_future_true = (u_for[:, :, sample_n:sample_n], x_for[:, :, sample_n:sample_n],
-            y_for[:, :, sample_n:sample_n], masks_for[:, :, sample_n:sample_n])
+        sample_data_obs = (x_obs[:, :, sample_n:sample_n], u_obs[:, :, sample_n:sample_n],
+            y_obs[:, :, sample_n:sample_n], y_masks_obs[:, :, sample_n:sample_n],
+            x_masks_obs[:, :, sample_n:sample_n])
+        sample_future_true = (x_for[:, :, sample_n:sample_n], u_for[:, :, sample_n:sample_n],
+            y_for[:, :, sample_n:sample_n], y_masks_for[:, :, sample_n:sample_n],
+            x_fut_masks[:, :, sample_n:sample_n])
 
         Ex, Ey = forecast_fn(best_model, best_params, best_state, sample_data_obs,
             u_for[:, :, sample_n:sample_n], timepoints, config)

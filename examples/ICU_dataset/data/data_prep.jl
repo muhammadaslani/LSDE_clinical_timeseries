@@ -1,5 +1,5 @@
 # Description: This file contains functions to load and preprocess the PhysioNet 2012 challenge dataset.
-function load_data(; split_at=24, n_samples=512, sampling_rate=1, batch_size=32, variables_of_interest=["MAP", "HR", "Temp"], normalization=true)
+function load_data(; split_at=24, n_samples=512, sampling_rate=1, batch_size=32, target_variables=["MAP", "HR", "Temp"], normalization=true)
     time_series_dataset = load_multiple_files("/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/time_series")
 
 
@@ -9,32 +9,35 @@ function load_data(; split_at=24, n_samples=512, sampling_rate=1, batch_size=32,
         "Creatinine", "HCO3"]
 
     static_features_df, static_features_matrix = extract_static_features("/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/time_series")
-    x, masks_ = create_tensor(time_series_dataset, observation_variables)       # observation variables
-    y, masks = create_tensor(time_series_dataset, variables_of_interest)        # target variables
+    ts_data, ts_masks = create_tensor(time_series_dataset, observation_variables)       # observation variables + their masks
+    y, y_masks = create_tensor(time_series_dataset, target_variables)        # target variables
     if normalization
         @info "data is being normalized"
-        x, μ_x, σ_x = z_normalize(x)
+        ts_data, μ_ts, σ_ts = z_normalize(ts_data)
         y, μ_y, σ_y = z_normalize(y)
 
-        normalization_stats = Dict("x_stats" => (μ=μ_x, σ=σ_x), "y_stats" => (μ=μ_y, σ=σ_y))
+        normalization_stats = Dict("ts_stats" => (μ=μ_ts, σ=σ_ts), "y_stats" => (μ=μ_y, σ=σ_y))
     else
         @info "data is not being normalized"
         normalization_stats = nothing
     end
-    inputs_data, _ = create_tensor(time_series_dataset, ["MechVent"])
-    obs_data = join_static_and_timeseries(static_features_matrix, x)
+    u, _ = create_tensor(time_series_dataset, ["MechVent"])
+    x = join_static_and_timeseries(static_features_matrix, ts_data)
 
-    inputs_data = inputs_data[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
-    obs_data = obs_data[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
+    x = x[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
+    u = u[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
     y = y[:, 1:sampling_rate:end, 1:n_samples] |> Array{Float32}
-    masks = masks[:, 1:sampling_rate:end, 1:n_samples] |> Array{Bool}
+    y_masks = y_masks[:, 1:sampling_rate:end, 1:n_samples] |> Array{Bool}
+    x_masks = ts_masks[:, 1:sampling_rate:end, 1:n_samples] |> Array{Bool}
 
-    obs_data_hist, obs_data_fut = obs_data[:, 1:split_at, :], obs_data[:, split_at+1:end, :]
-    masks_hist, masks_fut = masks[:, 1:split_at, :], masks[:, split_at+1:end, :]
-    inputs_data_hist, inputs_data_fut = inputs_data[:, 1:split_at, :], inputs_data[:, split_at+1:end, :]
+    x_hist, x_fut = x[:, 1:split_at, :], x[:, split_at+1:end, :]
+    u_hist, u_fut = u[:, 1:split_at, :], u[:, split_at+1:end, :]
+    y_masks_hist, y_masks_fut = y_masks[:, 1:split_at, :], y_masks[:, split_at+1:end, :]
     y_hist, y_fut = y[:, 1:split_at, :], y[:, split_at+1:end, :]
+    x_hist_masks = x_masks[:, 1:split_at, :]   # obs masks for history window only
+    x_fut_masks = x_masks[:, split_at+1:end, :]   # obs masks for future window only
 
-    data = (inputs_data_hist, obs_data_hist, y_hist, masks_hist, inputs_data_fut, obs_data_fut, y_fut, masks_fut)
+    data = (x_hist, u_hist, y_hist, y_masks_hist, x_hist_masks, x_fut, u_fut, y_fut, y_masks_fut, x_fut_masks)
     train_data, val_data, test_data = splitobs(data, at=(0.5, 0.3))
     train_loader = DataLoader(train_data, batchsize=batch_size, shuffle=true)
     val_loader = DataLoader(val_data, batchsize=batch_size, shuffle=true)

@@ -6,21 +6,21 @@ model:
       type: "MLP"
       hidden_size: 32
       depth: 1
-      activation: swish
+      activation: sigmoid
     drift_aug:
       type: "MLP"
       hidden_size: 32
       depth: 1
-      activation: swish
+      activation: sigmoid
     diffusion:
       type: "SparseMLP"
       activation: sigmoid
-    solver: LambaEM()
+    solver: EM()
     kwargs:
       dt: 0.01
 
   validation:
-    solver: LambaEM()
+    solver: EM()
     kwargs:
       dt: 0.01
 
