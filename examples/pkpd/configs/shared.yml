@@ -4,7 +4,7 @@
 
 shared:
   model:
-    latent_dim: 16
+    latent_dim: 8
     context_dim: 64
 
     obs_encoder:
@@ -16,16 +16,16 @@ shared:
       dists: ["Classification", "Poisson"]
 
   training:
-    learning_rate: 0.002
+    learning_rate: 0.001
     optimizer: AdamW()
-    epochs: 100
+    epochs: 300
     log_freq: 10
     viz_freq: 10
-    stop_patience: 40
+    stop_patience: 10
     batch_size: 32
     lr_decay:
       type: "exponential"
       gamma: 0.9
-      step_every: 50
+      step_every: 100
     validation:
-      mcmc_samples: 50
+      mcmc_samples: 100

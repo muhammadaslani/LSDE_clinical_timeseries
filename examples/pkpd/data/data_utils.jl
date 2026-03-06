@@ -5,7 +5,7 @@ function generate_dataloader(; n_samples=512, batchsize=32, split=(0.5, 0.3), ob
         Y₁_padded, Masks₁, timepoints = pad_matrices(Y₁, T)
         Y₂_padded, Masks₂, _ = pad_matrices(Y₂, T)
         X_padded, _ = pad_matrices(X, T; return_timepoints=false, pad_method=:last)
-        Y₁_irreg, Y₂_irreg, Masks₁, Masks₂ = irregularize(Y₁_padded, Y₂_padded, Masks₁, Masks₂, irreg_rate=0.05)
+        Y₁_irreg, Y₂_irreg, Masks₁, Masks₂ = irregularize(Y₁_padded, Y₂_padded, Masks₁, Masks₂, irreg_rate=0.1)
 
         normalization_stats = Dict()
 

@@ -13,7 +13,7 @@ function generate_dataloader(; n_samples=512, batchsize=16, split=(0.5, 0.3), ob
         Masks = copy(Masks)
         for i in axes(Y_padded, 3)
             for j in axes(Y_padded, 2)
-                if rand() > 0.5  # ~20% irregularity rate
+                if rand() > 0.8  # ~20% irregularity rate
                     Y_padded[:, j, i] .= 0
                     Masks[:, j, i] .= false
                 end

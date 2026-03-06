@@ -4,17 +4,19 @@ model:
   SDE:
     drift:
       type: "MLP"
-      hidden_size: 32
+      hidden_size: 64
       depth: 1
       activation: swish
     drift_aug:
       type: "MLP"
-      hidden_size: 32
+      hidden_size: 64
       depth: 1
       activation: swish
     diffusion:
-      type: "SparseMLP"
-      activation: sigmoid
+      type: "DiffusionMLP"
+      hidden_size: 32
+      depth: 1
+      activation: swish
     solver: EM()
     kwargs:
       dt: 0.01

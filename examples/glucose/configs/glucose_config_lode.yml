@@ -1,6 +1,5 @@
 model:
   type: "LatentODE"
-  context_dim: 32
 
   ODE:
     vector_field:
@@ -8,12 +7,12 @@ model:
       hidden_size: 32
       depth: 1
       activation: swish
-    solver: Tsit5()
+    solver: Euler()
     kwargs:
       dt: 0.01
 
   validation:
-    solver: Tsit5()
+    solver: Euler()
     kwargs:
       dt: 0.01
 

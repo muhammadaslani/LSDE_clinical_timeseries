@@ -20,7 +20,7 @@ Base.@kwdef struct ModelParameters
     # LogNormal(log(median), σ_log): σ_log ≈ 0.08 gives ~8% CV
 
     # Tumor growth rate: affected by age, gender, tumor type
-    ρ::Float64 = rand(rng, LogNormal(log(0.015), 0.08)) *
+    ρ::Float64 = rand(rng, LogNormal(log(0.015), 0.2)) *
                  (1 + 0.001 * (age - 50) / 30) *
                  (gender == 0 ? 1.01 : 0.99) *
                  (tumor_type == "SCLC" ? 1.02 : 0.98)
@@ -31,22 +31,22 @@ Base.@kwdef struct ModelParameters
                  (tumor_type == "SCLC" ? 0.98 : 1.02)
 
     # Chemotherapy efficacy: affected by age, BSA, tumor type
-    β_c::Float64 = rand(rng, LogNormal(log(0.4), 0.08)) *
+    β_c::Float64 = rand(rng, LogNormal(log(0.8), 0.15)) *
                    (1 - 0.0003 * (age - 50)) *
                    (1 / (BSA / 1.7)) *
                    (tumor_type == "SCLC" ? 1.02 : 0.98)
 
     ω_c::Float64 = 1.0   # Chemotherapy sessions frequency (every X weeks)
 
-    λ_c::Float64 = rand(rng, LogNormal(log(0.7), 0.05))  # Chemo decay rate
+    λ_c::Float64 = rand(rng, LogNormal(log(0.2), 0.05))  # Chemo decay rate (slower clearance)
 
     # Radiotherapy linear effect: affected by age and tumor type
-    α_r::Float64 = rand(rng, LogNormal(log(1.2), 0.08)) *
+    α_r::Float64 = rand(rng, LogNormal(log(0.3), 0.15)) *
                    (1 - 0.0003 * (age - 50)) *
                    (tumor_type == "SCLC" ? 1.02 : 0.98)
 
     # Radiotherapy quadratic effect: affected by tumor type
-    β_r::Float64 = rand(rng, LogNormal(log(0.5), 0.08)) *
+    β_r::Float64 = rand(rng, LogNormal(log(0.1), 0.15)) *
                    (tumor_type == "SCLC" ? 1.01 : 0.99)
 
     ω_r::Float64 = 1.0   # Radiotherapy sessions frequency (every X days)
@@ -106,9 +106,9 @@ Base.@kwdef struct ModelParameters
     # Radio toxicity on health
     η_r::Float64 = rand(rng, LogNormal(log(0.3), 0.08))
 
-    σ_tumor::Float64 = 0.02    # Tumor growth noise (low)
-    σ_immune::Float64 = 0.02   # Immune response noise (low)
-    σ_health::Float64 = 0.02   # Health status noise (low)
+    σ_tumor::Float64 = 0.05    # 10% relative process noise
+    σ_immune::Float64 = 0.05   # 10% relative process noise
+    σ_health::Float64 = 0.05   # 10% relative process noise
 end
 
 """
@@ -159,9 +159,10 @@ function generate_observations(
     sample_rate::Int;
     rng::Random.AbstractRNG=Random.GLOBAL_RNG,
     misclass_prob::Float64=0.05
-)::Tuple{Vector{Int},Vector{Int},Vector{Float64}}
+)::Tuple{Vector{Int},Vector{Float64},Vector{Float64}}
     tumor_counts = max.(sol[1, :], 0.0)[1:sample_rate:end]
-    y_obs = [rand(rng, Poisson(λ)) for λ in tumor_counts]
+    scale = 25
+    y_obs = [rand(rng, Poisson(λ * scale)) / scale for λ in tumor_counts]
     H_true = health_to_score.(sol[5, :])[1:sample_rate:end]
     H_obs = add_health_noise(H_true; rng=rng, misclass_prob=misclass_prob)
     t_obs = sol.t[1:sample_rate:end]
@@ -177,8 +178,8 @@ function generate_observations(
     ensemble_sol::EnsembleSolution,
     sample_rate::Int;
     rng::Random.AbstractRNG=Random.GLOBAL_RNG
-)::Tuple{Vector{Matrix{Int}},Vector{Vector{Float64}}}
-    Y = Vector{Matrix{Int}}()
+)::Tuple{Vector{Matrix{Float64}},Vector{Vector{Float64}}}
+    Y = Vector{Matrix{Float64}}()
     T = Vector{Vector{Float64}}()
     for sol in ensemble_sol
         misclass_prob = 0.0  # disabled for now
@@ -245,34 +246,34 @@ Diffusion term for the stochastic differential equation.
 """
 function diffusion(dX::Vector{Float64}, X::Vector{Float64}, p::ModelParameters, t::Float64)
     x, c, d, I, S = X
-    dX[1] = p.σ_tumor * sqrt(max(x, 0.0) + 1e-5)   # tumor: moderate uncertainty
-    dX[2] = 0.0                                       # chemo PK: deterministic
-    dX[3] = 0.0                                       # radio PK: deterministic
-    dX[4] = p.σ_immune * sqrt(abs(I) + 1e-5)          # immune: moderate uncertainty
-    dX[5] = p.σ_health * sqrt(abs(S) + 1e-5)          # health: low uncertainty
+    dX[1] = p.σ_tumor * max(x, 0.0)    # σ_tumor = 0.1 means ~10% noise
+    dX[2] = 0.0                         # chemo PK: deterministic
+    dX[3] = 0.0                         # radio PK: deterministic
+    dX[4] = p.σ_immune * abs(I)          # σ_immune = 0.1 means ~10% noise
+    dX[5] = p.σ_health * abs(S)          # σ_health = 0.1 means ~10% noise
 end
 
 """
 Termination condition: health drops below threshold (death).
 """
-condition_death(X::Vector{Float64}, t::Float64, integrator) = X[5] - 0.1
+condition_death(X::Vector{Float64}, t::Float64, integrator) = X[5] - 0.01
 
 """
 Termination condition: tumor drops below threshold (remission/cure).
 """
-condition_remission(X::Vector{Float64}, t::Float64, integrator) = X[1] - 0.5
+condition_remission(X::Vector{Float64}, t::Float64, integrator) = X[1] - 0.05
 
 """
 Callback effect for termination.
 """
 function affect_death!(integrator)
     terminate!(integrator)
-    integrator.u[5] = 0.1
+    integrator.u[5] = 0.01
 end
 
 function affect_remission!(integrator)
     terminate!(integrator)
-    integrator.u[1] = 0.5
+    integrator.u[1] = 0.05
 end
 
 """
@@ -284,7 +285,7 @@ function generate_dataset(;
     n_samples::Int,
     X₀_mean::Vector{Float64}=[20.0, 0.0, 0.0, 0.8, 0.9],
     X₀_std::Vector{Float64}=[2.0, 0.0, 0.0, 0.2, 0.2],
-    tspan::Tuple{Float64,Float64}=(0.0, 90.0),
+    tspan::Tuple{Float64,Float64}=(0.0, 180.0),
     sample_rate::Int=3,
     params::ModelParameters=ModelParameters(),
     seed::Union{Int,Nothing}=1234
@@ -311,8 +312,8 @@ function generate_dataset(;
             max(rand(patient_rng, Normal(X₀_mean[1], X₀_std[1])), 12.0),  # tumor: min size 12
             0.0,                                                            # chemo: no drug at start
             0.0,                                                            # radio: no drug at start
-            rand(patient_rng, Beta(20, 5)),                                 # immune: mean ≈ 0.8, very tight
-            rand(patient_rng, Beta(15, 3))                                  # health: mean ≈ 0.83, very tight
+            rand(patient_rng, Beta(20, 5)),                                 
+            rand(patient_rng, Beta(15, 3))                                  
         ]
 
         covariates[:, i] .= [
@@ -345,7 +346,7 @@ function generate_dataset(;
     Y₂ = [reshape(y[2, :], 1, :) for y in Y]
 
     @info "Dataset generation complete"
-    return Array{Float32}.(U), Array{Float32}.(X), Array{Int}.(Y₁), Array{Int}.(Y₂), Array{Float32}.(T), covariates
+    return Array{Float32}.(U), Array{Float32}.(X), Array{Int}.(Y₁), Array{Float32}.(Y₂), Array{Float32}.(T), covariates
 end
 
 # U, X, Y₁, Y₂, T, covariates = generate_dataset(; n_samples = 512)

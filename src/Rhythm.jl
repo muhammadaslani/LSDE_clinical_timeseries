@@ -26,7 +26,7 @@ export Encoder, Identity_Encoder, Recurrent_Encoder, CDE_Encoder
 include("core/decoders.jl")
 export Decoder, Identity_Decoder, Linear_Decoder, MLP_Decoder, MultiHeadMLPDecoder, MultiHeadLinearDecoder
 include("core/vectorfields.jl")
-export MLP, SparseMLP, SparseMLP_ODE, HopfOscillators, Linear, LimitCycleOscillators, StuartLandauOscillators, CDEField
+export MLP, SparseMLP, DiffusionMLP, SparseMLP_ODE, HopfOscillators, Linear, LimitCycleOscillators, StuartLandauOscillators, CDEField
 
 
 const TYPE_MAP = Dict(
@@ -39,6 +39,7 @@ const TYPE_MAP = Dict(
     "Linear_Decoder" => Linear_Decoder,
     "MLP" => MLP,
     "SparseMLP" => SparseMLP,
+    "DiffusionMLP" => DiffusionMLP,
     "HopfOscillators" => HopfOscillators,
     "StuartLandauOscillators" => StuartLandauOscillators,
     "LimitCycleOscillators" => LimitCycleOscillators,
@@ -60,7 +61,7 @@ const SOLVER_MAP = Dict(
 include("utils/misc.jl")
 export sample_rp, interpolate!, basic_tgrad, dropmean, dropsd, pad_matrices, irregularize, split_matrix, npe, npe_per_timepoint, empirical_crps, z_normalize, z_denormalize, min_max_normalize, min_max_denormalize, acc, build_control_path, build_control_path, build_control_path
 include("utils/losses.jl")
-export kl_normal, poisson_loglikelihood, poisson_nll_lograte, poisson_loglikelihood_multiple_samples, normal_loglikelihood, mse, frange_cycle_linear, bits_per_spike, CrossEntropy_Loss
+export kl_normal, poisson_loglikelihood, poisson_nll_lograte, poisson_loglikelihood_multiple_samples, normal_loglikelihood, mse, frange_cycle_linear, frange_cycle_cosine, bits_per_spike, CrossEntropy_Loss
 include("utils/config.jl")
 export create_object, create_latentsde, create_latentode, create_latent_lstm, create_latent_cde
 include("trainer.jl")

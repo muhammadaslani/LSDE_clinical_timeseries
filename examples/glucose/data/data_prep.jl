@@ -66,7 +66,7 @@ Base.@kwdef struct ModelParameters
     insulin_doses::Vector{Float64} = Float64[]  # total insulin per injection [μU/mL·min]
 
     # Process noise level (SDE diffusion coefficient)
-    σ_process::Float64 = 1e-4
+    σ_process::Float64 = 5e-2
 end
 
 # ── Input functions ──────────────────────────────────────────────────────────
@@ -224,7 +224,7 @@ Returns
 """
 function generate_dataset(;
     n_samples::Int,
-    tspan::Tuple{Float64,Float64} = (0.0, 720.0),  # 720 min = 12 hours
+    tspan::Tuple{Float64,Float64} = (0.0, 720.0),  # 1440 min = 24 hours
     sample_rate::Int = 10,                             # observe every 5 min (CGM-like)
     n_meals::Int = 6,
     seed::Union{Int,Nothing} = 1234
@@ -235,11 +235,11 @@ function generate_dataset(;
 
     # Per-patient schedule parameters
     # first_meal:    60–120 min (1–2 hours after start)
-    # meal_interval: 120–180 min (2–3 hours between meals)
+    # meal_interval: 240–360 min (4–6 hours between meals)
     # bolus_offset:  0–15 min (pre-meal bolus injection timing)
     # basal_time:    1200–1380 min (8–11 PM nightly basal injection)
     first_meals    = [rand(rng, Uniform(60.0, 120.0))   for _ in 1:n_samples]
-    meal_intervals = [rand(rng, Uniform(120.0, 180.0))  for _ in 1:n_samples]
+    meal_intervals = [rand(rng, Uniform(240.0, 360.0))  for _ in 1:n_samples]
     bolus_offsets  = [rand(rng, Uniform(0.0,   15.0))   for _ in 1:n_samples]
     basal_times    = [rand(rng, Uniform(1200.0, 1380.0)) for _ in 1:n_samples]
 
@@ -319,7 +319,7 @@ function generate_dataset(;
         push!(U, generate_inputs(p.meal_times, p.meal_doses, p.insulin_times, p.insulin_doses, tspan, sample_rate))
 
         obs_rng = Random.MersenneTwister(base_seed + UInt(n_samples) + UInt(i))
-        σ_obs = rand(obs_rng, Uniform(1.0, 2.0))
+        σ_obs = rand(obs_rng, Uniform(0.0, 1.0))
         G_obs, t_obs = generate_observations(sol, sample_rate; rng = obs_rng, σ_obs = σ_obs)
         push!(Y, G_obs)
         push!(T, t_obs)

@@ -52,7 +52,7 @@ function (model::LatentSDE)(y::AbstractArray, u::Union{Nothing,AbstractArray}, t
   x₀_aug = CRC.@ignore_derivatives fill!(similar(x₀, 1, size(x₀)[2]), 0.0f0)
   x₀ = vcat(x₀, x₀_aug)
   u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
-  x_sol = model.dynamics(x₀, u_enc, context, ts_obs, ps.dynamics, st.dynamics)[1]
+  x_sol = model.dynamics(x₀, u_enc, context, ts_for, ps.dynamics, st.dynamics)[1]
   x_arr = cat(x_sol.u..., dims=3)
   x_ = permutedims(x_arr, (1, 3, 2))
   x = x_[1:end-1, :, :]

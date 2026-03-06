@@ -4,15 +4,15 @@ model:
   CDE:
     vector_field:
       type: "CDEField"
-      hidden_size: 32
+      hidden_size: 64
       depth: 1
       activation: swish
-    solver: Tsit5()
+    solver: Euler()
     kwargs:
       dt: 0.01
 
   validation:
-    solver: Tsit5()
+    solver: Euler()
     kwargs:
       dt: 0.01
 

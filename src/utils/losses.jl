@@ -335,3 +335,40 @@ function frange_cycle_linear(n_iter, start::T=0.0f0, stop::T=1.0f0, n_cycle=4, r
     end
     return T.(L)
 end
+
+"""
+    frange_cycle_cosine(n_iter, start, stop, n_cycle, ratio)
+
+Generate a cosine annealing schedule with cycles.
+Ramps up slowly at first, accelerates in the middle, then slows near the plateau —
+gives more time in the low-KL regime compared to linear annealing.
+
+Arguments:
+
+  - `n_iter`: Number of iterations.
+  - `start`: Start value.
+  - `stop`: Stop value.
+  - `n_cycle`: Number of cycles.
+  - `ratio`: Fraction of each cycle spent ramping (rest is held at `stop`).
+
+returns:
+
+    - The cosine schedule.
+
+"""
+function frange_cycle_cosine(n_iter, start::T=0.0f0, stop::T=1.0f0, n_cycle=4, ratio=0.5) where T
+    L = ones(n_iter) * stop
+    period = n_iter / n_cycle
+    ramp_len = Int(round(period * ratio))
+
+    for c in 0:n_cycle-1
+        for i in 1:ramp_len
+            idx = Int(round(i + c * period))
+            idx >= n_iter && break
+            # Cosine ramp: 0.5 * (1 - cos(π * t)) goes from 0 to 1
+            t = (i - 1) / max(ramp_len - 1, 1)
+            L[idx] = start + (stop - start) * T(0.5) * (one(T) - T(cos(π * t)))
+        end
+    end
+    return T.(L)
+end

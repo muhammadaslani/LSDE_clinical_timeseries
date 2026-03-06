@@ -49,11 +49,11 @@ Returns:
 """
 
 function (model::LatentLSTM)(y::AbstractArray, u::Union{Nothing,AbstractArray}, ts::Tuple, ps::ComponentArray, st::NamedTuple)
-  ts_obs, _ = ts
+  ts_obs, ts_for = ts
   px₀, _ = model.obs_encoder(y, ts_obs, ps.obs_encoder, st.obs_encoder)[1]
   x₀ = model.init_map(sample_rp(px₀), ps.init_map, st.init_map)[1]
   u_enc = model.ctrl_encoder(u, ps.ctrl_encoder, st.ctrl_encoder)[1]
-  x = model.dynamics(x₀, u_enc, ts_obs, ps.dynamics, st.dynamics)[1]
+  x = model.dynamics(x₀, u_enc, ts_for, ps.dynamics, st.dynamics)[1]
   kl_path = nothing
   x = model.state_map(x, ps.state_map, st.state_map)[1]
   ŷ = model.obs_decoder(x, ps.obs_decoder, st.obs_decoder)[1]

@@ -95,6 +95,35 @@ SparseMLP(Id::Int, Od::Int; activation) =
         @return m(x)
     end
 
+"""
+    DiffusionMLP(Id::Int, Od::Int; hidden_size, depth, activation)
+
+MLP with a guaranteed positive, bounded output for SDE diffusion networks.
+Hidden layers use the specified activation; the final layer applies sigmoid
+to keep output in (0, 1), ensuring numerical stability in KL computation.
+
+Arguments:
+
+- `Id`: Dimension of the input.
+- `Od`: Dimension of the output.
+- `hidden_size`: Dimension of the hidden layers.
+- `depth`: Number of hidden layers.
+- `activation`: Activation function for hidden layers.
+
+returns:
+
+    - `Chain`
+
+"""
+function DiffusionMLP(Id::Int, Od::Int; hidden_size, depth, activation)
+    layers = Any[Dense(Id => hidden_size, activation)]
+    for i in 1:depth
+        push!(layers, Dense(hidden_size => hidden_size, activation))
+    end
+    push!(layers, Dense(hidden_size => Od, sigmoid))
+    return Chain(layers...)
+end
+
 
 
 # -----------------------------------------------------------------------

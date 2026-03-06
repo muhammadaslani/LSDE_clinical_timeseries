@@ -32,7 +32,7 @@ lsde_models, lsde_params, lsde_states, lsde_performances =
 lsde_cfg = load_config(config_lsde_path);
 lsde_stats = assess_model_performance(lsde_performances, variables_of_interest;
     model_name="Latent SDE", forecast_fn=forecast,
-    plot_sample=true, sample_n=4, viz_fn=viz_fn,
+    plot_sample=true, sample_n=1, viz_fn=viz_fn,
     models=lsde_models, params=lsde_params, states=lsde_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=merge(lsde_cfg["model"]["validation"], lsde_cfg["training"]["validation"]));
@@ -46,7 +46,7 @@ lode_models, lode_params, lode_states, lode_performances =
 lode_cfg = load_config(config_lode_path);
 lode_stats = assess_model_performance(lode_performances, variables_of_interest;
     model_name="Latent ODE", forecast_fn=forecast,
-    plot_sample=true, sample_n=3, viz_fn=viz_fn,
+    plot_sample=true, sample_n=1, viz_fn=viz_fn,
     models=lode_models, params=lode_params, states=lode_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=merge(lode_cfg["model"]["validation"], lode_cfg["training"]["validation"]));
@@ -60,7 +60,7 @@ lstm_models, lstm_params, lstm_states, lstm_performances =
 lstm_cfg = load_config(config_lstm_path);
 lstm_stats = assess_model_performance(lstm_performances, variables_of_interest;
     model_name="Latent LSTM", forecast_fn=forecast,
-    plot_sample=true, sample_n=3, viz_fn=viz_fn,
+    plot_sample=true, sample_n=1, viz_fn=viz_fn,
     models=lstm_models, params=lstm_params, states=lstm_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=merge(lstm_cfg["model"]["validation"], lstm_cfg["training"]["validation"]));
@@ -74,7 +74,7 @@ lcde_models, lcde_params, lcde_states, lcde_performances =
 lcde_cfg = load_config(config_lcde_path);
 lcde_stats = assess_model_performance(lcde_performances, variables_of_interest;
     model_name="Latent CDE", forecast_fn=forecast,
-    plot_sample=true, sample_n=3, viz_fn=viz_fn,
+    plot_sample=true, sample_n=1, viz_fn=viz_fn,
     models=lcde_models, params=lcde_params, states=lcde_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=merge(lcde_cfg["model"]["validation"], lcde_cfg["training"]["validation"]));

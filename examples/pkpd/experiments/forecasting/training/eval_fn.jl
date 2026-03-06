@@ -1,14 +1,15 @@
 # Evaluation functions for PKPD forecasting models
 function eval_fn(model, θ, st, ts, data, config)
-    u_obs, covars_obs, _, y₁_obs, y₂_obs, mask₁_obs, mask₂_obs, _, _, _, _, _, _, _ = data
+    u_obs, covars_obs, x_obs, y₁_obs, y₂_obs, mask₁_obs, mask₂_obs, u_for, covars_for, x_for, y₁_for, y₂_for, mask₁_for, mask₂_for = data
     batch_size = size(y₁_obs)[end]
 
     ts_obs, ts_for = ts
-    (ŷ₁, ŷ₂), _, _ = model(vcat(covars_obs, y₁_obs, log.(y₂_obs .+ 1)), u_obs, (ts_obs, ts_for), θ, st)
-    eval_loss_1 = CrossEntropy_Loss(ŷ₁, y₁_obs, mask₁_obs; agg=sum) / batch_size
-    eval_loss_2 = -poisson_loglikelihood(ŷ₂, y₂_obs, mask₂_obs) / batch_size
+    (ŷ₁, ŷ₂), _, kl_pq = model(vcat(covars_obs, y₁_obs, log.(y₂_obs .+ 1)), u_for, (ts_obs, ts_for), θ, st)
+    eval_loss_1 = CrossEntropy_Loss(ŷ₁, y₁_for, mask₁_for; agg=sum) / batch_size
+    eval_loss_2 = -poisson_loglikelihood(ŷ₂, y₂_for, mask₂_for) / batch_size
+    kl_val = kl_pq === nothing ? 0.0f0 : mean(kl_pq[end, :])
     eval_loss = eval_loss_1 + eval_loss_2
-    return (eval_loss, eval_loss_1, eval_loss_2)
+    return (eval_loss, eval_loss_1, eval_loss_2, kl_val)
 end
 
 function eval_forecast(true_data, forecasted_data)
