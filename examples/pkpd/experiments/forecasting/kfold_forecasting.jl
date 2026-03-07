@@ -48,7 +48,7 @@ lode_models, lode_params, lode_states, lode_performances =
 lode_cfg = load_config(config_lode_path);
 lode_stats = assess_model_performance(lode_performances, variables_of_interest;
     model_name="Latent ODE", forecast_fn=forecast,
-    plot_sample=true, sample_n=5, viz_fn=vis_fn,
+    plot_sample=true, sample_n=1, viz_fn=vis_fn,
     models=lode_models, params=lode_params, states=lode_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=merge(lode_cfg["model"]["validation"], lode_cfg["training"]["validation"]));
@@ -87,5 +87,5 @@ model_comparison = compare_pkpd_models(
     sort_by="overall");
 
     model_comparison = compare_pkpd_models(
-    Dict("Latent SDE" => lsde_stats, "Latent ODE" => lode_stats, "Latent LSTM" => lstm_stats),
+    Dict("Latent SDE" => lsde_stats, "Latent ODE" => lode_stats),
     sort_by="overall");

@@ -14,7 +14,7 @@ model:
   validation:
     solver: Euler()
     kwargs:
-      dt: 0.01
+      dt: 0.02
 
 experiment:
   name: "LatentCDE_PKPD_V0"
