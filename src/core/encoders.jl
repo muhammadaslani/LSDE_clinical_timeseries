@@ -37,7 +37,12 @@ returns:
 function (model::Encoder)(x, p, st)
     x_, st1 = model.linear_net(x, p.linear_net, st.linear_net)
     px₀, st2 = model.init_net(x_, p.init_net, st.init_net)
-    context, st3 = model.context_net(x_, p.context_net, st.context_net)
+    if model.context_net isa NoOpLayer
+        context = nothing
+        st3 = st.context_net
+    else
+        context, st3 = model.context_net(x_, p.context_net, st.context_net)
+    end
     st = (st1, st2, st3)
     return (px₀, context), st
 end

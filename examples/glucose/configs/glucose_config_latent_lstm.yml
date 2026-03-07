@@ -1,10 +1,10 @@
 model:
   type: "LatentLSTM"
-  context_dim: 32
+  context_dim: 16
 
   dynamics:
     type: "LSTM"
-    hidden_size: 32
+    hidden_size: 16
     depth: 1
 
   validation:

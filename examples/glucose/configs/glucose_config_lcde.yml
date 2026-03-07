@@ -4,17 +4,17 @@ model:
   CDE:
     vector_field:
       type: "CDEField"
-      hidden_size: 32
+      hidden_size: 16
       depth: 1
       activation: swish
     solver: Euler()
     kwargs:
-      dt: 0.01
+      dt: 0.02
 
   validation:
     solver: Euler()
     kwargs:
-      dt: 0.01
+      dt: 0.02
 
 experiment:
   name: "LatentCDE_Glucose_V0"

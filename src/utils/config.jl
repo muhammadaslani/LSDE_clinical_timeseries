@@ -36,7 +36,8 @@ function create_latentsde(config::Dict, dims::Dict, rng::AbstractRNG)
     end
     obs_encoder = create_object(config["obs_encoder"], sum(obs_dim), latent_dim, context_dim)
     drift = create_object(config["SDE"]["drift"], [latent_dim, input_dim], latent_dim)
-    drift_aug = create_object(config["SDE"]["drift_aug"], [latent_dim, context_dim, input_dim], latent_dim)
+    drift_aug_dims = context_dim > 0 ? [latent_dim, context_dim, input_dim] : [latent_dim, input_dim]
+    drift_aug = create_object(config["SDE"]["drift_aug"], drift_aug_dims, latent_dim)
     diffusion = create_object(config["SDE"]["diffusion"], latent_dim, latent_dim)
 
     sde_kwargs = Dict{Symbol,Any}(Symbol(k) => Float32.(v) for (k, v) in config["SDE"]["kwargs"])

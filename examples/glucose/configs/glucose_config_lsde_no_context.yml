@@ -1,22 +1,23 @@
 model:
   type: "LatentSDE"
+  context_dim: 0
 
   SDE:
     drift:
       type: "MLP"
-      hidden_size: 64
+      hidden_size: 16
       depth: 1
       activation: swish
     drift_aug:
       type: "MLP"
-      hidden_size: 64
+      hidden_size: 16
       depth: 1
       activation: swish
     diffusion:
       type: "DiffusionMLP"
-      hidden_size: 32
+      hidden_size: 16
       depth: 1
-      activation: swish
+      activation: sigmoid
     solver: EM()
     kwargs:
       dt: 0.02
@@ -27,6 +28,6 @@ model:
       dt: 0.02
 
 experiment:
-  name: "LatentSDE_PKPD_V0"
-  description: "Latent SDE model for PKPD forecasting"
+  name: "LatentSDE_Glucose_NoContext"
+  description: "Ablation: Latent SDE without encoder context"
   path: "experiments/"

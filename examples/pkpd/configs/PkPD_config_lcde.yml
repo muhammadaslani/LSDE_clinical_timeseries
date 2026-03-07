@@ -9,7 +9,7 @@ model:
       activation: swish
     solver: Euler()
     kwargs:
-      dt: 0.01
+      dt: 0.02
 
   validation:
     solver: Euler()

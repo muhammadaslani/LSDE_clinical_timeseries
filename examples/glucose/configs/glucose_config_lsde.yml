@@ -5,25 +5,27 @@ model:
   SDE:
     drift:
       type: "MLP"
-      hidden_size: 32
+      hidden_size: 16
       depth: 1
       activation: swish
     drift_aug:
       type: "MLP"
-      hidden_size: 32
+      hidden_size: 16
       depth: 1
       activation: swish
     diffusion:
-      type: "SparseMLP"
+      type: "DiffusionMLP"
+      hidden_size: 16
+      depth: 1
       activation: sigmoid
-    solver: LambaEM()
+    solver: EM()
     kwargs:
-      dt: 0.01
+      dt: 0.02
 
   validation:
-    solver: LambaEM()
+    solver: EM()
     kwargs:
-      dt: 0.01
+      dt: 0.02
 
 experiment:
   name: "LatentSDE_Glucose_V0"

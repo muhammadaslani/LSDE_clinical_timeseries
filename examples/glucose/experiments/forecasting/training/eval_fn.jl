@@ -3,12 +3,13 @@ function eval_fn(model, θ, st, ts, data, config)
 
     ts_obs, ts_for = ts
     y_enc = vcat(covars_obs, y_obs, mask_obs)
-    ŷ, _, _ = model(y_enc, u_obs, (ts_obs, ts_for), θ, st)
+    ŷ, _, kl_pq = model(y_enc, u_forecast, (ts_obs, ts_for), θ, st)
 
     μ, log_σ² = ŷ
-    eval_loss = normal_loglikelihood(μ .* mask_obs, log_σ² .* mask_obs, y_obs .* mask_obs)
-    eval_rmse = sqrt.(mse(μ .* mask_obs, y_obs .* mask_obs))
-    return (eval_loss, eval_loss, eval_rmse)
+    eval_loss = normal_loglikelihood(μ .* mask_forecast, log_σ² .* mask_forecast, y_forecast .* mask_forecast)
+    eval_rmse = sqrt.(mse(μ .* mask_forecast, y_forecast .* mask_forecast))
+    kl_val = kl_pq === nothing ? 0.0f0 : mean(kl_pq[end, :])
+    return (eval_loss, eval_loss, eval_rmse, kl_val)
 end
 
 function eval_forecast(true_data, forecasted_data)

@@ -1,5 +1,6 @@
 model:
   type: "LatentSDE"
+  context_dim: 0
 
   SDE:
     drift:
@@ -27,6 +28,6 @@ model:
       dt: 0.02
 
 experiment:
-  name: "LatentSDE_PKPD_V0"
-  description: "Latent SDE model for PKPD forecasting"
+  name: "LatentSDE_PKPD_NoContext"
+  description: "Ablation: Latent SDE without encoder context"
   path: "experiments/"
