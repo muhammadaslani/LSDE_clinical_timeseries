@@ -20,12 +20,12 @@ model:
       activation: sigmoid
     solver: EM()
     kwargs:
-      dt: 0.02
+      dt: 0.01
 
   validation:
     solver: EM()
     kwargs:
-      dt: 0.02
+      dt: 0.01
 
 experiment:
   name: "LatentSDE_Glucose_V0"

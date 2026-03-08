@@ -9,7 +9,7 @@ shared:
 
     obs_encoder:
       type: "Recurrent_Encoder"
-      hidden_size: 128
+      hidden_size: 64
 
     obs_decoder:
       type: "MultiHeadLinearDecoder"

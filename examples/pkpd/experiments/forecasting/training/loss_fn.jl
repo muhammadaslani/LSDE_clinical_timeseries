@@ -1,4 +1,4 @@
-function loss_fn(model, θ, st, data; β=0.05f0)
+function loss_fn(model, θ, st, data; β=0.005f0)
     (u_obs, covars_obs, x_obs, y₁_obs, y₂_obs, mask₁_obs, mask₂_obs,
         u_for, covars_for_, x_forecast, y₁_for, y₂_for, mask₁_for, mask₂_for), ts, λ = data
     batch_size = size(x_forecast)[end]
