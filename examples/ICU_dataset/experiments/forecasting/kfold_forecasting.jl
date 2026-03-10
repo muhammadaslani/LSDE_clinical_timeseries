@@ -28,14 +28,10 @@ data, _, _, _, _, normalization_stats =
 n_obs = split_at
 n_for = size(data[8], 2)   # y_fut is index 8
 n_total = n_obs + n_for
-ts_obs = Float32.(1:n_obs) ./ n_total   # obs window
-ts_for = Float32.(n_obs+1:n_total) ./ n_total   # forecast window
+ts_obs = Float32.(1:n_obs) ./ (n_total+1);   # obs window
+ts_for = Float32.(n_obs+1:n_total) ./ (n_total+1);   # forecast window
 timepoints = (ts_obs, ts_for);
 
-# Compute dims from data
-# Tuple: (x_hist[1], u_hist[2], y_hist[3], y_masks_hist[4], x_hist_masks[5],
-#          x_fut[6],  u_fut[7],  y_fut[8],  y_masks_fut[9],  x_fut_masks[10])
-# obs_dim is size(x_hist)+size(x_hist) due to mask concatenation inside loss/eval fns
 dims = Dict(
     "input_dim" => size(data[2], 1),                     # u_hist
     "obs_dim" => size(data[1], 1) + size(data[1], 1),  # x_hist + x_masks (same rows)
@@ -44,7 +40,7 @@ dims = Dict(
 
 
 k_folds = 2
-
+sample_n= 5
 # Latent SDE K-Fold Training
 config_lsde_path = joinpath(@__DIR__, "../../configs/ICU_config_lsde.yml");
 lsde_models, lsde_params, lsde_states, lsde_performances =
@@ -54,7 +50,7 @@ lsde_models, lsde_params, lsde_states, lsde_performances =
 lsde_cfg = load_config(config_lsde_path);
 lsde_stats = assess_model_performance(lsde_performances, target_variables;
     model_name="Latent SDE", forecast_fn=forecast,
-    plot_sample=true, sample_n=13, viz_fn=viz_fn,
+    plot_sample=true, sample_n=sample_n, viz_fn=viz_fn,
     models=lsde_models, params=lsde_params, states=lsde_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=merge(get(lsde_cfg["model"], "validation", Dict()), lsde_cfg["training"]["validation"]));
@@ -68,7 +64,7 @@ lode_models, lode_params, lode_states, lode_performances =
 lode_cfg = load_config(config_lode_path);
 lode_stats = assess_model_performance(lode_performances, target_variables;
     model_name="Latent ODE", forecast_fn=forecast,
-    plot_sample=true, sample_n=1, viz_fn=viz_fn,
+    plot_sample=true, sample_n=sample_n, viz_fn=viz_fn,
     models=lode_models, params=lode_params, states=lode_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=merge(get(lode_cfg["model"], "validation", Dict()), lode_cfg["training"]["validation"]));
@@ -82,7 +78,7 @@ lstm_models, lstm_params, lstm_states, lstm_performances =
 lstm_cfg = load_config(config_lstm_path);
 lstm_stats = assess_model_performance(lstm_performances, target_variables;
     model_name="Latent LSTM", forecast_fn=forecast,
-    plot_sample=true, sample_n=1, viz_fn=viz_fn,
+    plot_sample=true, sample_n=sample_n, viz_fn=viz_fn,
     models=lstm_models, params=lstm_params, states=lstm_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=merge(get(lstm_cfg["model"], "validation", Dict()), lstm_cfg["training"]["validation"]));
@@ -96,12 +92,12 @@ lcde_models, lcde_params, lcde_states, lcde_performances =
 lcde_cfg = load_config(config_lcde_path);
 lcde_stats = assess_model_performance(lcde_performances, target_variables;
     model_name="Latent CDE", forecast_fn=forecast,
-    plot_sample=true, sample_n=9, viz_fn=viz_fn,
+    plot_sample=true, sample_n=sample_n, viz_fn=viz_fn,
     models=lcde_models, params=lcde_params, states=lcde_states,
     data=data, normalization_stats=normalization_stats, timepoints=timepoints,
     config=merge(get(lcde_cfg["model"], "validation", Dict()), lcde_cfg["training"]["validation"]));
 
 # Compare all models
 model_comparison = compare_models(
-    Dict("Latent SDE" => lsde_stats, "Latent ODE" => lode_stats),
+    Dict("Latent SDE" => lsde_stats, "Latent ODE" => lode_stats, "Latent LSTM" => lstm_stats, "Latent CDE" => lcde_stats),
     sort_by="rmse");

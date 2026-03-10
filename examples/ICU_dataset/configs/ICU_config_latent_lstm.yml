@@ -1,15 +1,16 @@
 model:
   type: "LatentLSTM"
+  context_dim: 64
 
   dynamics:
     type: "LSTM"
-    hidden_size: 32
+    hidden_size: 64
     depth: 1
 
   validation:
-    solver: Tsit5()
+    solver: Euler()
     kwargs:
-      dt: 0.01
+      dt: 0.02
 
 experiment:
   name: "LatentLSTM_ICU_V0"

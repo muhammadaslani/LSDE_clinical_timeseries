@@ -1,27 +1,28 @@
-# Validation loss — mirrors loss_fn but without KL, computed on history reconstruction
+# Validation loss — mirrors loss_fn but without KL, computed on forecast targets
 function eval_fn(model, θ, st, ts, data, config)
-    x_obs, u_obs, y_obs, y_masks_obs, x_masks_obs, _, _, _, _, _ = data
-    batch_size = size(y_obs)[end]
+    x_obs, u_obs, y_obs, y_masks_obs, x_masks_obs, x_fut, u_fut, y_fut, y_masks_fut, x_fut_masks = data
+    batch_size = size(y_fut)[end]
 
     n_static = size(x_obs, 1) - size(x_masks_obs, 1)
     static_ones = ones(Float32, n_static, size(x_obs, 2), batch_size)
     x_mask_full = vcat(static_ones, Float32.(x_masks_obs))
     x_aug = vcat(x_obs, x_mask_full)
 
-    ŷ, _, _ = model(x_aug, u_obs, ts, θ, st)
+    ŷ, _, kl_pq = model(x_aug, u_fut, ts, θ, st)
 
     eval_losses = map(eachindex(ŷ)) do i
         μ, log_σ² = ŷ[i][1], ŷ[i][2]
         normal_loglikelihood(
             μ[1, :, :],
             log_σ²[1, :, :],
-            y_obs[i, :, :],
-            y_masks_obs[i, :, :]
+            y_fut[i, :, :],
+            y_masks_fut[i, :, :]
         ) / batch_size
     end
     eval_loss = sum(eval_losses)
+    kl_val = kl_pq === nothing ? 0.0f0 : mean(kl_pq[end, :])
 
-    return (eval_loss, eval_losses...)
+    return (eval_loss, eval_losses..., kl_val)
 end
 
 
