@@ -3,7 +3,7 @@
 This repository contains the code for the paper:
 
 > **Generative Modeling of Clinical Time Series via Latent Stochastic Differential Equations**
-> Ahmed ElGazzar
+> Muhammad Aslanimoghanloo, Ahmed ElGazzar, Marcel van Gerven
 
 ## Overview
 
@@ -39,12 +39,21 @@ Each experiment directory contains:
 
 ```bash
 # Clone the repository
-git clone https://github.com/elgazzarr/Rhythm.jl.git
-cd Rhythm.jl
+git clone https://github.com/muhammadaslani/LSDE_clinical_timeseries.git
+cd LSDE_clinical_timeseries
 
 # Install dependencies
 julia --project -e 'using Pkg; Pkg.instantiate()'
 ```
+
+## Data Setup
+
+The PK/PD and glucose datasets are **synthetically generated** by the scripts and require no external data.
+
+The **ICU experiment** requires the [PhysioNet Challenge 2012](https://physionet.org/content/challenge-2012/1.0.0/) dataset (Set A), which must be downloaded separately (requires PhysioNet credentialed access). After downloading, either:
+
+- Set the environment variable: `export PHYSIONET2012_DIR=/path/to/set_a_data/time_series`
+- Or place the files in `experiments/icu/data/physionet2012/`
 
 ## Running Experiments
 
@@ -90,8 +99,8 @@ make all            # Run everything
 
 | Dataset | Type | Description |
 |---------|------|-------------|
-| **PK/PD** | Synthetic | Tumor growth under chemotherapy and radiotherapy (6-month simulations) |
-| **Glucose** | Synthetic | Bergman minimal glucose-insulin model with meal/insulin inputs (12-hour simulations) |
+| **PK/PD** | Synthetic | Tumor growth under chemotherapy and radiotherapy |
+| **Glucose** | Synthetic | Bergman minimal glucose-insulin model with meal/insulin inputs |
 | **ICU** | Real | PhysioNet Challenge 2012 — irregularly-sampled ICU vital signs |
 
 ## Citation
@@ -99,10 +108,22 @@ make all            # Run everything
 If you find this code useful, please cite:
 
 ```bibtex
-@article{elgazzar2025latentsde,
+@article{aslanimoghanloo2025latentsde,
   title={Generative Modeling of Clinical Time Series via Latent Stochastic Differential Equations},
-  author={ElGazzar, Ahmed},
+  author={Aslanimoghanloo, Muhammad and ElGazzar, Ahmed and van Gerven, Marcel},
+  journal={arXiv preprint arXiv:2511.16427},
   year={2025}
+}
+```
+
+This implementation builds on the [Rhythm.jl](https://github.com/elgazzarr/Rhythm.jl) framework:
+
+```bibtex
+@article{elgazzar2024rhythm,
+  title={Generative Modeling of Neural Dynamics via Latent Stochastic Differential Equations},
+  author={ElGazzar, Ahmed and van Gerven, Marcel},
+  journal={arXiv preprint arXiv:2412.12112},
+  year={2024}
 }
 ```
 

@@ -1,14 +1,27 @@
 # Description: This file contains functions to load and preprocess the PhysioNet 2012 challenge dataset.
-function load_data(; split_at=24, n_samples=512, sampling_rate=1, batch_size=32, target_variables=["MAP", "HR", "Temp"], normalization=true)
-    time_series_dataset = load_multiple_files("/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/time_series")
+#
+# Data setup:
+#   1. Download Set A from https://physionet.org/content/challenge-2012/1.0.0/
+#   2. Extract the time series text files into a directory
+#   3. Either:
+#      (a) Set the PHYSIONET2012_DIR environment variable to that directory, or
+#      (b) Pass the path via the `data_dir` keyword argument
+const DEFAULT_ICU_DATA_DIR = get(ENV, "PHYSIONET2012_DIR",
+    joinpath(@__DIR__, "physionet2012"))
 
+function load_data(; data_dir=DEFAULT_ICU_DATA_DIR, split_at=24, n_samples=512, sampling_rate=1, batch_size=32, target_variables=["MAP", "HR", "Temp"], normalization=true)
+    isdir(data_dir) || error("ICU data directory not found: $data_dir\n" *
+        "Download Set A from https://physionet.org/content/challenge-2012/1.0.0/ " *
+        "and set PHYSIONET2012_DIR or pass data_dir=...")
+
+    time_series_dataset = load_multiple_files(data_dir)
 
     observation_variables = ["ALP", "HR", "DiasABP", "Na", "Lactate", "NIDiasABP", "PaO2", "WBC", "pH", "Albumin", "ALT", "Glucose", "SaO2",
         "Temp", "AST", "Bilirubin", "BUN", "RespRate", "Mg", "HCT", "SysABP", "FiO2", "K", "GCS",
         "Cholesterol", "NISysABP", "TroponinT", "MAP", "TroponinI", "PaCO2", "Platelets", "Urine", "NIMAP",
         "Creatinine", "HCO3"]
 
-    static_features_df, static_features_matrix = extract_static_features("/Volumes/Mine/Academic/PhD/datasets/Physionet 2012 challenge dataset/Data/set_a_data/time_series")
+    static_features_df, static_features_matrix = extract_static_features(data_dir)
     ts_data, ts_masks = create_tensor(time_series_dataset, observation_variables)       # observation variables + their masks
     y, y_masks = create_tensor(time_series_dataset, target_variables)        # target variables
     if normalization
