@@ -1,0 +1,23 @@
+model:
+  type: "LatentODE"
+  context_dim: 64
+
+  ODE:
+    vector_field:
+      type: "MLP"
+      hidden_size: 64
+      depth: 2
+      activation: swish
+    solver: Euler()
+    kwargs:
+      dt: 0.01
+
+  validation:
+    solver: Euler()
+    kwargs:
+      dt: 0.01
+
+experiment:
+  name: "LatentODE_ICU_V0"
+  description: "Latent ODE model for ICU forecasting"
+  path: "experiments/"

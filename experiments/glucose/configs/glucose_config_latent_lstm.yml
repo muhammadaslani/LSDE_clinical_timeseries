@@ -1,0 +1,18 @@
+model:
+  type: "LatentLSTM"
+  context_dim: 64
+
+  dynamics:
+    type: "LSTM"
+    hidden_size: 64
+    depth: 2
+
+  validation:
+    solver: Tsit5()
+    kwargs:
+      dt: 0.1
+
+experiment:
+  name: "LatentLSTM_Glucose_V0"
+  description: "Latent LSTM model for Bergman glucose forecasting"
+  path: "experiments/"

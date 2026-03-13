@@ -1,0 +1,17 @@
+model:
+  type: "LatentLSTM"
+
+  dynamics:
+    type: "LSTM"
+    hidden_size: 64
+    depth: 2
+
+  validation:
+    solver: Euler()
+    kwargs:
+      dt: 0.01
+
+experiment:
+  name: "LatentLSTM_PKPD_V0"
+  description: "Latent LSTM model for PKPD forecasting"
+  path: "experiments/"

@@ -1,0 +1,22 @@
+model:
+  type: "LatentCDE"
+
+  CDE:
+    vector_field:
+      type: "CDEField"
+      hidden_size: 64
+      depth: 2
+      activation: swish
+    solver: Euler()
+    kwargs:
+      dt: 0.01
+
+  validation:
+    solver: Euler()
+    kwargs:
+      dt: 0.01
+
+experiment:
+  name: "LatentCDE_ICU_V0"
+  description: "Latent CDE model for ICU forecasting"
+  path: "experiments/"

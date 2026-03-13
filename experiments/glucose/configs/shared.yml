@@ -1,0 +1,30 @@
+# Shared hyperparameters for all glucose forecasting models.
+# These values are merged into each model config at load time.
+# Model-specific configs can override any of these.
+
+shared:
+  model:
+    latent_dim: 8
+
+    obs_encoder:
+      type: "Recurrent_Encoder"
+      hidden_size: 256
+      depth: 2
+
+    obs_decoder:
+      type: "Linear_Decoder"
+      dist: "Gaussian"
+
+  training:
+    learning_rate: 0.002
+    optimizer: AdamW()
+    epochs: 500
+    log_freq: 10
+    viz_freq: 10
+    stop_patience: 10
+    lr_decay:
+      type: "exponential"
+      gamma: 0.9
+      step_every: 50
+    validation:
+      mcmc_samples: 100

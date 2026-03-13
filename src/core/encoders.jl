@@ -79,24 +79,31 @@ Arguments:
 - `context_dim`: Dimension of the context.
 - `hidden_dim`: Dimension of the hidden state.
 """
-function Recurrent_Encoder(obs_dim, latent_dim, context_dim; hidden_size)
+function Recurrent_Encoder(obs_dim, latent_dim, context_dim; hidden_size, depth=2)
     linear_net = Dense(obs_dim => hidden_size)
 
-    init_net = Chain(
-        ReverseSequence(dim=2),
-        Recurrence(LSTMCell(hidden_size => hidden_size), return_sequence=true),
-        Recurrence(LSTMCell(hidden_size => hidden_size)),
-        BranchLayer(Dense(hidden_size => latent_dim), Dense(hidden_size => latent_dim)))
+    # Build depth-layer LSTM: first (depth-1) layers return sequences, last one returns final state
+    init_lstm_layers = Lux.AbstractLuxLayer[]
+    push!(init_lstm_layers, ReverseSequence(dim=2))
+    for i in 1:depth
+        return_seq = i < depth
+        push!(init_lstm_layers, Recurrence(LSTMCell(hidden_size => hidden_size); return_sequence=return_seq))
+    end
+    push!(init_lstm_layers, BranchLayer(Dense(hidden_size => latent_dim), Dense(hidden_size => latent_dim)))
+    init_net = Chain(init_lstm_layers...)
 
     # When context_dim == 0 (e.g. LatentCDE doesn't use context), skip the
     # context LSTM entirely. A zero-output LSTMCell doesn't error — it hangs.
     context_net = if context_dim == 0
         NoOpLayer()
     else
-        Chain(
-            Recurrence(LSTMCell(hidden_size => hidden_size); return_sequence=true),
-            Recurrence(LSTMCell(hidden_size => context_dim); return_sequence=true),
-            x -> stack(x; dims=2))
+        ctx_layers = Lux.AbstractLuxLayer[]
+        for i in 1:depth
+            out_dim = i < depth ? hidden_size : context_dim
+            push!(ctx_layers, Recurrence(LSTMCell(hidden_size => out_dim); return_sequence=true))
+        end
+        push!(ctx_layers, WrappedFunction(x -> stack(x; dims=2)))
+        Chain(ctx_layers...)
     end
 
     return Encoder(linear_net, init_net, context_net)

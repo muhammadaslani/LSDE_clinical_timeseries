@@ -1,19 +1,29 @@
+# Editor / IDE
 *.code-workspace
+.vscode/
+
+# Julia coverage
 *.jl.*.cov
 *.jl.cov
 *.jl.mem
+
+# Generated files
 *.pdf
 *.png
 *.svg
+*.mp4
+
+# macOS
 .DS_Store
+
+# Julia build artifacts
 /docs/Manifest.toml
 /docs/build/
 Manifest.toml
-docs/build/
 tmp/
-.vscode/
-/experiments/
+
+# Experiment outputs (training checkpoints, saved models)
 results/
-*.mp4.claude/
-.gitignore
+
+# Claude Code
 .claude/

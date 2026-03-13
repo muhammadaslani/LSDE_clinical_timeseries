@@ -1,0 +1,18 @@
+model:
+  type: "LatentLSTM"
+  context_dim: 64
+
+  dynamics:
+    type: "LSTM"
+    hidden_size: 64
+    depth: 2
+
+  validation:
+    solver: Euler()
+    kwargs:
+      dt: 0.01
+
+experiment:
+  name: "LatentLSTM_ICU_V0"
+  description: "Latent LSTM model for ICU forecasting"
+  path: "experiments/"

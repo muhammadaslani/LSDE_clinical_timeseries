@@ -1,0 +1,33 @@
+model:
+  type: "LatentSDE"
+  context_dim: 64
+
+  SDE:
+    drift:
+      type: "MLP"
+      hidden_size: 64
+      depth: 2
+      activation: swish
+    drift_aug:
+      type: "MLP"
+      hidden_size: 64
+      depth: 2
+      activation: swish
+    diffusion:
+      type: "DiffusionMLP"
+      hidden_size: 64
+      depth: 2
+      activation: swish
+    solver: EM()
+    kwargs:
+      dt: 0.01
+
+  validation:
+    solver: EM()
+    kwargs:
+      dt: 0.01
+
+experiment:
+  name: "LatentSDE_ICU_V0"
+  description: "Latent SDE model for ICU forecasting"
+  path: "experiments/"
