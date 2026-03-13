@@ -15,27 +15,10 @@ include("training/visualization.jl");
 include("training/trainer.jl");
 
 # Load data
-split_at = 24
 target_variables = ["MAP", "HR", "Temp"];
-data, _, _, _, _, normalization_stats =
-    load_data(; split_at=split_at, n_samples=512, batch_size=32,
-        target_variables=target_variables, normalization=true);
-
-# Setup timepoints as (obs, forecast) tuple — normalised to (0,1] so dt=0.01 ≈ 100 solver steps
-n_obs = split_at
-n_for = size(data[8], 2)   # y_fut is index 8
-n_total = n_obs + n_for
-ts_obs = Float32.(1:n_obs) ./ (n_total+1);   # obs window
-ts_for = Float32.(n_obs+1:n_total) ./ (n_total+1);   # forecast window
-timepoints = (ts_obs, ts_for);
-
-dims = Dict(
-    "input_dim" => size(data[2], 1),                     # u_hist
-    "obs_dim" => size(data[1], 1) + size(data[1], 1),  # x_hist + x_masks (same rows)
-    "output_dim" => ones(Int, size(data[3], 1)),          # y_hist
-)
-
-k_folds = 2
+data, dims, timepoints, normalization_stats =
+    load_data(; split_at=24, n_samples=512, target_variables=target_variables, normalization=true);
+k_folds = 5
 sample_n = 5
 
 # Latent SDE K-Fold Training

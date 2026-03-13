@@ -9,7 +9,7 @@
 const DEFAULT_ICU_DATA_DIR = get(ENV, "PHYSIONET2012_DIR",
     joinpath(@__DIR__, "physionet2012"))
 
-function load_data(; data_dir=DEFAULT_ICU_DATA_DIR, split_at=24, n_samples=512, sampling_rate=1, batch_size=32, target_variables=["MAP", "HR", "Temp"], normalization=true)
+function load_data(; data_dir=DEFAULT_ICU_DATA_DIR, split_at=24, n_samples=512, sampling_rate=1, target_variables=["MAP", "HR", "Temp"], normalization=true)
     isdir(data_dir) || error("ICU data directory not found: $data_dir\n" *
         "Download Set A from https://physionet.org/content/challenge-2012/1.0.0/ " *
         "and set PHYSIONET2012_DIR or pass data_dir=...")
@@ -22,18 +22,17 @@ function load_data(; data_dir=DEFAULT_ICU_DATA_DIR, split_at=24, n_samples=512, 
         "Creatinine", "HCO3"]
 
     static_features_df, static_features_matrix = extract_static_features(data_dir)
-    ts_data, ts_masks = create_tensor(time_series_dataset, observation_variables)       # observation variables + their masks
-    y, y_masks = create_tensor(time_series_dataset, target_variables)        # target variables
+    ts_data, ts_masks = create_tensor(time_series_dataset, observation_variables)
+    y, y_masks = create_tensor(time_series_dataset, target_variables)
+
+    normalization_stats = Dict()
     if normalization
-        @info "data is being normalized"
         ts_data, μ_ts, σ_ts = z_normalize(ts_data)
         y, μ_y, σ_y = z_normalize(y)
-
-        normalization_stats = Dict("ts_stats" => (μ=μ_ts, σ=σ_ts), "y_stats" => (μ=μ_y, σ=σ_y))
-    else
-        @info "data is not being normalized"
-        normalization_stats = nothing
+        normalization_stats["ts_stats"] = (μ=μ_ts, σ=σ_ts)
+        normalization_stats["y_stats"] = (μ=μ_y, σ=σ_y)
     end
+
     u, _ = create_tensor(time_series_dataset, ["MechVent"])
     x = join_static_and_timeseries(static_features_matrix, ts_data)
 
@@ -45,17 +44,28 @@ function load_data(; data_dir=DEFAULT_ICU_DATA_DIR, split_at=24, n_samples=512, 
 
     x_hist, x_fut = x[:, 1:split_at, :], x[:, split_at+1:end, :]
     u_hist, u_fut = u[:, 1:split_at, :], u[:, split_at+1:end, :]
-    y_masks_hist, y_masks_fut = y_masks[:, 1:split_at, :], y_masks[:, split_at+1:end, :]
     y_hist, y_fut = y[:, 1:split_at, :], y[:, split_at+1:end, :]
-    x_hist_masks = x_masks[:, 1:split_at, :]   # obs masks for history window only
-    x_fut_masks = x_masks[:, split_at+1:end, :]   # obs masks for future window only
+    y_masks_hist, y_masks_fut = y_masks[:, 1:split_at, :], y_masks[:, split_at+1:end, :]
+    x_hist_masks = x_masks[:, 1:split_at, :]
+    x_fut_masks = x_masks[:, split_at+1:end, :]
 
     data = (x_hist, u_hist, y_hist, y_masks_hist, x_hist_masks, x_fut, u_fut, y_fut, y_masks_fut, x_fut_masks)
-    train_data, val_data, test_data = splitobs(data, at=(0.5, 0.3))
-    train_loader = DataLoader(train_data, batchsize=batch_size, shuffle=true)
-    val_loader = DataLoader(val_data, batchsize=batch_size, shuffle=true)
-    test_loader = DataLoader(test_data, batchsize=batch_size, shuffle=false)
-    return data, train_loader, val_loader, test_loader, time_series_dataset, normalization_stats
+
+    # Timepoints normalised to (0,1]
+    n_obs = split_at
+    n_for = size(y_fut, 2)
+    n_total = n_obs + n_for
+    ts_obs = Float32.(1:n_obs) ./ (n_total + 1)
+    ts_for = Float32.(n_obs+1:n_total) ./ (n_total + 1)
+    timepoints = (ts_obs, ts_for)
+
+    dims = Dict(
+        "input_dim" => size(u_hist, 1),
+        "obs_dim" => size(x_hist, 1) + size(x_hist, 1),
+        "output_dim" => ones(Int, size(y_hist, 1)),
+    )
+
+    return data, dims, timepoints, normalization_stats
 end
 
 
